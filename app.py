@@ -58,6 +58,64 @@ with col_izq:
 
 # 4. ENTRADA UNIFICADA Y ANÁLISIS
 with col_der:
-    st.header("Ent")
+    st.header("2. Análisis de Medicación")
+    fg_final = st.number_input("Confirmar FG para análisis:", 0.0, 200.0, value=float(round(fg, 1)))
+    
+    # Entrada Unificada: Imagen o Texto
+    img_input = st.file_uploader("📸 Sube imagen o pega pantallazo:", type=['png', 'jpg', 'jpeg'])
+    meds_input = st.text_area("📝 O escribe la lista de fármacos y dosis:", placeholder="Ej: Metformina 850mg c/12h", height=100)
+    
+    if st.button("🚀 INICIAR VALIDACIÓN"):
+        if meds_input or img_input:
+            with st.spinner("Cruzando datos con Vademécum y analizando posología..."):
+                prompt = f"""
+                Analiza la seguridad renal para un FG de {fg_final} ml/min.
+                FUENTE PRIORITARIA (PDF): {contexto_pdf[:7000]}
+                
+                REGLAS ESTRICTAS:
+                1. Cruza obligatoriamente los mg/dosis con el FG.
+                2. Formato: Una sola palabra inicial (ROJO, NARANJA o VERDE).
+                3. LISTA DE AFECTADOS: Escribe cada fármaco en una línea nueva empezando con • [Fármaco]: [PRECAUCIÓN / CONTRAINDICADO / DISMINUIR DOSIS].
+                4. Usa "---" para la línea de separación.
+                5. Finaliza con un breve "Análisis técnico:".
+                6. No menciones el nombre del modelo de IA.
+                """
+                try:
+                    contenido = [prompt]
+                    if img_input: 
+                        contenido.append(Image.open(img_input))
+                    if meds_input: 
+                        contenido.append(f"Datos de texto: {meds_input}")
+                    
+                    response = model.generate_content(contenido)
+                    res_text = response.text
+                    
+                    # Lógica de Semáforo
+                    clase, emoji = "verde", "🟢"
+                    if any(x in res_text.upper() for x in ["ROJO", "CONTRAINDICADO"]):
+                        clase, emoji = "rojo", "🔴"
+                    elif any(x in res_text.upper() for x in ["NARANJA", "AJUSTE", "PRECAUCIÓN", "DISMINUIR"]):
+                        clase, emoji = "naranja", "🟠"
+                    
+                    # Limpieza del texto para el bloque final
+                    final_render = res_text.replace("ROJO", "").replace("NARANJA", "").replace("VERDE", "").strip()
+                    final_render = final_render.replace("---", '<div class="separator"></div>')
+
+                    st.markdown(f"""
+                        <div class="report-box {clase}">
+                            <div style="font-size: 1.5em; font-weight: bold;">{emoji} INFORME DE SEGURIDAD</div>
+                            <div style="white-space: pre-wrap; margin-top:15px;">{final_render}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                except Exception as e:
+                    if "429" in str(e):
+                        st.error("⏳ Límite alcanzado. Espera 1 minuto (Max 1.500 consultas/día).")
+                    else:
+                        st.error(f"Error en consulta: {e}")
+        else:
+            st.warning("⚠️ Por favor, introduce fármacos o una imagen.")
+
+st.caption("Validación jerárquica: Vademécum Renal PDF > Base de Datos Médica Oficial.")
 
               
