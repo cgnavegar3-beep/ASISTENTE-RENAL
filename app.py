@@ -36,7 +36,7 @@ def inicializar_todo():
     if "API_KEY" in st.secrets:
         genai.configure(api_key=st.secrets["API_KEY"])
         # Usamos gemini-1.5-flash (versión estable)
-        modelo_ia = genai.GenerativeModel('gemini-1.5-flash')
+        modelo_ia = genai.GenerativeModel('gemini-2.5-flash')
     
     return modelo_ia, texto_pdf
 
