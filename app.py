@@ -59,7 +59,7 @@ def inicializar_recursos():
     modelo_ia = None
     if "API_KEY" in st.secrets:
         genai.configure(api_key=st.secrets["API_KEY"])
-        modelo_ia = genai.GenerativeModel('gemini-1.5-flash')
+        modelo_ia = genai.GenerativeModel('gemini-2.5-flash')
     
     return modelo_ia, texto_pdf
 
