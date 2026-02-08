@@ -3,48 +3,51 @@ import google.generativeai as genai
 from PIL import Image
 import fitz  # PyMuPDF
 
-# 1. CONFIGURACIÓN E INTERFAZ CON ANIMACIONES GLOW
+# 1. CONFIGURACIÓN E INTERFAZ PROFESIONAL CON GLOW
 st.set_page_config(page_title="Validador Renal Pro", layout="wide")
 
 st.markdown("""
     <style>
     /* Animaciones de Parpadeo Glow */
-    @keyframes glow-red { 0% { box-shadow: 0 0 10px #ff4b4b; border-color: #ff4b4b; } 50% { box-shadow: 0 0 40px #ff4b4b; border-color: #ff0000; } 100% { box-shadow: 0 0 10px #ff4b4b; border-color: #ff4b4b; } }
-    @keyframes glow-orange { 0% { box-shadow: 0 0 10px #ffa500; border-color: #ffa500; } 50% { box-shadow: 0 0 40px #ffa500; border-color: #ff8c00; } 100% { box-shadow: 0 0 10px #ffa500; border-color: #ffa500; } }
-    @keyframes glow-green { 0% { box-shadow: 0 0 10px #28a745; border-color: #28a745; } 50% { box-shadow: 0 0 40px #28a745; border-color: #1e7e34; } 100% { box-shadow: 0 0 10px #28a745; border-color: #28a745; } }
+    @keyframes glow-red { 0% { box-shadow: 0 0 10px #ff4b4b; border-color: #ff4b4b; } 50% { box-shadow: 0 0 40px #ff0000; border-color: #ff0000; } 100% { box-shadow: 0 0 10px #ff4b4b; border-color: #ff4b4b; } }
+    @keyframes glow-orange { 0% { box-shadow: 0 0 10px #ffa500; border-color: #ffa500; } 50% { box-shadow: 0 0 40px #ff8c00; border-color: #ff8c00; } 100% { box-shadow: 0 0 10px #ffa500; border-color: #ffa500; } }
+    @keyframes glow-green { 0% { box-shadow: 0 0 10px #28a745; border-color: #28a745; } 50% { box-shadow: 0 0 40px #1e7e34; border-color: #1e7e34; } 100% { box-shadow: 0 0 10px #28a745; border-color: #28a745; } }
 
     .report-box { padding: 30px; border-radius: 15px; margin-top: 20px; border: 3px solid; transition: all 0.3s ease; }
-    .rojo { background-color: #f8d7da; color: #721c24; animation: glow-red 2s infinite; }
-    .naranja { background-color: #fff3cd; color: #856404; animation: glow-orange 2s infinite; }
-    .verde { background-color: #d4edda; color: #155724; animation: glow-green 2s infinite; }
+    .rojo { background-color: #f8d7da; color: #721c24; animation: glow-red 1.5s infinite; }
+    .naranja { background-color: #fff3cd; color: #856404; animation: glow-orange 1.5s infinite; }
+    .verde { background-color: #d4edda; color: #155724; animation: glow-green 1.5s infinite; }
     
-    .linea-separacion { border-top: 2px solid rgba(0,0,0,0.2); margin: 20px 0; }
-    .titulo-alerta { font-size: 1.5em; font-weight: bold; margin-bottom: 15px; }
+    .separator { border: 0; height: 2px; background-image: linear-gradient(to right, rgba(0,0,0,0), rgba(0,0,0,0.6), rgba(0,0,0,0)); margin: 25px 0; }
+    .disclaimer { font-size: 0.85em; margin-top: 25px; padding: 12px; border-top: 1px solid rgba(0,0,0,0.1); font-style: italic; color: #444; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. CARGA SILENCIOSA DE PDF Y IA
+# 2. CARGA DE RECURSOS (ESTRUCTURA BLINDADA)
 @st.cache_resource
-def cargar_recursos():
-    texto_pdf = ""
+def load_assets():
+    pdf_text = ""
     try:
         doc = fitz.open("vademecum_renal.pdf")
-        texto_pdf = "".join([p.get_text() for p in doc])
+        pdf_text = "".join([p.get_text() for p in doc])
     except: pass
     
-    modelo = None
+    ai_model = None
     if "API_KEY" in st.secrets:
         genai.configure(api_key=st.secrets["API_KEY"])
-        for m in genai.list_models():
-            if 'generateContent' in m.supported_generation_methods:
-                modelo = genai.GenerativeModel(m.name)
+        # Preferimos 1.5-flash para mayor cuota gratuita
+        for m_name in ['models/gemini-1.5-flash', 'models/gemini-pro']:
+            try:
+                ai_model = genai.GenerativeModel(m_name)
                 break
-    return modelo, texto_pdf
+            except: continue
+    return ai_model, pdf_text
 
-model, contexto_vademecum = cargar_recursos()
+model, contexto_pdf = load_assets()
 
 # 3. INTERFAZ: COLUMNA IZQUIERDA (CALCULADORA)
 st.title("🩺 Validador de Seguridad Farmacológica")
+st.markdown("---")
 col_izq, col_der = st.columns([1, 2], gap="large")
 
 with col_izq:
@@ -57,69 +60,57 @@ with col_izq:
         fg = ((140 - edad) * peso) / (72 * crea)
         if sexo == "Mujer": fg *= 0.85
         fg = round(fg, 1)
-        st.metric("FG Calculado", f"{fg} ml/min")
+        st.metric("FG Calculado (C-G)", f"{fg} ml/min")
 
-# 4. COLUMNA DERECHA (ENTRADA DUAL Y ANÁLISIS)
+# 4. COLUMNA DERECHA (ANÁLISIS HÍBRIDO)
 with col_der:
-    st.header("Análisis de Medicación")
-    fg_final = st.number_input("FG para análisis:", 0.0, 200.0, value=float(fg))
+    st.header("Gestión de Medicación")
+    fg_f = st.number_input("Confirmar FG para análisis:", 0.0, 200.0, value=float(fg))
     
-    tab_txt, tab_img = st.tabs(["📝 Texto / Posología", "📸 Pantallazo / Receta"])
+    tab_txt, tab_img = st.tabs(["📝 Texto / Posología", "📸 Imagen / Receta"])
     with tab_txt:
-        texto_input = st.text_area("Escriba fármacos y dosis:", placeholder="Ej: Metformina 850mg c/12h", height=100)
+        t_input = st.text_area("Introduzca fármacos:", placeholder="Ej: Metformina 850mg c/12h, Ciprofloxacino 500...", height=100)
     with tab_img:
-        img_input = st.file_uploader("Suba o pegue la imagen de la receta", type=['png', 'jpg', 'jpeg'])
+        i_input = st.file_uploader("Suba o pegue la imagen", type=['png', 'jpg', 'jpeg'])
 
     if st.button("🚀 INICIAR VALIDACIÓN"):
-        if not (texto_input or img_input):
-            st.warning("⚠️ Por favor, introduzca medicación o una imagen.")
-        elif model is None:
-            st.error("Error de configuración de API.")
+        if not (t_input or i_input) or model is None:
+            st.warning("⚠️ Introduzca fármacos para analizar.")
         else:
-            with st.spinner("Consultando Vademécum Renal..."):
+            with st.spinner("Analizando Vademécum y Fuentes Oficiales..."):
                 prompt = f"""
-                No saludes. No uses "Como nefrólogo". No uses "Estado:".
-                TU PRIORIDAD ES ESTE PDF: {contexto_vademecum[:6000]}
-                FG ACTUAL: {fg_final} ml/min.
+                REGLAS ESTRICTAS DE RESPUESTA:
+                - PROHIBIDO: Saludar, presentarse o decir "como nefrólogo".
+                - PASO 1: Busca en el PDF: {contexto_pdf[:7000]}. Si está el fármaco, usa sus tablas de aclaramiento (100-50, 50-10, <10).
+                - PASO 2: Si NO está en el PDF, usa tu base de datos médica oficial (FDA, EMA, KDIGO).
+                - FG PACIENTE: {fg_f} ml/min.
 
-                INSTRUCCIONES:
-                1. Clasifica el riesgo máximo: ROJO, NARANJA o VERDE.
-                2. Lista solo los fármacos afectados: "[Nombre]: [PRECAUCIÓN / CONTRAINDICADO / DISMINUIR DOSIS]".
-                3. Escribe "---" como separador.
-                4. Escribe "Explicación Clínica:" seguido de un análisis breve de la posología y el riesgo renal.
-                5. Si no hay riesgos, responde: "OK_VERDE".
+                FORMATO DE SALIDA:
+                1. Una palabra inicial de categoría: ROJO, NARANJA o VERDE.
+                2. LISTADO DE AFECTADOS: Escribe cada fármaco que requiera acción en una línea nueva empezando con un punto (•).
+                   Ejemplo:
+                   • Fármaco X: [CONTRAINDICADO / PRECAUCIÓN / DISMINUIR DOSIS]
+                3. Escribe "---" (esto generará la línea visual).
+                4. Título "Explicación Clínica:" y debajo el análisis técnico breve.
                 """
                 
                 try:
-                    if img_input:
-                        res = model.generate_content([prompt, Image.open(img_input)])
+                    # Análisis multimodal o texto
+                    res = model.generate_content([prompt, Image.open(i_input)] if i_input else f"{prompt}\nLista: {t_input}")
+                    txt = res.text
+                    
+                    # Determinación de Color y Alerta
+                    clase = "verde"
+                    emoji = "🟢"
+                    if any(x in txt.upper() for x in ["ROJO", "CONTRAINDICADO"]): 
+                        clase = "rojo"
+                        emoji = "🔴"
+                    elif any(x in txt.upper() for x in ["NARANJA", "PRECAUCIÓN", "DISMINUIR", "AJUSTE"]): 
+                        clase = "naranja"
+                        emoji = "🟠"
+                    
+                    if "VERDE" in txt.upper() and "OK" in txt.upper() and len(txt) < 100:
+                        st.markdown(f'<div class="report-box verde">🟢 <b>TODOS LOS FÁRMACOS SON SEGUROS PARA FG {fg_f}</b></div>', unsafe_allow_html=True)
                     else:
-                        res = model.generate_content(f"{prompt}\nMedicación: {texto_input}")
-                    
-                    raw_text = res.text
-                    
-                    # Lógica de Color y Flash
-                    clase_css = "verde"
-                    if "ROJO" in raw_text.upper() or "CONTRAINDICADO" in raw_text.upper():
-                        clase_css = "rojo"
-                    elif any(x in raw_text.upper() for x in ["NARANJA", "PRECAUCIÓN", "DISMINUIR", "AJUSTE"]):
-                        clase_css = "naranja"
-                    
-                    if "OK_VERDE" in raw_text:
-                        st.markdown('<div class="report-box verde">🟢 <b>TODOS LOS FÁRMACOS SON SEGUROS</b></div>', unsafe_allow_html=True)
-                    else:
-                        # Limpiar texto de etiquetas de control y dar formato
-                        final_text = raw_text.replace("ROJO", "").replace("NARANJA", "").replace("VERDE", "").strip()
-                        final_text = final_text.replace("---", '<div class="linea-separacion"></div>')
-                        
-                        st.markdown(f"""
-                            <div class="report-box {clase_css}">
-                                <div class="titulo-alerta">RESULTADO DEL ANÁLISIS</div>
-                                {final_text}
-                            </div>
-                        """, unsafe_allow_html=True)
-                except Exception as e:
-                    st.error(f"Error en análisis: {e}")
-
-st.markdown("---")
-st.caption("Uso exclusivo profesional. Basado en Vademécum Renal cargado.")
+                        # Formateo de la respuesta limpia
+                        txt_final = txt
