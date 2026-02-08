@@ -2,6 +2,7 @@ import streamlit as st
 import google.generativeai as genai
 from PIL import Image
 import fitz  # PyMuPDF
+import io
 
 # 1. CONFIGURACIÓN E INTERFAZ
 st.set_page_config(page_title="Validador Renal Pro", layout="wide")
@@ -19,7 +20,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. CARGA DE RECURSOS
+# 2. CARGA DE RECURSOS (MODELO ACTUALIZADO)
 @st.cache_resource
 def load_assets():
     pdf_txt = ""
@@ -31,14 +32,16 @@ def load_assets():
     ai_mod = None
     if "API_KEY" in st.secrets:
         genai.configure(api_key=st.secrets["API_KEY"])
+        # Intentamos con 'gemini-pro' que es el más estable para v1
         try:
-            ai_mod = genai.GenerativeModel('gemini-1.5-flash')
-        except: ai_mod = None
+            ai_mod = genai.GenerativeModel('gemini-pro')
+        except:
+            ai_mod = genai.GenerativeModel('gemini-1.0-pro')
     return ai_mod, pdf_txt
 
 model, contexto_pdf = load_assets()
 
-# 3. CALCULADORA
+# 3. CALCULADORA FG
 st.title("🩺 Validador de Seguridad Farmacológica")
 col_izq, col_der = st.columns([1, 2], gap="large")
 
@@ -53,39 +56,6 @@ with col_izq:
     fg = round(fg, 1)
     st.metric("FG Calculado", f"{fg} ml/min")
 
-# 4. ANÁLISIS
+# 4. ENTRADA UNIFICADA Y ANÁLISIS
 with col_der:
-    st.header("Análisis")
-    fg_f = st.number_input("Confirmar FG:", 0.0, 200.0, value=float(fg))
-    t_in = st.text_area("Fármacos:", height=100)
-    i_in = st.file_uploader("O sube imagen", type=['png', 'jpg', 'jpeg'])
-
-    if st.button("🚀 VALIDAR"):
-        if not (t_in or i_in) or model is None:
-            st.warning("⚠️ Introduce datos o revisa la API KEY.")
-        else:
-            with st.spinner("Consultando Gemini..."):
-                prompt = f"Analiza para FG {fg_f}. PDF: {contexto_pdf[:7000]}. FORMATO: 1. ROJO, NARANJA o VERDE. 2. Puntos. 3. '---'. 4. Análisis."
-                try:
-                    # PROCESO IA
-                    res = model.generate_content([prompt, Image.open(i_in)] if i_in else f"{prompt}\n{t_in}")
-                    res_txt = res.text
-                    
-                    # SEMÁFORO
-                    c, e = "verde", "🟢"
-                    if "ROJO" in res_txt.upper(): c, e = "rojo", "🔴"
-                    elif "NARANJA" in res_txt.upper(): c, e = "naranja", "🟠"
-                    
-                    # LIMPIEZA
-                    f = res_txt.replace("ROJO", "").replace("NARANJA", "").replace("VERDE", "").strip()
-                    f = f.replace("---", '<div class="separator"></div>')
-                    
-                    st.markdown(f'<div class="report-box {c}"><h3>{e} INFORME</h3><div>{f}</div></div>', unsafe_allow_html=True)
-                
-                except Exception as ex:
-                    if "429" in str(ex):
-                        st.error("⏳ Límite alcanzado. Espera 1 minuto o has superado las 1.500 consultas de hoy.")
-                    else:
-                        st.error(f"Error: {ex}")
-
-st.caption("Validación: Vademécum Renal + Conocimiento IA.")
+    st.header("Ent
