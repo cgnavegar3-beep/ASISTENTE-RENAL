@@ -59,3 +59,5 @@ with col_izq:
 # 4. ENTRADA UNIFICADA Y ANÁLISIS
 with col_der:
     st.header("Ent
+
+              
