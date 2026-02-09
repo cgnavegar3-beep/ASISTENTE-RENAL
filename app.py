@@ -91,4 +91,4 @@ if st.button("🚀 VALIDAR SEGURIDAD RENAL", use_container_width=True):
             except:
                 st.error("fallo de conexión o superado el número de intentos")
 
-st.info("⚠️ Aviso: Apoyo profesional. Verificar resultados.")
+st.info("⚠️ Aviso:ACUEEEERDATE PILAR QUE ESTO ES SOLO PARA  Apoyo profesional. Verificar resultados.")
