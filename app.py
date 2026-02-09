@@ -82,7 +82,7 @@ if st.button("🚀 VALIDAR SEGURIDAD RENAL", use_container_width=True):
         with st.spinner("Ejecutando ASISTENTE RENAL..."):
             try:
                 genai.configure(api_key=st.secrets["API_KEY"])
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                model = genai.GenerativeModel('gemini-2.5-flash')
                 
                 prompt = f"""
                 Eres el ASISTENTE RENAL. 
