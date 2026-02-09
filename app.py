@@ -35,7 +35,7 @@ st.markdown("""
 
 # --- 3. GESTIÓN DE CUOTA ---
 # Detectamos si estamos en Gemini 1.5 o 2.5 (Configurable)
-MODEL_NAME = "gemini-1.5-flash" 
+MODEL_NAME = "gemini-2.5-flash" 
 
 if 'daily_limit' not in st.session_state: st.session_state.daily_limit = 1500
 if 'min_limit' not in st.session_state: st.session_state.min_limit = 15
