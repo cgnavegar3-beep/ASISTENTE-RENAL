@@ -52,7 +52,7 @@ if st.button("🚀 VALIDAR SEGURIDAD RENAL", use_container_width=True):
         with st.spinner("Analizando..."):
             try:
                 genai.configure(api_key=st.secrets["API_KEY"])
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                model = genai.GenerativeModel('gemini-2.5-flash')
                 doc = fitz.open("vademecum_renal.pdf")
                 pdf_text = "".join([p.get_text() for p in doc])
                 
@@ -69,4 +69,4 @@ if st.button("🚀 VALIDAR SEGURIDAD RENAL", use_container_width=True):
                             st.markdown(f'<div class="individual-box"><b>{n.upper()}</b><br>{e}</div>', unsafe_allow_html=True)
             except: st.error("fallo de conexión o superado el número de intentos")
 
-st.info("⚠️ Aviso: Apoyo profesional. Verificar resultados.")
+st.info("⚠️ Aviso: esta herramienta es solo de  apoyo profesional. Verificar resultados.")
