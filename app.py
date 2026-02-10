@@ -61,7 +61,7 @@ def init_system():
     except: pdf_txt = "PDF no cargado."
     
     genai.configure(api_key=st.secrets["API_KEY"])
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-2.5-flash')
     return model, pdf_txt
 
 ia_model, pdf_memory = init_system()
