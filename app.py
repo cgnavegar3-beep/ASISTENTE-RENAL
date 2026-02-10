@@ -57,7 +57,7 @@ def load_sys():
             pdf_txt = "".join([p.get_text() for p in doc])
     except: pass
     genai.configure(api_key=st.secrets["API_KEY"])
-    return genai.GenerativeModel('gemini-1.5-flash'), pdf_txt
+    return genai.GenerativeModel('gemini-2.5-flash'), pdf_txt
 
 model, vademecum = load_sys()
 
