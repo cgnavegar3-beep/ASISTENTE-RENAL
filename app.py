@@ -134,3 +134,4 @@ if st.session_state.res_clinico:
     st.markdown(f'<div class="resumen-unico {clr}"><h3>🔲 Análisis de Seguridad Renal</h3>{ans}</div>', unsafe_allow_html=True)
 
 st.markdown('<div class="aviso-seguridad">⚠️ <b>Aviso</b>: Herramienta de apoyo profesional. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
+
