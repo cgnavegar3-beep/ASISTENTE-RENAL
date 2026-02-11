@@ -31,7 +31,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Lógica del Contador
-if 'd_lim' not in st.session_state: st.session_state.d_lim = 50
+if 'd_lim' not in st.session_state: st.session_state.d_lim = 20
 if 'm_lim' not in st.session_state: st.session_state.m_lim = 2
 if 'last_reset' not in st.session_state: st.session_state.last_reset = time.time()
 if 'texto_fijo' not in st.session_state: st.session_state.texto_fijo = ""
