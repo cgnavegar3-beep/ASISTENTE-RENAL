@@ -37,7 +37,7 @@ if 'res_clinico' not in st.session_state: st.session_state.res_clinico = ""
 def setup_ia_system():
     genai.configure(api_key=st.secrets["API_KEY"])
     # Modelos cargados en memoria una sola vez
-    m_flash = genai.GenerativeModel('gemini-2.5-flash)
+    m_flash = genai.GenerativeModel('gemini-2.5-flash')
     m_lite = genai.GenerativeModel('gemini-1.5-flash')
     
     pdf_txt = ""
