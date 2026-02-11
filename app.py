@@ -87,4 +87,4 @@ with col2:
     st.subheader("⚡ FG Estimado")
     fg_man = st.number_input("FG Manual (opcional):", 0.0, 200.0, 0.0)
     fg_final = fg_man if fg_man > 0 else fg_calc
-    st.markdown(f'<div class="fg-display"><h1>{fg_final} ml/min
+    st.markdown(f'<div class="fg-display"><h1>{fg_final} ml/min)
