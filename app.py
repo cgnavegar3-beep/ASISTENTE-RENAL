@@ -29,9 +29,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- 2. GESTIÓN DE ESTADO (PERSISTENCIA) ---
-if 'd_lim' not in st.session_state: st.session_state.d_lim = 20
-if 'txt_fijo' not in st.session_state: st.session_state.txt_fijo = ""
-if 'res_clinico' not in st.session_state: st.session_state.res_clinico = ""
 
 @st.cache_resource
 def setup_ia_system():
