@@ -72,7 +72,7 @@ def setup_asistente():
     try:
         genai.configure(api_key=st.secrets["API_KEY"])
         m_pro = genai.GenerativeModel('gemini-1.5-pro')
-        m_flash = genai.GenerativeModel('gemini-2.0-flash-exp')
+        m_flash = genai.GenerativeModel('gemini-2.5-flash')
         with fitz.open("vademecum_renal.pdf") as doc:
             v_txt = "".join([p.get_text() for p in doc])
         return m_pro, m_flash, v_txt
