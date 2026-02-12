@@ -20,7 +20,7 @@ def get_active_model_name():
     return raw_name.replace("gemini-", "").replace("-", " ").title()
 
 def run_ia_task(prompt, image=None):
-    """Intenta con 1.5 Pro, si falla salta a 1.5 Flash."""
+    """Intenta con 1.5 Pro, si falla salta a 2.5 Flash."""
     for i in range(st.session_state.active_model_idx, len(MODELS)):
         try:
             current_model_id = MODELS[i]
