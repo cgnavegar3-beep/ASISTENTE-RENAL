@@ -59,4 +59,4 @@ def inject_ui_styles():
             100% {{ opacity: 1; filter: brightness(1); transform: scale(1); }}
         }}
         .result-card {{ animation: flash-destello 0.7s ease-out; padding: 20px; border-radius: 15px; margin-top: 15px; color: #000; }}
-        [data-testid="column"] {{ display: flex; flex-direction: column; justify-content: flex-start
+        [data-testid="column"] {{ display: flex; flex-direction: column; justify-content: flex-start !important; }}
