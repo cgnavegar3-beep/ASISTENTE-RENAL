@@ -11,7 +11,7 @@ st.set_page_config(page_title="ASISTENTE RENAL", layout="wide")
 if 'meds_input' not in st.session_state:
     st.session_state.meds_input = ""
 if 'active_model_name' not in st.session_state:
-    st.session_state.active_model_name = "1.5 Pro"
+    st.session_state.active_model_name = "2.5 Pro"
 if 'reset_counter' not in st.session_state:
     st.session_state.reset_counter = 0
 
@@ -22,7 +22,7 @@ def process_ocr():
     if uploaded_file:
         try:
             genai.configure(api_key=st.secrets["API_KEY"])
-            model = genai.GenerativeModel("gemini-1.5-pro")
+            model = genai.GenerativeModel("gemini-2.5-pro")
             img = Image.open(uploaded_file).convert("RGB")
             buf = io.BytesIO()
             img.save(buf, format="PNG")
