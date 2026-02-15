@@ -1,7 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
 from PIL import Image
-import fitz  # PyMuPDF
 import io
 
 # --- 1. CONFIGURACIÓN E INICIALIZACIÓN ---
@@ -19,14 +18,14 @@ if 'metodo_usado' not in st.session_state:
 
 # --- 2. ESTILOS CSS (BLINDAJE VISUAL Y AIRE EN COLUMNA DERECHA) ---
 def inject_ui_styles():
-    st.markdown(f"""
+    st.markdown("""
     <style>
         /* Indicador de Modelo arriba a la izquierda */
-        .model-indicator {{
+        .model-indicator {
             position: fixed; top: 10px; left: 10px; background-color: #000; color: #0F0;
             padding: 5px 12px; font-family: 'Courier New', monospace; font-size: 12px;
             border-radius: 4px; z-index: 9999; border: 1px solid #333;
-        }}
+        }
         
         /* Pestañas con línea roja */
         div[role="tablist"] {{ gap: 20px; }}
@@ -71,7 +70,7 @@ def inject_ui_styles():
         }}
     </style>
     <div class="model-indicator">{st.session_state.active_model_name}</div>
-    """, unsafe_allow_value=True)
+    """, unsafe_allow_html=True)
 
 inject_ui_styles()
 
