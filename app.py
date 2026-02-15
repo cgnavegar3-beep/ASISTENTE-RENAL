@@ -437,7 +437,7 @@ with col_ajuste:
         st.button("📋 Pegar Recorte (Ctrl+V)")
 
     # 3. LÍNEA DE SEPARACIÓN (Hendidura)
-    st.markdown('<div class="hendidura"></div>', unsafe_allow_value=True)
+    st.markdown('<div class="hendidura"></div>', unsafe_allow_html=True)
 
     # 4. LISTADO DE MEDICAMENTOS
     st.markdown("### 📝 Listado de medicamentos")
