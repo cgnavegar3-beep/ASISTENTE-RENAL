@@ -393,7 +393,7 @@ st.markdown("""
         ⚠️ Aviso: Esta herramienta es un apoyo a la revisión farmacoterapéutica. Puede contener errores. Verifique con fuentes oficiales.
     </div>
 """, unsafe_allow_html=True)
-   with st.container(border=True):
+with st.container(border=True):
             edad = st.number_input("Edad", 1, 120, 65)
             peso = st.number_input("Peso (kg)", 10, 250, 70)
             creatinina = st.number_input("Creatinina (mg/dL)", 0.1, 15.0, 1.2)
@@ -404,8 +404,8 @@ st.markdown("""
             if sexo == "Mujer": fg_calc *= 0.742
 
     # 2. AJUSTE Y CAPTURA (Derecha - Con más "aire")
-    with col_ajuste:
-        st.markdown("### 💊 Ajuste y Captura", unsafe_allow_value=True)
+with col_ajuste:
+        st.markdown("### 💊 Ajuste y Captura", unsafe_allow_html=True)
         
         fg_manual = st.text_input("Input Manual del FG (Prioritario)", placeholder="Ej: 45")
         
