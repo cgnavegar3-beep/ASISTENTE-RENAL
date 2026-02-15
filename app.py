@@ -65,15 +65,7 @@ with tabs[0]:
 
     st.write("") 
 
-    # B) INTERFAZ DUAL (CALCULADORA VS AJUSTE) - SIMETRÍA TOTAL
-    col_izq, col_der = st.columns(2)
-
-    with col_izq:
-        st.markdown("#### 📋 Calculadora")
-        st.caption("Método: Cockcroft-Gault")
-        with st.container(border=True):
-            # Organización en 2x2 para ocupar todo el ancho
-            c1, c2 = st.columns(2)
+    
             with c1:
                 c_edad = st.number_input("Edad (años)", value=edad_reg if edad_reg else 65, key=f"ce_{st.session_state.reset_counter}")
                 c_peso = st.number_input("Peso (kg)", value=70.0, step=0.1, key=f"cp_{st.session_state.reset_counter}")
