@@ -393,7 +393,7 @@ st.markdown("""
         ⚠️ Aviso: Esta herramienta es un apoyo a la revisión farmacoterapéutica. Puede contener errores. Verifique con fuentes oficiales.
     </div>
 """, unsafe_allow_html=True)
-        with st.container(border=True):
+with st.container(border=True):
             edad = st.number_input("Edad", 1, 120, 65)
             peso = st.number_input("Peso (kg)", 10, 250, 70)
             creatinina = st.number_input("Creatinina (mg/dL)", 0.1, 15.0, 1.2)
