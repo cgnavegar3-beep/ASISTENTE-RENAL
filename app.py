@@ -203,10 +203,7 @@ with tab1:
 
     # 1. CALCULADORA (Izquierda)
     with col_calc:
-        st.markdown(f"### 📋 Calculadora <br><small>Método: CKD-EPI</small>", import streamlit as st
-import google.generativeai as genai
-from PIL import Image
-import io
+        st.markdown(f"### 📋 Calculadora <br><small>Método: CKD-EPI</small>", unsafe_allow_html=True)
 
 # --- 1. CONFIGURACIÓN E INICIALIZACIÓN ---
 st.set_page_config(page_title="ASISTENTE RENAL", layout="wide")
