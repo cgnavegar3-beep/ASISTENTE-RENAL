@@ -94,7 +94,7 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Datos Paciente")
         with st.container(border=True):
-            c1, c2 = st.columns(2)
+            c1, c2, c3, c4 = st.columns(1)
             edad = c1.number_input("Edad", 18, 110, 65, key=f"ed_{st.session_state.reset_counter}")
             peso = c2.number_input("Peso (kg)", 30.0, 200.0, 70.0, key=f"pe_{st.session_state.reset_counter}")
             crea = st.number_input("Creatinina (mg/dL)", 0.1, 15.0, 1.0, key=f"cr_{st.session_state.reset_counter}")
