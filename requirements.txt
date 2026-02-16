@@ -3,4 +3,3 @@ google-generativeai
 Pillow
 PyMuPDF
 streamlit-paste-button
-streamlit-paste-button
