@@ -2,15 +2,67 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from PIL import Image
+import google.generativeai as genai
 
-# --- 1. CONFIGURACIÓN Y ESTILOS (MANTENIDOS) ---
+# --- CONFIGURACIÓN DE IA Y CASCADA ---
+API_KEY = "TU_API_KEY_AQUÍ"
+genai.configure(api_key=API_KEY)
+
+def obtener_modelos_disponibles():
+    """Obtiene dinámicamente los modelos de la zona"""
+    try:
+        modelos = [m.name.replace('models/', '').replace('gemini-', '') 
+                   for m in genai.list_models() 
+                   if 'generateContent' in m.supported_generation_methods]
+        return modelos
+    except:
+        return ["Error de conexión"]
+
+def llamar_ia_en_cascada(prompt, imagen=None):
+    """Lógica de failover: intenta Pro, luego Flash, luego el resto"""
+    # Orden de prioridad deseado
+    prioridad = ['1.5-pro', '2.0-flash-exp', '1.5-flash', '1.5-flash-8b']
+    disponibles = obtener_modelos_disponibles()
+    
+    # Filtrar solo los que realmente existen en tu zona
+    modelos_a_intentar = [m for m in prioridad if m in disponibles]
+    
+    for mod_name in modelos_a_intentar:
+        try:
+            st.session_state.active_model = mod_name.upper()
+            model = genai.GenerativeModel(f'models/gemini-{mod_name}')
+            
+            contenido = [prompt, imagen] if imagen else [prompt]
+            response = model.generate_content(contenido)
+            return response.text
+        except Exception as e:
+            continue # Si falla, salta al siguiente modelo
+            
+    return "⚠️ Error: Todos los modelos de la cascada fallaron o cuota excedida."
+
+# --- 1. CONFIGURACIÓN Y ESTILOS (ACTUALIZADOS) ---
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
 def inject_ui_styles():
     style = """
     <style>
     .block-container { max-width: 100% !important; padding-top: 2.5rem !important; padding-left: 4% !important; padding-right: 4% !important; }
-    .model-badge { background-color: #000000 !important; color: #00FF00 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.75rem; position: fixed; top: 15px; left: 15px; z-index: 1000000; }
+    
+    /* CUADRO 1: MODELOS DISPONIBLES (NUEVO) */
+    .availability-badge { 
+        background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; 
+        border-radius: 3px; font-family: monospace !important; font-size: 0.65rem; 
+        position: fixed; top: 15px; left: 15px; z-index: 1000000; border: 1px solid #333;
+        width: 180px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    }
+    
+    /* CUADRO 2: MODELO ACTIVO NEÓN (MOVIDO A LA DERECHA DEL ANTERIOR) */
+    .model-badge { 
+        background-color: #000000 !important; color: #00FF00 !important; padding: 4px 10px; 
+        border-radius: 3px; font-family: monospace !important; font-size: 0.75rem; 
+        position: fixed; top: 15px; left: 205px; z-index: 1000000; box-shadow: 0 0 5px #00FF0033;
+    }
+    
     .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-top: 0px; padding-bottom: 20px; }
     .id-display { color: #666; font-family: monospace; font-size: 0.85rem; margin-top: -10px; margin-bottom: 20px; }
     .formula-container { display: flex; justify-content: flex-end; width: 100%; margin-top: 5px; }
@@ -28,39 +80,41 @@ def inject_ui_styles():
 if 'meds_content' not in st.session_state: st.session_state.meds_content = ""
 if 'reset_reg_counter' not in st.session_state: st.session_state.reset_reg_counter = 0
 if 'reset_all_counter' not in st.session_state: st.session_state.reset_all_counter = 0
-if 'active_model' not in st.session_state: st.session_state.active_model = "1.5 Pro"
+if 'active_model' not in st.session_state: st.session_state.active_model = "DETECTANDO..."
 
 def es_seguro_rgpd(texto):
-    """Detecta si el texto contiene patrones de datos personales"""
-    # Lista de disparadores (puedes ampliarla)
     disparadores = ["DNI", "NIF", "NIE", "PASAPORTE", "NOMBRE:", "PACIENTE:", "FECHA NACIMIENTO"]
     for d in disparadores:
-        if d in texto.upper():
-            return False
+        if d in texto.upper(): return False
     return True
 
 def procesar_archivo_ia():
     if st.session_state.uploader_key:
-        # Aquí la IA leería la imagen. Simulamos una lectura con riesgo y una sin él.
-        lectura_ia = "Fármacos:\n1. Enalapril 10mg\n2. Metformina 850mg"
+        img = Image.open(st.session_state.uploader_key)
+        prompt = "Extrae la lista de medicamentos de esta imagen. Si hay nombres de personas o documentos de identidad, inclúyelos para que mi filtro de seguridad los detecte."
         
-        # Simulación de detección: si el archivo se llama "paciente.jpg", forzamos el error
-        if "paciente" in st.session_state.uploader_key.name.lower():
-            lectura_ia = "PACIENTE: Juan Pérez DNI: 12345678X\nEnalapril 10mg"
+        # Llamada con cascada automática
+        lectura_ia = llamar_ia_en_cascada(prompt, img)
 
         if not es_seguro_rgpd(lectura_ia):
             st.session_state.meds_content = "⚠️ NO SE PUEDE MOSTRAR EL RESULTADO AL ENCONTRAR DATOS PERSONALES"
         else:
             st.session_state.meds_content = lectura_ia
 
+# UI RENDER
 inject_ui_styles()
+
+# Render de los dos cuadros superiores
+modelos_str = " | ".join(obtener_modelos_disponibles())
+st.markdown(f'<div class="availability-badge" title="{modelos_str}">ZONA: {modelos_str}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
+
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
 
+# --- RESTO DEL CÓDIGO (SIN CAMBIOS) ---
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
 with tabs[0]:
-    # A) REGISTRO
     col_reg_tit, col_reg_clear = st.columns([0.85, 0.15])
     with col_reg_tit: st.markdown("### Registro de Paciente")
     with col_reg_clear:
@@ -81,7 +135,6 @@ with tabs[0]:
     id_final = f"{centro if centro else '---'}-{str(int(edad)) if edad else '00'}-{alfa if alfa else '---'}"
     st.markdown(f'<div class="id-display">ID Registro: {id_final}</div>', unsafe_allow_html=True)
 
-    # B) INTERFAZ DUAL
     col_izq, col_der = st.columns(2, gap="large")
     with col_izq:
         st.markdown("#### 📋 Calculadora")
@@ -103,21 +156,17 @@ with tabs[0]:
             st.file_uploader("Subir", label_visibility="collapsed", key="uploader_key", on_change=procesar_archivo_ia)
         with c_btn:
             if st.button("✂️ RECORTE", use_container_width=True):
-                # Simulación de pegado de portapapeles
-                st.session_state.meds_content = "Iniciando captura de pantalla..."
+                st.session_state.meds_content = "Capturando... (Use el uploader para el archivo de recorte)"
 
     st.write("")
     st.markdown("---")
 
-    # C) MEDICAMENTOS
     st.markdown("#### 📝 Listado de medicamentos")
     st.markdown('<div class="rgpd-box"><b>Protección de Datos (RGPD/HIPAA):</b> Si aparece algún dato identificativo de un paciente, se impedirá el uso del sistema.</div>', unsafe_allow_html=True)
     
-    # Actualización automática tras escaneo
     temp_meds = st.text_area("Listado", value=st.session_state.meds_content, height=180, label_visibility="collapsed", key=f"txt_{st.session_state.reset_all_counter}")
     st.session_state.meds_content = temp_meds
 
-    # D) BOTONERA DUAL (85/15)
     b_val, b_res = st.columns([0.85, 0.15])
     with b_val:
         if st.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True):
