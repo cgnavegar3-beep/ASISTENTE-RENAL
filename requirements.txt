@@ -3,4 +3,4 @@ google-generativeai
 Pillow
 PyMuPDF
 streamlit-paste-button
-pip install streamlit-paste-button
+streamlit-paste-button
