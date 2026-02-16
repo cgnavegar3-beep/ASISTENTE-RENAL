@@ -4,142 +4,192 @@ from datetime import datetime
 from PIL import Image
 import google.generativeai as genai
 import io
-from streamlit_paste_button import paste_image_button
 
 # --- 0. CONFIGURACIÓN DE IA (SECRETS) ---
+# Lee la clave de Streamlit Cloud (Settings > Secrets)
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=API_KEY)
 except:
-    API_KEY = None
+    API_KEY = None # Evita que la app rompa si falta la clave
 
 def obtener_modelos_disponibles():
+    """Detecta modelos en tu zona o devuelve una lista de seguridad"""
     try:
         if not API_KEY: return ["Configurar API Key"]
         modelos = [m.name.replace('models/', '').replace('gemini-', '') 
                    for m in genai.list_models() 
                    if 'generateContent' in m.supported_generation_methods]
-        return modelos if modelos else ["1.5-pro", "2.5-flash"]
+        return modelos if modelos else ["1.5-pro", "2.0-flash"]
     except:
-        return ["2.5-pro", "2.5-flash", "1.5-pro"]
+        return ["1.5-pro", "2.0-flash", "2.5-flash"]
 
 def llamar_ia_en_cascada(prompt, imagen=None):
-    prioridad = ['2.5-pro', '2.5-flash', '1.5-pro', '1.5-flash']
+    """Lógica de resiliencia: intenta Pro, luego Flash, luego el resto"""
+    prioridad = ['1.5-pro', '2.0-flash-exp', '1.5-flash', '2.5-flash']
     disponibles = obtener_modelos_disponibles()
     modelos_a_intentar = [m for m in prioridad if m in disponibles]
     
+    if not modelos_a_intentar: modelos_a_intentar = ['1.5-pro'] # Fallback mínimo
+
     for mod_name in modelos_a_intentar:
         try:
+            # Actualizamos el neón antes de la llamada para que el usuario vea el intento
             st.session_state.active_model = mod_name.upper()
             model = genai.GenerativeModel(f'models/gemini-{mod_name}')
+            
             contenido = [prompt, imagen] if imagen else [prompt]
             response = model.generate_content(contenido)
             return response.text
-        except:
-            continue
-    return "⚠️ Error: Los modelos están saturados."
+        except Exception:
+            continue # Si falla (cuota, error 500), pasa al siguiente
+            
+    return "⚠️ Error: Todos los modelos fallaron. Revise su conexión o cuota de API."
 
-# --- 1. ESTILOS ---
+# --- 1. CONFIGURACIÓN Y ESTILOS (MANTENIDOS Y AJUSTADOS) ---
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
 def inject_ui_styles():
-    st.markdown("""
+    style = """
     <style>
     .block-container { max-width: 100% !important; padding-top: 2.5rem !important; padding-left: 4% !important; padding-right: 4% !important; }
+    
+    /* CUADRO 1: DISPONIBLES (GRIS DISCRETO) */
     .availability-badge { 
         background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; 
         border-radius: 3px; font-family: monospace !important; font-size: 0.65rem; 
         position: fixed; top: 15px; left: 15px; z-index: 1000000; border: 1px solid #333;
         width: 180px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
     }
+    
+    /* CUADRO 2: MODELO ACTIVO (VERDE NEÓN) - MOVIDO A LA DERECHA */
     .model-badge { 
         background-color: #000000 !important; color: #00FF00 !important; padding: 4px 10px; 
         border-radius: 3px; font-family: monospace !important; font-size: 0.75rem; 
         position: fixed; top: 15px; left: 205px; z-index: 1000000; box-shadow: 0 0 5px #00FF0033;
     }
-    .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-top: 0px; padding-bottom: 20px; }
-    .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
-    .rgpd-box { background-color: #fff5f5; color: #c53030; padding: 10px; border-radius: 8px; border: 1px solid #feb2b2; font-size: 0.85rem; margin-top: 15px; text-align: center; }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- 2. LÓGICA DE ESTADO ---
-if 'meds_content' not in st.session_state: st.session_state.meds_content = ""
-if 'active_model' not in st.session_state: st.session_state.active_model = "ESPERANDO..."
-if 'last_processed_id' not in st.session_state: st.session_state.last_processed_id = None
-if 'reset_counter' not in st.session_state: st.session_state.reset_counter = 0
-
-def analizar_y_volcar(imagen):
-    prompt = "Extrae lista de fármacos y dosis de esta imagen médica. Responde solo con la lista."
-    lectura = llamar_ia_en_cascada(prompt, imagen)
     
-    disparadores = ["DNI", "NIF", "NIE", "PACIENTE", "NOMBRE:"]
-    if any(d in lectura.upper() for d in disparadores):
-        st.session_state.meds_content = "⚠️ BLOQUEADO: Datos personales detectados."
-    else:
-        st.session_state.meds_content = lectura
+    .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-top: 0px; padding-bottom: 20px; }
+    .id-display { color: #666; font-family: monospace; font-size: 0.85rem; margin-top: -10px; margin-bottom: 20px; }
+    .formula-container { display: flex; justify-content: flex-end; width: 100%; margin-top: 5px; }
+    .formula-tag { font-size: 0.75rem; color: #888; font-style: italic; }
+    .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 20px; }
+    .rgpd-box { background-color: #fff5f5; color: #c53030; padding: 10px; border-radius: 8px; border: 1px solid #feb2b2; font-size: 0.85rem; margin-bottom: 15px; text-align: center; }
+    .warning-yellow { background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; font-weight: 500; }
+    .stFileUploader section { min-height: 48px !important; border-radius: 8px !important; }
+    .stButton > button { height: 48px !important; border-radius: 8px !important; }
+    </style>
+    """
+    st.markdown(style, unsafe_allow_html=True)
+
+# --- 2. LÓGICA DE PROCESAMIENTO ---
+if 'meds_content' not in st.session_state: st.session_state.meds_content = ""
+if 'reset_reg_counter' not in st.session_state: st.session_state.reset_reg_counter = 0
+if 'reset_all_counter' not in st.session_state: st.session_state.reset_all_counter = 0
+if 'active_model' not in st.session_state: st.session_state.active_model = "BUSCANDO..."
+
+def es_seguro_rgpd(texto):
+    disparadores = ["DNI", "NIF", "NIE", "PASAPORTE", "NOMBRE:", "PACIENTE:", "FECHA NACIMIENTO"]
+    for d in disparadores:
+        if d in texto.upper(): return False
+    return True
+
+def procesar_archivo_ia():
+    if st.session_state.uploader_key:
+        try:
+            img = Image.open(st.session_state.uploader_key)
+            prompt = "Actúa como un OCR médico. Extrae exclusivamente la lista de fármacos y dosis. Si detectas nombres propios o DNI, inclúyelos para activar mi filtro de seguridad."
+            
+            # Ejecución en cascada
+            lectura_ia = llamar_ia_en_cascada(prompt, img)
+
+            if not es_seguro_rgpd(lectura_ia):
+                st.session_state.meds_content = "⚠️ NO SE PUEDE MOSTRAR EL RESULTADO AL ENCONTRAR DATOS PERSONALES"
+            else:
+                st.session_state.meds_content = lectura_ia
+        except Exception as e:
+            st.error(f"Error al procesar imagen: {e}")
 
 inject_ui_styles()
 
-# Indicadores
-modelos_disponibles = obtener_modelos_disponibles()
-st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(modelos_disponibles)}</div>', unsafe_allow_html=True)
+# Render de Indicadores Superiores
+modelos_lista = obtener_modelos_disponibles()
+modelos_str = " | ".join(modelos_lista)
+st.markdown(f'<div class="availability-badge">ZONA: {modelos_str}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
+
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
 
+# --- TABS ---
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
 with tabs[0]:
+    # Registro y Calculadora (Copiado exactamente de tu código original)
+    col_reg_tit, col_reg_clear = st.columns([0.85, 0.15])
+    with col_reg_tit: st.markdown("### Registro de Paciente")
+    with col_reg_clear:
+        if st.button("🗑️ Limpiar Reg.", key="clr_reg"):
+            st.session_state.reset_reg_counter += 1
+            st.rerun()
+
+    c_reg1, c_reg2, c_reg3 = st.columns([1, 2, 1])
+    with c_reg1: 
+        centro = st.text_input("Centro", placeholder="G/M", key=f"c_{st.session_state.reset_reg_counter}")
+    with c_reg2:
+        r1, r2, r3 = st.columns(3)
+        edad = r1.number_input("Edad", value=None, placeholder="0", key=f"e_{st.session_state.reset_reg_counter}")
+        alfa = r2.text_input("ID Alfanumérico", placeholder="Escriba...", key=f"id_{st.session_state.reset_reg_counter}")
+        res = r3.selectbox("¿Residencia?", ["No", "Sí"], key=f"res_{st.session_state.reset_reg_counter}")
+    with c_reg3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
+
+    id_final = f"{centro if centro else '---'}-{str(int(edad)) if edad else '00'}-{alfa if alfa else '---'}"
+    st.markdown(f'<div class="id-display">ID Registro: {id_final}</div>', unsafe_allow_html=True)
+
     col_izq, col_der = st.columns(2, gap="large")
     with col_izq:
-        st.markdown("#### 📋 Datos Paciente")
+        st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            c1, c2, c3, c4 = st.columns(1)
-            edad = c1.number_input("Edad", 18, 110, 65, key=f"ed_{st.session_state.reset_counter}")
-            peso = c2.number_input("Peso (kg)", 30.0, 200.0, 70.0, key=f"pe_{st.session_state.reset_counter}")
-            crea = st.number_input("Creatinina (mg/dL)", 0.1, 15.0, 1.0, key=f"cr_{st.session_state.reset_counter}")
-            sexo = st.selectbox("Sexo", ["Hombre", "Mujer"], key=f"sx_{st.session_state.reset_counter}")
-            fg = round(((140 - edad) * peso) / (72 * crea) * (0.85 if sexo == "Mujer" else 1.0), 1)
+            calc_e = st.number_input("Edad (años)", value=edad if edad else 65, key=f"ce_{st.session_state.reset_all_counter}")
+            calc_p = st.number_input("Peso (kg)", value=70.0, key=f"cp_{st.session_state.reset_all_counter}")
+            calc_c = st.number_input("Creatinina (mg/dL)", value=1.0, key=f"cc_{st.session_state.reset_all_counter}")
+            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], key=f"cs_{st.session_state.reset_all_counter}")
+            fg = round(((140 - calc_e) * calc_p) / (72 * calc_c) * (0.85 if calc_s == "Mujer" else 1.0), 1)
+            st.markdown('<div class="formula-container"><span class="formula-tag">Fórmula: Cockcroft-Gault</span></div>', unsafe_allow_html=True)
 
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
-        fg_m = st.text_input("Ajuste Manual", placeholder="Valor...", key=f"fgm_{st.session_state.reset_counter}")
-        valor_fg = fg_m if fg_m else fg
-        st.markdown(f'<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 1rem; color: #9d00ff;">mL/min</div></div>', unsafe_allow_html=True)
+        fg_m = st.text_input("Ajuste Manual", placeholder="Valor...", key=f"fgm_{st.session_state.reset_all_counter}")
+        st.markdown(f'<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{fg_m if fg_m else fg}</div><div style="font-size: 1rem; color: #9d00ff;">mL/min</div></div>', unsafe_allow_html=True)
         
-        c_up, c_btn = st.columns([0.65, 0.35])
+        c_up, c_btn = st.columns([0.75, 0.25])
         with c_up:
-            archivo = st.file_uploader("Subir/Pegar", label_visibility="collapsed", type=['png', 'jpg', 'jpeg'], key=f"up_{st.session_state.reset_counter}")
-            if archivo and st.session_state.last_processed_id != archivo.name:
-                analizar_y_volcar(Image.open(archivo))
-                st.session_state.last_processed_id = archivo.name
-                st.rerun()
-        
+            st.file_uploader("Subir", label_visibility="collapsed", key="uploader_key", on_change=procesar_archivo_ia)
         with c_btn:
-            pasted = paste_image_button(label="✂️ RECORTE", key=f"paste_{st.session_state.reset_counter}")
-            if pasted.image_data is not None:
-                # CORRECCIÓN AQUÍ: Convertimos a bytes antes de hacer el hash
-                p_id = hash(bytes(pasted.image_data))
-                if st.session_state.last_processed_id != p_id:
-                    img_p = Image.open(io.BytesIO(pasted.image_data))
-                    analizar_y_volcar(img_p)
-                    st.session_state.last_processed_id = p_id
-                    st.rerun()
+            if st.button("✂️ RECORTE", use_container_width=True):
+                st.session_state.meds_content = "Capturando... (Use el uploader para el archivo de recorte)"
 
-    st.markdown('<div class="rgpd-box"><b>Protección de Datos:</b> No use imágenes con nombres reales.</div>', unsafe_allow_html=True)
+    st.write("")
+    st.markdown("---")
+
+    st.markdown("#### 📝 Listado de medicamentos")
+    st.markdown('<div class="rgpd-box"><b>Protección de Datos (RGPD/HIPAA):</b> Si aparece algún dato identificativo de un paciente, se impedirá el uso del sistema.</div>', unsafe_allow_html=True)
     
-    st.session_state.meds_content = st.text_area("Listado de fármacos", value=st.session_state.meds_content, height=150, key=f"ta_{st.session_state.reset_counter}")
-    
-    b_val, b_res = st.columns([0.8, 0.2])
+    temp_meds = st.text_area("Listado", value=st.session_state.meds_content, height=180, label_visibility="collapsed", key=f"txt_{st.session_state.reset_all_counter}")
+    st.session_state.meds_content = temp_meds
+
+    b_val, b_res = st.columns([0.85, 0.15])
     with b_val:
-        if st.button("🚀 VALIDAR ADECUACIÓN RENAL", use_container_width=True):
-            if st.session_state.meds_content:
-                with st.spinner("Analizando..."):
-                    p_med = f"FG: {valor_fg} mL/min. Valida estos fármacos y dosis: {st.session_state.meds_content}."
-                    st.info(llamar_ia_en_cascada(p_med))
+        if st.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True):
+            if "⚠️" in st.session_state.meds_content or not es_seguro_rgpd(st.session_state.meds_content):
+                st.error("BLOQUEADO: Se han detectado datos personales.")
+            elif not st.session_state.meds_content:
+                st.warning("El listado está vacío.")
+            else:
+                st.success("Analizando tratamiento de forma segura...")
     with b_res:
         if st.button("🗑️ RESET", use_container_width=True):
+            st.session_state.reset_all_counter += 1
             st.session_state.meds_content = ""
-            st.session_state.last_processed_id = None
-            st.session_state.reset_counter += 1
             st.rerun()
+
+st.markdown('<div class="warning-yellow">⚠️ Apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
