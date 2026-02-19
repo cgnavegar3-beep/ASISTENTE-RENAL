@@ -1,4 +1,4 @@
-# v. 19 feb 20:00
+# v. 19 feb 20:15
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -81,15 +81,12 @@ def inject_ui_styles():
     .id-display { color: #666; font-family: monospace; font-size: 0.85rem; margin-top: -10px; margin-bottom: 20px; }
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 20px; }
     
-    /* CUADROS SÍNTESIS CON COLORES CLAROS Y GLOW */
     .synthesis-box { padding: 15px; border-radius: 10px; margin-bottom: 15px; font-weight: 500; line-height: 1.6; }
     .st-green { background-color: #e8f5e9; color: #1b5e20; border: 1.5px solid #2e7d32; box-shadow: 0 0 10px #2e7d32; }
     .st-orange { background-color: #fff3e0; color: #e65100; border: 1.5px solid #ef6c00; box-shadow: 0 0 10px #ef6c00; }
     .st-red { background-color: #ffebee; color: #b71c1c; border: 1.5px solid #c62828; box-shadow: 0 0 10px #c62828; }
 
-    /* SEPARADOR NOTA IMPORTANTE */
-    .nota-importante-line { border-top: 2px solid #aec6cf; margin-top: 20px; padding-top: 15px; font-size: 0.95rem; line-height: 1.5; color: #333; }
-    
+    .nota-importante-line { border-top: 2px solid #aec6cf; margin-top: 20px; padding-top: 15px; font-size: 0.9rem; line-height: 1.4; color: #333; }
     .rgpd-box { background-color: #fff5f5; color: #c53030; padding: 10px; border-radius: 8px; border: 1px solid #feb2b2; font-size: 0.85rem; margin-bottom: 15px; text-align: center; }
     .warning-yellow { background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; font-weight: 500; }
     .stButton > button { height: 48px !important; border-radius: 8px !important; }
@@ -106,12 +103,12 @@ st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_
 st.markdown(f'<div class="model-badge">{st.session_state.get("active_model", "ESPERANDO...")}</div>', unsafe_allow_html=True)
 
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 19 feb 20:00</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 19 feb 20:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
 with tabs[0]:
-    # --- REGISTRO DE PACIENTE ---
+    # --- REGISTRO ---
     col_reg_tit, col_reg_clear = st.columns([0.85, 0.15])
     with col_reg_tit: st.markdown("### Registro de Paciente")
     with col_reg_clear:
@@ -131,7 +128,7 @@ with tabs[0]:
     id_final = f"{centro if centro else '---'}-{str(int(edad)) if edad else '00'}-{alfa if alfa else '---'}"
     st.markdown(f'<div class="id-display">ID Registro: {id_final}</div>', unsafe_allow_html=True)
 
-    # --- CALCULADORA E INTERFAZ DUAL ---
+    # --- INTERFAZ DUAL ---
     col_izq, col_der = st.columns(2, gap="large")
     with col_izq:
         st.markdown("#### 📋 Calculadora")
@@ -167,27 +164,28 @@ with tabs[0]:
                     
                     resultado = llamar_ia_en_cascada(prompt).replace('"""', '"')
                     
-                    # Lógica de Color Refinada
+                    # Lógica de Color Dinámica
                     r_up = resultado.upper()
-                    if "CONTRAINDICADO" in r_up: clase_color = "st-red"
-                    elif any(x in r_up for x in ["AJUSTE", "PRECAUCIÓN", "REDUCIR", "DOSIS"]): clase_color = "st-orange"
-                    else: clase_color = "st-green"
+                    if "CONTRAINDICADO" in r_up: color_class = "st-red"
+                    elif any(x in r_up for x in ["AJUSTE", "PRECAUCIÓN", "REDUCIR", "DOSIS", "MODIFICAR"]): color_class = "st-orange"
+                    else: color_class = "st-green"
                     
+                    # Estructuración de salida
                     try:
                         partes = resultado.split("A continuación")
-                        sintesis = partes[0].strip()
-                        cuerpo_cientifico = "A continuación" + partes[1] if len(partes) > 1 else resultado
+                        sintesis = partes[0].replace("PARTE 1:", "").strip()
+                        detalle = "A continuación" + partes[1] if len(partes) > 1 else resultado
                         
-                        # 1. Cuadro Síntesis
-                        st.markdown(f'<div class="synthesis-box {clase_color}"><b>SÍNTESIS DE ADECUACIÓN:</b><br>{sintesis}</div>', unsafe_allow_html=True)
+                        # 1. Cuadro de Síntesis
+                        st.markdown(f'<div class="synthesis-box {color_class}"><b>SÍNTESIS DE ADECUACIÓN:</b><br>{sintesis}</div>', unsafe_allow_html=True)
                         
-                        # 2. Cuadro Azul Sombreado
+                        # 2. Bloque Azul con Nota
                         with st.container(border=True):
-                            st.info(cuerpo_cientifico)
+                            st.info(detalle)
                             st.markdown('<div class="nota-importante-line"></div>', unsafe_allow_html=True)
                             st.markdown("""
                             **Nota Importante:**
-                            · Estas son recomendaciones generales. 
+                            · Estas son recomendaciones generales.
                             · Siempre se debe consultar la ficha técnica actualizada del medicamento y las guías clínicas locales.
                             · Además del FG, se deben considerar otros factores individuales del paciente, como el peso, la edad, otras comorbilidades, la medicación concomitante y la respuesta clínica, para tomar decisiones terapéuticas.
                             · Es crucial realizar un seguimiento periódico de la función renal para detectar cualquier cambio que pueda requerir ajustes futuros.
