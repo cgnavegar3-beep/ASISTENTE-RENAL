@@ -1,4 +1,4 @@
-# v. 16 feb 21:00
+# v. 19 feb 18:55
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -77,7 +77,7 @@ def inject_ui_styles():
         position: fixed; top: 15px; left: 205px; z-index: 1000000; box-shadow: 0 0 5px #00FF0033;
     }
     .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-top: 0px; margin-bottom: 0px; }
-    .version-display { text-align: center; font-size: 0.6rem; color: #bbb; font-family: monospace; margin-bottom: 15px; }
+    .version-display { text-align: right; font-size: 0.6rem; color: #bbb; font-family: monospace; position: fixed; bottom: 10px; right: 10px; }
     .id-display { color: #666; font-family: monospace; font-size: 0.85rem; margin-top: -10px; margin-bottom: 20px; }
     .formula-container { display: flex; justify-content: flex-end; width: 100%; margin-top: 5px; }
     .formula-tag { font-size: 0.75rem; color: #888; font-style: italic; }
@@ -102,7 +102,7 @@ def es_seguro_rgpd(texto):
     return not any(d in texto.upper() for d in disparadores)
 
 def analizar_y_volcar(imagen):
-    prompt = "Enumera exclusivamente los medicamentos y dosis que veas en esta imagen. No añadas nada más."
+    prompt = "Analiza esta imagen médica. Extrae exclusivamente la lista de medicamentos y sus dosis. Si ves el Filtrado Glomerular, anótalo también. No incluyas nombres de pacientes."
     lectura = llamar_ia_en_cascada(prompt, imagen)
     if not es_seguro_rgpd(lectura):
         st.session_state.meds_content = "⚠️ BLOQUEO: Datos personales detectados."
@@ -115,7 +115,7 @@ st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(vivos) if vivos 
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
 
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 16 feb 21:00</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 19 feb 18:55</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -170,9 +170,10 @@ with tabs[0]:
             pasted = paste_image_button(label="✂️ RECORTE", key=f"p_btn_{st.session_state.reset_all_counter}")
             if pasted.image_data is not None:
                 try:
-                    p_id = hash(bytes(pasted.image_data))
+                    # Hash del buffer para evitar bucles
+                    p_id = hash(pasted.image_data.getvalue())
                     if st.session_state.last_proc_id != p_id:
-                        analizar_y_volcar(Image.open(io.BytesIO(pasted.image_data)))
+                        analizar_y_volcar(Image.open(pasted.image_data))
                         st.session_state.last_proc_id = p_id
                         st.rerun()
                 except:
