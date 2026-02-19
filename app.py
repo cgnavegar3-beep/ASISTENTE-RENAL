@@ -1,27 +1,27 @@
-# v. 19 feb 18:55
+# v. 19 feb 18:40
 import streamlit as st
 import pandas as pd
 from datetime import datetime
 from PIL import Image
 import google.generativeai as genai
 import io
-from streamlit_paste_button import paste_image_button
 
 # =================================================================
 # 🛡️ SECCIÓN DE BLINDAJE (PROHIBIDO MODIFICAR SIN PERMISO)
-# I. ESTRUCTURA VISUAL:
-#    1. Cuadros negros (ZONA y ACTIVO).
-#    2. Título principal y pestañas (Tabs).
-#    3. Registro de paciente: estructura y función.
-#    4. Interfaz Dual (Calculadora y FG): lógica Cockcroft-Gault.
-#    5. Zona de recortes (Uploader + Botón 0.65/0.35).
-#    6. Cuadro de listado de medicamentos (TextArea).
-#    7. Barra dual de botones (VALIDAR / RESET).
-#    8. Aviso amarillo inferior.
-# II. FUNCIONALIDADES CRÍTICAS:
-#    1. Cascada de Modelos (2.5 Flash > 1.5 Pro > Otros).
-#    2. Detección dinámica de modelos vivos en la cuenta.
-#    3. Actualización de feedback neón en tiempo real (Badge ACTIVO).
+# -----------------------------------------------------------------
+# PRINCIPIO FUNDAMENTAL 1: NUNCA BORRAR ESTA CLÁUSULA DE ESTE CÓDIGO.
+# PRINCIPIO FUNDAMENTAL 2: No puedes mover nada, ni cambiar ni una sola 
+# línea de la estructura visual (RIGOR Y SERIEDAD). Cero modificaciones: 
+# No tocaré ni una coma, ni un espacio, ni un color del diseño sin tu 
+# autorización explícita.
+# PRINCIPIO FUNDAMENTAL 3: Antes de proponer cualquier evolución técnica, 
+# te explicaré el "qué", el "por qué" y el "cómo", y esperaré a que me 
+# digas "adelante" o "procede".
+# -----------------------------------------------------------------
+# CLAUSULAS ADICIONALES:
+# - NO CAMBIAR EL NOMBRE "ASISTENTE RENAL".
+# - SIEMPRE DEBE APARECER DEBAJO LA VERSIÓN con la última fecha.
+# - REFUERZO INTERFAZ DUAL: NO SE TOCA LA CALCULADORA, NO SE TOCA GLOW MORADO.
 # =================================================================
 
 # --- 0. CONFIGURACIÓN DE IA (SECRETS) ---
@@ -95,19 +95,6 @@ if 'meds_content' not in st.session_state: st.session_state.meds_content = ""
 if 'reset_reg_counter' not in st.session_state: st.session_state.reset_reg_counter = 0
 if 'reset_all_counter' not in st.session_state: st.session_state.reset_all_counter = 0
 if 'active_model' not in st.session_state: st.session_state.active_model = "ESPERANDO..."
-if 'last_proc_id' not in st.session_state: st.session_state.last_proc_id = None
-
-def es_seguro_rgpd(texto):
-    disparadores = ["DNI", "NIF", "NIE", "PASAPORTE", "NOMBRE:", "PACIENTE:", "FECHA NACIMIENTO"]
-    return not any(d in texto.upper() for d in disparadores)
-
-def analizar_y_volcar(imagen):
-    prompt = "Enumera exclusivamente los medicamentos y dosis que veas en esta imagen. No añadas nada más."
-    lectura = llamar_ia_en_cascada(prompt, imagen)
-    if not es_seguro_rgpd(lectura):
-        st.session_state.meds_content = "⚠️ BLOQUEO: Datos personales detectados."
-    else:
-        st.session_state.meds_content = lectura
 
 inject_ui_styles()
 vivos = obtener_modelos_vivos()
@@ -115,7 +102,7 @@ st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(vivos) if vivos 
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
 
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 19 feb 18:55</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 19 feb 18:40</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -158,26 +145,6 @@ with tabs[0]:
         fg_m = st.text_input("Ajuste Manual", placeholder="Valor...", key=f"fgm_{st.session_state.reset_all_counter}")
         valor_fg = fg_m if fg_m else fg
         st.markdown(f'<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 1rem; color: #9d00ff;">mL/min</div></div>', unsafe_allow_html=True)
-        
-        c_up, c_btn = st.columns([0.65, 0.35])
-        with c_up:
-            archivo = st.file_uploader("Subir", label_visibility="collapsed", key=f"up_{st.session_state.reset_all_counter}", type=['png', 'jpg', 'jpeg'])
-            if archivo and st.session_state.last_proc_id != archivo.name:
-                analizar_y_volcar(Image.open(archivo))
-                st.session_state.last_proc_id = archivo.name
-                st.rerun()
-        with c_btn:
-            pasted = paste_image_button(label="✂️ RECORTE", key=f"p_btn_{st.session_state.reset_all_counter}")
-            if pasted.image_data is not None:
-                try:
-                    img_bytes = pasted.image_data if isinstance(pasted.image_data, bytes) else pasted.image_data.getvalue()
-                    p_id = hash(img_bytes)
-                    if st.session_state.last_proc_id != p_id:
-                        analizar_y_volcar(Image.open(io.BytesIO(img_bytes)))
-                        st.session_state.last_proc_id = p_id
-                        st.rerun()
-                except Exception as e:
-                    st.toast(f"⚠️ Error: {str(e)}")
 
     st.write("")
     st.markdown("---")
@@ -197,12 +164,11 @@ with tabs[0]:
                     res = llamar_ia_en_cascada(f"Ajuste renal con FG {valor_fg} mL/min para: {st.session_state.meds_content}")
                     st.info(res)
             else:
-                st.warning("Escriba o pegue medicamentos primero.")
+                st.warning("Escriba medicamentos primero.")
     with b_res:
         if st.button("🗑️ RESET", use_container_width=True):
             st.session_state.reset_all_counter += 1
             st.session_state.meds_content = ""
-            st.session_state.last_proc_id = None
             st.rerun()
 
 st.markdown('<div class="warning-yellow">⚠️ Apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
