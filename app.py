@@ -1,4 +1,4 @@
-# v. 19 feb 19:50
+# v. 19 feb 19:55
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -81,7 +81,6 @@ def inject_ui_styles():
     .id-display { color: #666; font-family: monospace; font-size: 0.85rem; margin-top: -10px; margin-bottom: 20px; }
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 20px; }
     
-    /* ESTILOS SÍNTESIS COLORES CLAROS CON GLOW CONSTANTE */
     .synthesis-box { padding: 15px; border-radius: 10px; margin-bottom: 15px; min-height: 80px; font-weight: 500; line-height: 1.5; }
     .st-green { background-color: #e8f5e9; color: #2e7d32; border: 1.5px solid #a5d6a7; box-shadow: 0 0 12px #a5d6a7; }
     .st-orange { background-color: #fff3e0; color: #ef6c00; border: 1.5px solid #ffcc80; box-shadow: 0 0 12px #ffcc80; }
@@ -98,18 +97,18 @@ def inject_ui_styles():
 if 'meds_content' not in st.session_state: st.session_state.meds_content = ""
 if 'reset_reg_counter' not in st.session_state: st.session_state.reset_reg_counter = 0
 if 'reset_all_counter' not in st.session_state: st.session_state.reset_all_counter = 0
-if 'active_model' not in st.session_state: st.session_state.active_model = "ESPERANDO..."
 
 inject_ui_styles()
 st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
-st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="model-badge">{st.session_state.get("active_model", "ESPERANDO...")}</div>', unsafe_allow_html=True)
 
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 19 feb 19:50</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 19 feb 19:55</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
 with tabs[0]:
+    # --- REGISTRO ---
     col_reg_tit, col_reg_clear = st.columns([0.85, 0.15])
     with col_reg_tit: st.markdown("### Registro de Paciente")
     with col_reg_clear:
@@ -129,6 +128,7 @@ with tabs[0]:
     id_final = f"{centro if centro else '---'}-{str(int(edad)) if edad else '00'}-{alfa if alfa else '---'}"
     st.markdown(f'<div class="id-display">ID Registro: {id_final}</div>', unsafe_allow_html=True)
 
+    # --- CALCULADORA ---
     col_izq, col_der = st.columns(2, gap="large")
     with col_izq:
         st.markdown("#### 📋 Calculadora")
@@ -138,7 +138,6 @@ with tabs[0]:
             calc_c = st.number_input("Creatinina (mg/dL)", value=1.0, key=f"cc_{st.session_state.reset_all_counter}")
             calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], key=f"cs_{st.session_state.reset_all_counter}")
             fg = round(((140 - calc_e) * calc_p) / (72 * calc_c) * (0.85 if calc_s == "Mujer" else 1.0), 1)
-            st.markdown('<div style="text-align:right; font-size:0.75rem; color:#888;"><i>Fórmula: Cockcroft-Gault</i></div>', unsafe_allow_html=True)
 
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
@@ -159,17 +158,42 @@ with tabs[0]:
                     prompt = f"""Actúa como experto en farmacia clínica renal. Analiza estos fármacos para un FG de {valor_fg} mL/min: {st.session_state.meds_content}.
                     NORMAS ESTRICTAS:
                     1. Sin saludos ni frases de cortesía.
-                    2. PARTE 1 (SINTESIS): Lista solo los fármacos que requieran atención. Cada fármaco en una línea nueva. Formato: Fármaco - Recomendación (ej. reducir dosis, contraindicado).
+                    2. PARTE 1 (SINTESIS): Lista solo los fármacos que requieran atención. CADA FARMACO EN UNA LINEA NUEVA. Formato: Fármaco - Recomendación clínica.
                     3. PARTE 2 (DETALLE): Empieza exactamente con: 'A continuación, se detallan los ajustes de dosis para cada fármaco con este valor de FG:'.
-                    4. NOTA: Incluye al final la Nota Importante solicitada sobre guías clínicas y factores individuales."""
+                    4. NOTA: Incluye al final la Nota Importante solicitada."""
                     
                     resultado = llamar_ia_en_cascada(prompt).replace('"""', '"')
                     
-                    # Lógica de Color (Semáforo Claro)
-                    clase_color = "st-green"
-                    if "CONTRAINDICADO" in resultado.upper(): clase_color = "st-red"
-                    elif any(x in resultado.upper() for x in ["AJUSTE", "PRECAUCIÓN", "REDUCIR"]): clase_color = "st-orange"
-                    
-                    # Separación de bloques
                     try:
-                        partes = resultado.split("A continuación")
+                        clase_color = "st-green"
+                        if "CONTRAINDICADO" in resultado.upper(): clase_color = "st-red"
+                        elif any(x in resultado.upper() for x in ["AJUSTE", "PRECAUCIÓN", "REDUCIR"]): clase_color = "st-orange"
+                        
+                        if "A continuación" in resultado:
+                            partes = resultado.split("A continuación")
+                            sintesis = partes[0].strip()
+                            cuerpo = "A continuación" + partes[1]
+                            
+                            st.markdown(f'<div class="synthesis-box {clase_color}"><b>SÍNTESIS DE ADECUACIÓN:</b><br>{sintesis}</div>', unsafe_allow_html=True)
+                            
+                            with st.container(border=True):
+                                if "Nota Importante" in cuerpo:
+                                    final_cuerpo, nota = cuerpo.split("Nota Importante")
+                                    st.info(final_cuerpo.strip())
+                                    st.markdown('<div class="nota-importante-line"><b>Nota Importante:</b>' + nota + '</div>', unsafe_allow_html=True)
+                                else:
+                                    st.info(cuerpo.strip())
+                        else:
+                            st.info(resultado)
+                    except:
+                        st.info(resultado)
+            else:
+                st.warning("Escriba medicamentos primero.")
+
+    with b_res:
+        if st.button("🗑️ RESET", use_container_width=True):
+            st.session_state.reset_all_counter += 1
+            st.session_state.meds_content = ""
+            st.rerun()
+
+st.markdown('<div class="warning-yellow">⚠️ Apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
