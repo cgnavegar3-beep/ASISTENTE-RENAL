@@ -1,4 +1,4 @@
-# v. 19 feb 20:15
+# v. 19 feb 20:30
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -81,12 +81,15 @@ def inject_ui_styles():
     .id-display { color: #666; font-family: monospace; font-size: 0.85rem; margin-top: -10px; margin-bottom: 20px; }
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 20px; }
     
+    /* CUADROS SÍNTESIS MEJORADOS */
     .synthesis-box { padding: 15px; border-radius: 10px; margin-bottom: 15px; font-weight: 500; line-height: 1.6; }
     .st-green { background-color: #e8f5e9; color: #1b5e20; border: 1.5px solid #2e7d32; box-shadow: 0 0 10px #2e7d32; }
     .st-orange { background-color: #fff3e0; color: #e65100; border: 1.5px solid #ef6c00; box-shadow: 0 0 10px #ef6c00; }
     .st-red { background-color: #ffebee; color: #b71c1c; border: 1.5px solid #c62828; box-shadow: 0 0 10px #c62828; }
 
-    .nota-importante-line { border-top: 2px solid #aec6cf; margin-top: 20px; padding-top: 15px; font-size: 0.9rem; line-height: 1.4; color: #333; }
+    /* SEPARACIÓN NOTA */
+    .nota-importante-line { border-top: 2px solid #aec6cf; margin-top: 20px; padding-top: 15px; }
+    
     .rgpd-box { background-color: #fff5f5; color: #c53030; padding: 10px; border-radius: 8px; border: 1px solid #feb2b2; font-size: 0.85rem; margin-bottom: 15px; text-align: center; }
     .warning-yellow { background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; font-weight: 500; }
     .stButton > button { height: 48px !important; border-radius: 8px !important; }
@@ -103,12 +106,12 @@ st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_
 st.markdown(f'<div class="model-badge">{st.session_state.get("active_model", "ESPERANDO...")}</div>', unsafe_allow_html=True)
 
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 19 feb 20:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 19 feb 20:30</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
 with tabs[0]:
-    # --- REGISTRO ---
+    # --- REGISTRO PACIENTE ---
     col_reg_tit, col_reg_clear = st.columns([0.85, 0.15])
     with col_reg_tit: st.markdown("### Registro de Paciente")
     with col_reg_clear:
@@ -122,83 +125,4 @@ with tabs[0]:
         r1, r2, r3 = st.columns(3)
         edad = r1.number_input("Edad", value=None, placeholder="0", key=f"e_{st.session_state.reset_reg_counter}")
         alfa = r2.text_input("ID Alfanumérico", placeholder="Escriba...", key=f"id_{st.session_state.reset_reg_counter}")
-        res = r3.selectbox("¿Residencia?", ["No", "Sí"], key=f"res_{st.session_state.reset_reg_counter}")
-    with c_reg3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
-
-    id_final = f"{centro if centro else '---'}-{str(int(edad)) if edad else '00'}-{alfa if alfa else '---'}"
-    st.markdown(f'<div class="id-display">ID Registro: {id_final}</div>', unsafe_allow_html=True)
-
-    # --- INTERFAZ DUAL ---
-    col_izq, col_der = st.columns(2, gap="large")
-    with col_izq:
-        st.markdown("#### 📋 Calculadora")
-        with st.container(border=True):
-            calc_e = st.number_input("Edad (años)", value=edad if edad else 65, key=f"ce_{st.session_state.reset_all_counter}")
-            calc_p = st.number_input("Peso (kg)", value=70.0, key=f"cp_{st.session_state.reset_all_counter}")
-            calc_c = st.number_input("Creatinina (mg/dL)", value=1.0, key=f"cc_{st.session_state.reset_all_counter}")
-            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], key=f"cs_{st.session_state.reset_all_counter}")
-            fg = round(((140 - calc_e) * calc_p) / (72 * calc_c) * (0.85 if calc_s == "Mujer" else 1.0), 1)
-
-    with col_der:
-        st.markdown("#### 💊 Filtrado Glomerular")
-        fg_m = st.text_input("Ajuste Manual", placeholder="Valor...", key=f"fgm_{st.session_state.reset_all_counter}")
-        valor_fg = fg_m if fg_m else fg
-        st.markdown(f'<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 1rem; color: #9d00ff;">mL/min</div></div>', unsafe_allow_html=True)
-
-    st.markdown("---")
-    st.markdown("#### 📝 Listado de medicamentos")
-    st.markdown('<div class="rgpd-box"><b>Protección de Datos:</b> No procese datos personales identificables.</div>', unsafe_allow_html=True)
-    st.session_state.meds_content = st.text_area("Listado", value=st.session_state.meds_content, height=150, label_visibility="collapsed", key=f"txt_{st.session_state.reset_all_counter}")
-
-    b_val, b_res = st.columns([0.85, 0.15])
-    with b_val:
-        if st.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True):
-            if st.session_state.meds_content:
-                with st.spinner("Analizando..."):
-                    prompt = f"""Actúa como experto en farmacia clínica renal. Analiza estos fármacos para un FG de {valor_fg} mL/min: {st.session_state.meds_content}.
-                    NORMAS ESTRICTAS:
-                    1. Sin saludos, presentaciones ni lenguaje coloquial.
-                    2. PARTE 1 (SINTESIS): Lista solo fármacos con recomendación. CADA UNO EN UNA LINEA. Formato: Fármaco - Recomendación.
-                    3. PARTE 2 (DETALLE): Empieza exactamente con: 'A continuación, se detallan los ajustes de dosis para cada fármaco con este valor de FG:'.
-                    4. Prohibido omitir fármacos de la lista."""
-                    
-                    resultado = llamar_ia_en_cascada(prompt).replace('"""', '"')
-                    
-                    # Lógica de Color Dinámica
-                    r_up = resultado.upper()
-                    if "CONTRAINDICADO" in r_up: color_class = "st-red"
-                    elif any(x in r_up for x in ["AJUSTE", "PRECAUCIÓN", "REDUCIR", "DOSIS", "MODIFICAR"]): color_class = "st-orange"
-                    else: color_class = "st-green"
-                    
-                    # Estructuración de salida
-                    try:
-                        partes = resultado.split("A continuación")
-                        sintesis = partes[0].replace("PARTE 1:", "").strip()
-                        detalle = "A continuación" + partes[1] if len(partes) > 1 else resultado
-                        
-                        # 1. Cuadro de Síntesis
-                        st.markdown(f'<div class="synthesis-box {color_class}"><b>SÍNTESIS DE ADECUACIÓN:</b><br>{sintesis}</div>', unsafe_allow_html=True)
-                        
-                        # 2. Bloque Azul con Nota
-                        with st.container(border=True):
-                            st.info(detalle)
-                            st.markdown('<div class="nota-importante-line"></div>', unsafe_allow_html=True)
-                            st.markdown("""
-                            **Nota Importante:**
-                            · Estas son recomendaciones generales.
-                            · Siempre se debe consultar la ficha técnica actualizada del medicamento y las guías clínicas locales.
-                            · Además del FG, se deben considerar otros factores individuales del paciente, como el peso, la edad, otras comorbilidades, la medicación concomitante y la respuesta clínica, para tomar decisiones terapéuticas.
-                            · Es crucial realizar un seguimiento periódico de la función renal para detectar cualquier cambio que pueda requerir ajustes futuros.
-                            """)
-                    except:
-                        st.info(resultado)
-            else:
-                st.warning("Escriba medicamentos primero.")
-
-    with b_res:
-        if st.button("🗑️ RESET", use_container_width=True):
-            st.session_state.reset_all_counter += 1
-            st.session_state.meds_content = ""
-            st.rerun()
-
-st.markdown('<div class="warning-yellow">⚠️ Apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
+        res = r3.selectbox("¿Residencia?", ["
