@@ -1,4 +1,4 @@
-# v. 19 feb 20:45
+# v. 19 feb 20:50
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -81,13 +81,18 @@ def inject_ui_styles():
     .id-display { color: #666; font-family: monospace; font-size: 0.85rem; margin-top: -10px; margin-bottom: 20px; }
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 20px; }
     
-    /* NUEVOS ESTILOS CUADRO SÍNTESIS */
-    .synthesis-box { padding: 20px; border-radius: 12px; margin-bottom: 20px; text-align: left; line-height: 1.6; }
-    .st-green { background-color: #f1f8e9; color: #2e7d32; border: 1.5px solid #a5d6a7; box-shadow: 0 4px 12px rgba(46, 125, 50, 0.15); }
-    .st-orange { background-color: #fff3e0; color: #e65100; border: 1.5px solid #ffcc80; box-shadow: 0 4px 12px rgba(230, 81, 0, 0.15); }
-    .st-red { background-color: #ffebee; color: #c62828; border: 1.5px solid #ef9a9a; box-shadow: 0 4px 12px rgba(198, 40, 40, 0.15); }
+    /* CUADROS SÍNTESIS CON JERARQUÍA DE COLOR Y GLOW SUAVE */
+    .synthesis-box { padding: 20px; border-radius: 12px; margin-bottom: 20px; text-align: left; line-height: 1.8; font-size: 1rem; }
+    .st-green { background-color: #f1f8e9; color: #2e7d32; border: 1.2px solid #a5d6a7; box-shadow: 0 2px 10px rgba(46, 125, 50, 0.1); }
+    .st-orange { background-color: #fff3e0; color: #e65100; border: 1.2px solid #ffcc80; box-shadow: 0 2px 10px rgba(230, 81, 0, 0.1); }
+    .st-red-light { background-color: #fdf2f2; color: #c53030; border: 1.2px solid #feb2b2; box-shadow: 0 2px 10px rgba(197, 48, 48, 0.1); }
+    .st-red-strong { background-color: #fff5f5; color: #9b2c2c; border: 1.5px solid #fc8181; box-shadow: 0 4px 15px rgba(155, 44, 44, 0.2); font-weight: 600; }
 
-    .nota-importante-line { border-top: 1px solid #bdd7ee; margin-top: 20px; padding-top: 15px; font-size: 0.95rem; color: #444; }
+    /* CONTENEDOR AZUL INTEGRAL */
+    .blue-detail-container { background-color: #f0f7ff; color: #2c5282; padding: 20px; border-radius: 10px; border: 1px solid #bee3f8; margin-top: 10px; }
+    .blue-detail-container p { margin-bottom: 10px; line-height: 1.5; }
+    .nota-line { border-top: 1px solid #aec6cf; margin-top: 15px; padding-top: 15px; font-weight: 500; }
+    
     .rgpd-box { background-color: #fff5f5; color: #c53030; padding: 10px; border-radius: 8px; border: 1px solid #feb2b2; font-size: 0.85rem; margin-bottom: 15px; text-align: center; }
     .warning-yellow { background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; font-weight: 500; }
     .stButton > button { height: 48px !important; border-radius: 8px !important; }
@@ -104,12 +109,12 @@ st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_
 st.markdown(f'<div class="model-badge">{st.session_state.get("active_model", "ESPERANDO...")}</div>', unsafe_allow_html=True)
 
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 19 feb 20:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 19 feb 20:50</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
 with tabs[0]:
-    # --- REGISTRO ---
+    # --- REGISTRO PACIENTE ---
     col_reg_tit, col_reg_clear = st.columns([0.85, 0.15])
     with col_reg_tit: st.markdown("### Registro de Paciente")
     with col_reg_clear:
@@ -129,7 +134,7 @@ with tabs[0]:
     id_final = f"{centro if centro else '---'}-{str(int(edad)) if edad else '00'}-{alfa if alfa else '---'}"
     st.markdown(f'<div class="id-display">ID Registro: {id_final}</div>', unsafe_allow_html=True)
 
-    # --- INTERFAZ DUAL ---
+    # --- CALCULADORA E INTERFAZ DUAL ---
     col_izq, col_der = st.columns(2, gap="large")
     with col_izq:
         st.markdown("#### 📋 Calculadora")
@@ -155,48 +160,44 @@ with tabs[0]:
     with b_val:
         if st.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True):
             if st.session_state.meds_content:
-                with st.spinner("Procesando validación..."):
+                with st.spinner("Analizando..."):
                     prompt = f"""Actúa como experto en farmacia clínica renal. Analiza estos fármacos para un FG de {valor_fg} mL/min: {st.session_state.meds_content}.
-                    NORMAS DE RESPUESTA:
-                    1. Identifica medicamentos con 'Ajuste de dosis/Precaución' o 'Contraindicado'.
-                    2. PARTE 1 (SINTESIS): Lista solo los afectados. Si es ajuste usa '⚠️', si es contraindicado usa '⛔'. Al final añade un comentario corto global: 'Ninguno afectado', 'Precaución', 'Ajustar dosis' o 'Contraindicado'.
-                    3. PARTE 2 (DETALLE): Empieza exactamente con 'A continuación, se detallan los ajustes de dosis para cada fármaco con este valor de FG:'.
-                    4. No uses saludos."""
+                    ESTRUCTURA OBLIGATORIA:
+                    1. PARTE 1 (SINTESIS): Lista solo los afectados. CADA UNO EN UNA LÍNEA.
+                       - Si es ajuste/precaución usa '⚠️'.
+                       - Si es contraindicado usa '⛔'.
+                       - Al final añade una línea con solo el comentario global: 'Ninguno afectado', 'Precaución', 'Ajustar dosis' o 'Contraindicado'.
+                    2. PARTE 2 (DETALLE): Empieza exactamente con: 'A continuación, se detallan los ajustes de dosis para cada fármaco con este valor de FG:'.
+                    3. Sin saludos ni despedidas."""
                     
                     resultado = llamar_ia_en_cascada(prompt)
-                    
-                    # Lógica de Color y Alerta
                     r_up = resultado.upper()
-                    if "⛔" in resultado or "CONTRAINDICADO" in r_up: 
-                        color_class, global_status = "st-red", "🔴 Alguna contraindicación"
-                    elif "⚠️" in resultado or any(x in r_up for x in ["AJUSTE", "REDUCIR", "PRECAUCIÓN"]): 
-                        color_class, global_status = "st-orange", "🟠 Alguno afectado sin contraindicaciones"
-                    else: 
-                        color_class, global_status = "st-green", "🟢 Ninguno afectado"
+                    
+                    # Determinación de Jerarquía de Color
+                    if "⛔" in resultado or "CONTRAINDICADO" in r_up: color_class = "st-red-strong"
+                    elif "REDUCIR DOSIS" in r_up: color_class = "st-red-light"
+                    elif "⚠️" in resultado or "PRECAUCIÓN" in r_up or "AJUSTAR" in r_up: color_class = "st-orange"
+                    else: color_class = "st-green"
 
                     try:
                         partes = resultado.split("A continuación")
-                        sintesis_texto = partes[0].strip()
-                        detalle_texto = "A continuación" + partes[1] if len(partes) > 1 else resultado
+                        sintesis = partes[0].replace("PARTE 1 (SINTESIS):", "").strip()
+                        cuerpo = "A continuación" + partes[1] if len(partes) > 1 else resultado
                         
-                        # 🔲 Cuadro resumen único
+                        # 🔲 Cuadro Síntesis
+                        st.markdown(f'<div class="synthesis-box {color_class}"><b>RESUMEN DE AFECTACIÓN:</b><br>{sintesis.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
+                        
+                        # 🟦 Contenedor Azul Integral
                         st.markdown(f"""
-                        <div class="synthesis-box {color_class}">
-                            <b>RESUMEN DE AFECTACIÓN:</b><br>
-                            {sintesis_texto}<br>
+                        <div class="blue-detail-container">
+                            {cuerpo.replace("\n", "<br>")}
+                            <div class="nota-line"><b>Nota Importante:</b></div>
+                            · Estas son recomendaciones generales.<br>
+                            · Siempre se debe consultar la ficha técnica actualizada del medicamento y las guías clínicas locales.<br>
+                            · Además del FG, se deben considerar otros factores individuales del paciente, como el peso, la edad, otras comorbilidades, la medicación concomitante y la respuesta clínica, para tomar decisiones terapéuticas.<br>
+                            · Es crucial realizar un seguimiento periódico de la función renal para detectar cualquier cambio que pueda requerir ajustes futuros.
                         </div>
                         """, unsafe_allow_html=True)
-                        
-                        # Bloque Científico y Nota
-                        with st.container(border=True):
-                            st.info(detalle_texto)
-                            st.markdown('<div class="nota-importante-line"></div>', unsafe_allow_html=True)
-                            st.markdown("""
-                            **Nota Importante:** · Estas son recomendaciones generales. 
-                            · Siempre se debe consultar la ficha técnica actualizada del medicamento y las guías clínicas locales.
-                            · Además del FG, se deben considerar otros factores individuales del paciente, como el peso, la edad, otras comorbilidades, la medicación concomitante y la respuesta clínica, para tomar decisiones terapéuticas.
-                            · Es crucial realizar un seguimiento periódico de la función renal para detectar cualquier cambio que pueda requerir ajustes futuros.
-                            """)
                     except:
                         st.info(resultado)
             else:
