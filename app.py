@@ -1,37 +1,33 @@
-# v. 19 feb 21:40
+# v. 19 feb 21:45
 import streamlit as st
 import pandas as pd
 from datetime import datetime
 from PIL import Image
 import google.generativeai as genai
 import io
-from streamlit_paste_button import paste_image_button
 
 # =================================================================
 # 🛡️ SECCIÓN DE BLINDAJE (PROHIBIDO MODIFICAR SIN PERMISO)
 # =================================================================
 # PRINCIPIOS FUNDAMENTALES (PPIO FUNDAMENTAL):
 # 1. NUNCA BORRAR NI MODIFICAR ESTA CLÁUSULA. 
-# 2. No mover ni cambiar ninguna línea de la estructura visual.
-# 3. Antes de cualquier evolución técnica, explicar: "QUÉ", "POR QUÉ" y "CÓMO".
-# 4. Esperar aprobación explícita ("adelante" o "procede") antes de ejecutar cambios.
-# 5. NOMBRE SIEMPRE: "ASISTENTE RENAL" con la versión/fecha debajo.
+# 2. NOMBRE SIEMPRE: "ASISTENTE RENAL" con la versión/fecha debajo.
+# 3. Antes de cualquier evolución técnica, explicar: "QUÉ", "POR QUÉ" y "CÓMO" y esperar aprobación ("adelante").
 # 
-# I. ESTRUCTURA VISUAL PROTEGIDA (ZONAS PERMANENTEMENTE BLINDADAS):
+# I. ESTRUCTURA VISUAL PROTEGIDA:
 #    - Cuadros negros superiores (ZONA y ACTIVO/CONECTADO).
-#    - Título principal, pestañas (Tabs) y visualización de versión.
 #    - Registro de paciente: TODO EN UNA LÍNEA (Centro, Edad, ID Alfa, Res, Fecha).
 #    - Interfaz Dual: Estructura de Calculadora y caja de FG (Purple Glow).
 #    - Lógica Cockcroft-Gault y etiqueta "Fórmula: Cockcroft-Gault".
-#    - Zona de recortes: Uploader y botón de recorte (0.65/0.35).
 #    - Cuadro de medicamentos (TextArea) y aviso RGPD rojo.
-#    - Barra dual de validación: Botones "VALIDAR ADECUACIÓN" y "RESET".
-#    - Sombreado amarillo de aviso legal inferior.
+#    - Aviso amarillo de apoyo legal inferior.
 #
-# II. BLINDAJE BLOQUE AZUL Y SÍNTESIS:
-#    - Cuadro de Síntesis: Jerarquía de colores (Verde/Naranja/Rojo).
-#    - Clase 'blue-detail-container' intocable.
-#    - Nota Importante LITERAL (4 puntos con viñetas) al final del detalle.
+# II. BLINDAJE DEL BLOQUE AZUL (blue-detail-container):
+#    - Prohibición de Fragmentación: El detalle y la Nota Importante deben vivir en el mismo div CSS.
+#    - Estilo Fijo: Fondo (#f0f7ff), borde (#bee3f8) y esquinas redondeadas (10px).
+#    - Texto Estático: La Nota Importante (4 puntos) es intocable y no se puede parafrasear.
+#    - Disparador Obligatorio: "A continuación, se detallan los ajustes de dosis...".
+#    - Limpieza: Uso forzado de una idea por línea (etiquetas <br>).
 # =================================================================
 
 try:
@@ -49,7 +45,7 @@ def obtener_modelos_vivos():
     except:
         return ["2.5-flash", "1.5-pro"]
 
-def llamar_ia_en_cascada(prompt, imagen=None):
+def llamar_ia_en_cascada(prompt):
     disponibles = obtener_modelos_vivos()
     preferencia = ['2.5-flash', '1.5-pro', '1.5-flash']
     modelos_a_intentar = [m for m in preferencia if m in disponibles]
@@ -57,8 +53,7 @@ def llamar_ia_en_cascada(prompt, imagen=None):
         try:
             st.session_state.active_model = mod_name.upper()
             model = genai.GenerativeModel(f'models/gemini-{mod_name}')
-            contenido = [prompt, imagen] if imagen else [prompt]
-            response = model.generate_content(contenido)
+            response = model.generate_content(prompt)
             return response.text
         except: continue
     return "⚠️ Error: Sin respuesta."
@@ -77,12 +72,15 @@ def inject_ui_styles():
     .formula-tag { font-size: 0.75rem; color: #888; font-style: italic; text-align: right; width: 100%; display: block; margin-top: 5px; }
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
     .rgpd-box { background-color: #fff5f5; color: #c53030; padding: 10px; border-radius: 8px; border: 1px solid #feb2b2; font-size: 0.85rem; margin-bottom: 15px; text-align: center; }
-    .synthesis-box { padding: 20px; border-radius: 12px; margin-bottom: 20px; text-align: left; line-height: 1.8; }
+    
+    /* BLOQUE AZUL UNIFICADO */
+    .blue-detail-container { background-color: #f0f7ff; color: #2c5282; padding: 20px; border-radius: 10px; border: 1px solid #bee3f8; margin-top: 10px; line-height: 1.6; }
+    .nota-line { border-top: 1px solid #aec6cf; margin-top: 15px; padding-top: 15px; font-size: 0.9rem; }
+    
+    .synthesis-box { padding: 20px; border-radius: 12px; margin-bottom: 20px; text-align: left; }
     .st-green { background-color: #f1f8e9; color: #2e7d32; border: 1px solid #a5d6a7; }
     .st-orange { background-color: #fff3e0; color: #e65100; border: 1px solid #ffcc80; }
     .st-red { background-color: #fff5f5; color: #c53030; border: 1px solid #feb2b2; }
-    .blue-detail-container { background-color: #f0f7ff; color: #2c5282; padding: 20px; border-radius: 10px; border: 1px solid #bee3f8; margin-top: 10px; }
-    .nota-line { border-top: 1px solid #aec6cf; margin-top: 15px; padding-top: 15px; }
     .warning-yellow { background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; }
     </style>
     """, unsafe_allow_html=True)
@@ -94,13 +92,12 @@ inject_ui_styles()
 st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 19 feb 21:40</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 19 feb 21:45</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
 with tabs[0]:
     st.markdown("### Registro de Paciente")
-    # REGISTRO EN UNA SOLA LÍNEA (Restaurado)
     c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1])
     with c1: centro = st.text_input("Centro", placeholder="G/M")
     with c2: edad_reg = st.number_input("Edad", value=None, placeholder="0")
@@ -127,10 +124,6 @@ with tabs[0]:
         fg_m = st.text_input("Ajuste Manual")
         valor_fg = fg_m if fg_m else fg
         st.markdown(f'<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 1rem; color: #9d00ff;">mL/min</div></div>', unsafe_allow_html=True)
-        
-        c_up, c_btn = st.columns([0.65, 0.35])
-        with c_up: archivo = st.file_uploader("Subir", label_visibility="collapsed", type=['png', 'jpg', 'jpeg'])
-        with c_btn: paste_image_button(label="✂️ RECORTE")
 
     st.write(""); st.markdown("---")
     st.markdown("#### 📝 Listado de medicamentos")
@@ -141,16 +134,36 @@ with tabs[0]:
     with b_val:
         if st.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True):
             if st.session_state.meds_content:
-                with st.spinner("Validando..."):
-                    prompt = f"Experto en farmacia renal. Analiza fármacos para FG {valor_fg}: {st.session_state.meds_content}. Reglas: 1. Síntesis corta con iconos ⚠️/⛔ por línea. 2. Detalle azul empieza con 'A continuación...'."
+                with st.spinner("Consultando evidencia clínica..."):
+                    prompt = f"""Experto en farmacia renal. Analiza fármacos para FG {valor_fg}: {st.session_state.meds_content}.
+                    INSTRUCCIONES DE SALIDA:
+                    1. SÍNTESIS: Fármacos no adecuados con iconos ⚠️/⛔ (una idea por línea).
+                    2. DETALLE: Empieza EXACTAMENTE con 'A continuación, se detallan los ajustes de dosis para cada fármaco con este valor de FG:'.
+                    3. Limita el detalle técnico a lo esencial basado en evidencia clínica.
+                    """
                     resp = llamar_ia_en_cascada(prompt)
                     color = "st-red" if "⛔" in resp else ("st-orange" if "⚠️" in resp else "st-green")
-                    msg = "Contraindicados detectados" if "⛔" in resp else ("Precaución necesaria" if "⚠️" in resp else "Dosis adecuadas")
+                    msg = "Alerta: Contraindicaciones" if "⛔" in resp else ("Revisión necesaria" if "⚠️" in resp else "Dosis conformes")
+                    
                     try:
                         partes = resp.split("A continuación")
-                        sintesis = partes[0].strip(); detalle = "A continuación" + partes[1]
+                        sintesis = partes[0].strip()
+                        detalle_clinico = "A continuación" + partes[1]
+                        
                         st.markdown(f'<div class="synthesis-box {color}"><b>SÍNTESIS:</b><br>{sintesis.replace("\n", "<br>")}<br><br><b>{msg}</b></div>', unsafe_allow_html=True)
-                        st.markdown(f'<div class="blue-detail-container">{detalle.replace("\n", "<br>")}<div class="nota-line"><b>Nota Importante:</b> Consultar guías y contexto clínico.</div></div>', unsafe_allow_html=True)
+                        
+                        st.markdown(f"""
+                        <div class="blue-detail-container">
+                            {detalle_clinico.replace("\n", "<br>")}
+                            <div class="nota-line">
+                                <b>Nota Importante:</b><br>
+                                · Estas son recomendaciones generales.<br>
+                                · Siempre se debe consultar la ficha técnica actualizada del medicamento y las guías clínicas locales.<br>
+                                · Además del FG, se deben considerar otros factores individuales del paciente, como el peso, la edad, otras comorbilidades, la medicación concomitante y la respuesta clínica.<br>
+                                · Es crucial realizar un seguimiento periódico de la función renal para detectar cualquier cambio que pueda requerir ajustes futuros.
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
                     except: st.info(resp)
 
     with b_res:
