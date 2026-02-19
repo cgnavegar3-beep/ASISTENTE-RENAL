@@ -1,4 +1,4 @@
-# v. 19 feb 18:15
+# v. 19 feb 18:25
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -49,7 +49,7 @@ def llamar_ia_en_cascada(prompt, imagen=None):
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
 def inject_ui_styles():
-    # Inyectado como string único para evitar SyntaxError con comillas triples
+    # Inyectado con concatenación segura para evitar SyntaxError
     style = "<style>"
     style += ".block-container { max-width: 100% !important; padding-top: 2.5rem !important; padding-left: 4% !important; padding-right: 4% !important; }"
     style += ".availability-badge { background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.65rem; position: fixed; top: 15px; left: 15px; z-index: 1000000; border: 1px solid #333; width: 180px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }"
@@ -61,4 +61,75 @@ def inject_ui_styles():
     style += ".formula-tag { font-size: 0.75rem; color: #888; font-style: italic; }"
     style += ".fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 20px; }"
     style += ".rgpd-box { background-color: #fff5f5; color: #c53030; padding: 10px; border-radius: 8px; border: 1px solid #feb2b2; font-size: 0.85rem; margin-bottom: 15px; text-align: center; }"
-    style += ".warning-yellow { background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px;
+    style += ".warning-yellow { background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; font-weight: 500; }"
+    style += ".stFileUploader section { min-height: 48px !important; border-radius: 8px !important; }"
+    style += ".stButton > button { height: 48px !important; border-radius: 8px !important; }"
+    style += "</style>"
+    st.markdown(style, unsafe_allow_html=True)
+
+# --- 2. LÓGICA DE PROCESAMIENTO ---
+if 'meds_content' not in st.session_state: st.session_state.meds_content = ""
+if 'reset_reg_counter' not in st.session_state: st.session_state.reset_reg_counter = 0
+if 'reset_all_counter' not in st.session_state: st.session_state.reset_all_counter = 0
+if 'active_model' not in st.session_state: st.session_state.active_model = "ESPERANDO..."
+if 'last_proc_id' not in st.session_state: st.session_state.last_proc_id = None
+
+def es_seguro_rgpd(texto):
+    disparadores = ["DNI", "NIF", "NIE", "PASAPORTE", "NOMBRE:", "PACIENTE:", "FECHA NACIMIENTO"]
+    return not any(d in texto.upper() for d in disparadores)
+
+def analizar_y_volcar(imagen):
+    prompt = "Enumera exclusivamente los medicamentos y dosis que veas en esta imagen. No añadas nada más."
+    lectura = llamar_ia_en_cascada(prompt, imagen)
+    if not es_seguro_rgpd(lectura):
+        st.session_state.meds_content = "⚠️ BLOQUEO: Datos personales detectados."
+    else:
+        st.session_state.meds_content = lectura
+
+inject_ui_styles()
+vivos = obtener_modelos_vivos()
+st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(vivos) if vivos else "Buscando..."}</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
+
+st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 19 feb 18:25</div>', unsafe_allow_html=True)
+
+tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
+
+with tabs[0]:
+    # A) REGISTRO
+    col_reg_tit, col_reg_clear = st.columns([0.85, 0.15])
+    with col_reg_tit: st.markdown("### Registro de Paciente")
+    with col_reg_clear:
+        if st.button("🗑️ Limpiar Reg.", key="clr_reg"):
+            st.session_state.reset_reg_counter += 1
+            st.rerun()
+
+    c_reg1, c_reg2, c_reg3 = st.columns([1, 2, 1])
+    with c_reg1: 
+        centro = st.text_input("Centro", placeholder="G/M", key=f"c_{st.session_state.reset_reg_counter}")
+    with c_reg2:
+        r1, r2, r3 = st.columns(3)
+        edad = r1.number_input("Edad", value=None, placeholder="0", key=f"e_{st.session_state.reset_reg_counter}")
+        alfa = r2.text_input("ID Alfanumérico", placeholder="Escriba...", key=f"id_{st.session_state.reset_reg_counter}")
+        res = r3.selectbox("¿Residencia?", ["No", "Sí"], key=f"res_{st.session_state.reset_reg_counter}")
+    with c_reg3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
+
+    id_final = f"{centro if centro else '---'}-{str(int(edad)) if edad else '00'}-{alfa if alfa else '---'}"
+    st.markdown(f'<div class="id-display">ID Registro: {id_final}</div>', unsafe_allow_html=True)
+
+    # B) CALCULADORA E INTERFAZ DUAL
+    col_izq, col_der = st.columns(2, gap="large")
+    with col_izq:
+        st.markdown("#### 📋 Calculadora")
+        with st.container(border=True):
+            calc_e = st.number_input("Edad (años)", value=edad if edad else 65, key=f"ce_{st.session_state.reset_all_counter}")
+            calc_p = st.number_input("Peso (kg)", value=70.0, key=f"cp_{st.session_state.reset_all_counter}")
+            calc_c = st.number_input("Creatinina (mg/dL)", value=1.0, key=f"cc_{st.session_state.reset_all_counter}")
+            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], key=f"cs_{st.session_state.reset_all_counter}")
+            fg = round(((140 - calc_e) * calc_p) / (72 * calc_c) * (0.85 if calc_s == "Mujer" else 1.0), 1)
+            st.markdown('<div class="formula-container"><span class="formula-tag">Fórmula: Cockcroft-Gault</span></div>', unsafe_allow_html=True)
+
+    with col_der:
+        st.markdown("#### 💊 Filtrado Glomerular")
+        fg_m = st.text_input("Ajuste Manual", placeholder="Valor...", key=f"fgm_{st.session_state.reset_all_counter}")
