@@ -1,4 +1,4 @@
-# v. 19 feb 18:25
+# v. 19 feb 18:55
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -9,6 +9,19 @@ from streamlit_paste_button import paste_image_button
 
 # =================================================================
 # 🛡️ SECCIÓN DE BLINDAJE (PROHIBIDO MODIFICAR SIN PERMISO)
+# I. ESTRUCTURA VISUAL:
+#    1. Cuadros negros (ZONA y ACTIVO).
+#    2. Título principal y pestañas (Tabs).
+#    3. Registro de paciente: estructura y función.
+#    4. Interfaz Dual (Calculadora y FG): lógica Cockcroft-Gault.
+#    5. Zona de recortes (Uploader + Botón 0.65/0.35).
+#    6. Cuadro de listado de medicamentos (TextArea).
+#    7. Barra dual de botones (VALIDAR / RESET).
+#    8. Aviso amarillo inferior.
+# II. FUNCIONALIDADES CRÍTICAS:
+#    1. Cascada de Modelos (2.5 Flash > 1.5 Pro > Otros).
+#    2. Detección dinámica de modelos vivos en la cuenta.
+#    3. Actualización de feedback neón en tiempo real (Badge ACTIVO).
 # =================================================================
 
 # --- 0. CONFIGURACIÓN DE IA (SECRETS) ---
@@ -45,26 +58,36 @@ def llamar_ia_en_cascada(prompt, imagen=None):
             continue
     return "⚠️ Error: Sin respuesta de modelos."
 
-# --- 1. CONFIGURACIÓN Y ESTILOS (BLINDADO - CORRECCIÓN DE SINTAXIS) ---
+# --- 1. CONFIGURACIÓN Y ESTILOS (BLINDADO) ---
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
 def inject_ui_styles():
-    # Inyectado con concatenación segura para evitar SyntaxError
-    style = "<style>"
-    style += ".block-container { max-width: 100% !important; padding-top: 2.5rem !important; padding-left: 4% !important; padding-right: 4% !important; }"
-    style += ".availability-badge { background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.65rem; position: fixed; top: 15px; left: 15px; z-index: 1000000; border: 1px solid #333; width: 180px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }"
-    style += ".model-badge { background-color: #000000 !important; color: #00FF00 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.75rem; position: fixed; top: 15px; left: 205px; z-index: 1000000; box-shadow: 0 0 5px #00FF0033; }"
-    style += ".main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-top: 0px; margin-bottom: 0px; }"
-    style += ".version-display { text-align: center; font-size: 0.6rem; color: #bbb; font-family: monospace; margin-bottom: 15px; }"
-    style += ".id-display { color: #666; font-family: monospace; font-size: 0.85rem; margin-top: -10px; margin-bottom: 20px; }"
-    style += ".formula-container { display: flex; justify-content: flex-end; width: 100%; margin-top: 5px; }"
-    style += ".formula-tag { font-size: 0.75rem; color: #888; font-style: italic; }"
-    style += ".fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 20px; }"
-    style += ".rgpd-box { background-color: #fff5f5; color: #c53030; padding: 10px; border-radius: 8px; border: 1px solid #feb2b2; font-size: 0.85rem; margin-bottom: 15px; text-align: center; }"
-    style += ".warning-yellow { background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; font-weight: 500; }"
-    style += ".stFileUploader section { min-height: 48px !important; border-radius: 8px !important; }"
-    style += ".stButton > button { height: 48px !important; border-radius: 8px !important; }"
-    style += "</style>"
+    style = """
+    <style>
+    .block-container { max-width: 100% !important; padding-top: 2.5rem !important; padding-left: 4% !important; padding-right: 4% !important; }
+    .availability-badge { 
+        background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; 
+        border-radius: 3px; font-family: monospace !important; font-size: 0.65rem; 
+        position: fixed; top: 15px; left: 15px; z-index: 1000000; border: 1px solid #333;
+        width: 180px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    }
+    .model-badge { 
+        background-color: #000000 !important; color: #00FF00 !important; padding: 4px 10px; 
+        border-radius: 3px; font-family: monospace !important; font-size: 0.75rem; 
+        position: fixed; top: 15px; left: 205px; z-index: 1000000; box-shadow: 0 0 5px #00FF0033;
+    }
+    .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-top: 0px; margin-bottom: 0px; }
+    .version-display { text-align: center; font-size: 0.6rem; color: #bbb; font-family: monospace; margin-bottom: 15px; }
+    .id-display { color: #666; font-family: monospace; font-size: 0.85rem; margin-top: -10px; margin-bottom: 20px; }
+    .formula-container { display: flex; justify-content: flex-end; width: 100%; margin-top: 5px; }
+    .formula-tag { font-size: 0.75rem; color: #888; font-style: italic; }
+    .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 20px; }
+    .rgpd-box { background-color: #fff5f5; color: #c53030; padding: 10px; border-radius: 8px; border: 1px solid #feb2b2; font-size: 0.85rem; margin-bottom: 15px; text-align: center; }
+    .warning-yellow { background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; font-weight: 500; }
+    .stFileUploader section { min-height: 48px !important; border-radius: 8px !important; }
+    .stButton > button { height: 48px !important; border-radius: 8px !important; }
+    </style>
+    """
     st.markdown(style, unsafe_allow_html=True)
 
 # --- 2. LÓGICA DE PROCESAMIENTO ---
@@ -92,7 +115,7 @@ st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(vivos) if vivos 
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
 
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 19 feb 18:25</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 19 feb 18:55</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -133,3 +156,53 @@ with tabs[0]:
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
         fg_m = st.text_input("Ajuste Manual", placeholder="Valor...", key=f"fgm_{st.session_state.reset_all_counter}")
+        valor_fg = fg_m if fg_m else fg
+        st.markdown(f'<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 1rem; color: #9d00ff;">mL/min</div></div>', unsafe_allow_html=True)
+        
+        c_up, c_btn = st.columns([0.65, 0.35])
+        with c_up:
+            archivo = st.file_uploader("Subir", label_visibility="collapsed", key=f"up_{st.session_state.reset_all_counter}", type=['png', 'jpg', 'jpeg'])
+            if archivo and st.session_state.last_proc_id != archivo.name:
+                analizar_y_volcar(Image.open(archivo))
+                st.session_state.last_proc_id = archivo.name
+                st.rerun()
+        with c_btn:
+            pasted = paste_image_button(label="✂️ RECORTE", key=f"p_btn_{st.session_state.reset_all_counter}")
+            if pasted.image_data is not None:
+                try:
+                    img_bytes = pasted.image_data if isinstance(pasted.image_data, bytes) else pasted.image_data.getvalue()
+                    p_id = hash(img_bytes)
+                    if st.session_state.last_proc_id != p_id:
+                        analizar_y_volcar(Image.open(io.BytesIO(img_bytes)))
+                        st.session_state.last_proc_id = p_id
+                        st.rerun()
+                except Exception as e:
+                    st.toast(f"⚠️ Error: {str(e)}")
+
+    st.write("")
+    st.markdown("---")
+
+    # C) MEDICAMENTOS
+    st.markdown("#### 📝 Listado de medicamentos")
+    st.markdown('<div class="rgpd-box"><b>Protección de Datos:</b> No procese datos personales identificables.</div>', unsafe_allow_html=True)
+    
+    st.session_state.meds_content = st.text_area("Listado", value=st.session_state.meds_content, height=180, label_visibility="collapsed", key=f"txt_{st.session_state.reset_all_counter}")
+
+    # D) BOTONERA
+    b_val, b_res = st.columns([0.85, 0.15])
+    with b_val:
+        if st.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True):
+            if st.session_state.meds_content:
+                with st.spinner("Validando..."):
+                    res = llamar_ia_en_cascada(f"Ajuste renal con FG {valor_fg} mL/min para: {st.session_state.meds_content}")
+                    st.info(res)
+            else:
+                st.warning("Escriba o pegue medicamentos primero.")
+    with b_res:
+        if st.button("🗑️ RESET", use_container_width=True):
+            st.session_state.reset_all_counter += 1
+            st.session_state.meds_content = ""
+            st.session_state.last_proc_id = None
+            st.rerun()
+
+st.markdown('<div class="warning-yellow">⚠️ Apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
