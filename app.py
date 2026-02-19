@@ -1,4 +1,4 @@
-# v. 19 feb 21:00
+# v. 19 feb 21:00 (Restaurado y Blindado)
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -61,17 +61,20 @@ def inject_ui_styles():
     st.markdown("""
     <style>
     .block-container { max-width: 100% !important; padding-top: 2.5rem !important; padding-left: 4% !important; padding-right: 4% !important; }
+    
+    /* CUADROS NEGROS SUPERIORES (ZONA / ACTIVO) */
     .availability-badge { background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace; font-size: 0.65rem; position: fixed; top: 15px; left: 15px; z-index: 1000; border: 1px solid #333; }
-    .model-badge { background-color: #000; color: #0f0; padding: 4px 10px; border-radius: 3px; font-family: monospace; font-size: 0.75rem; position: fixed; top: 15px; left: 205px; z-index: 1000; box-shadow: 0 0 5px #0f03; }
+    .model-badge { background-color: #000 !important; color: #0f0 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace; font-size: 0.75rem; position: fixed; top: 15px; left: 205px; z-index: 1000; box-shadow: 0 0 5px #0f03; border: 1px solid #333; }
+    
     .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; }
     .version-display { text-align: center; font-size: 0.6rem; color: #bbb; margin-bottom: 15px; }
     .fg-glow-box { background-color: #000; color: #fff; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 20px; }
     
     /* SÍNTESIS CON GLOW SUAVE */
     .synthesis-box { padding: 20px; border-radius: 12px; margin-bottom: 20px; text-align: left; line-height: 1.8; }
-    .st-green { background-color: #f1f8e9; color: #2e7d32; border: 1px solid #a5d6a7; box-shadow: 0 2px 8px #2e7d3222; }
-    .st-orange { background-color: #fff3e0; color: #e65100; border: 1px solid #ffcc80; box-shadow: 0 2px 8px #e6510022; }
-    .st-red { background-color: #fff5f5; color: #c53030; border: 1px solid #feb2b2; box-shadow: 0 2px 10px #c5303033; }
+    .st-green { background-color: #f1f8e9; color: #2e7d32; border: 1px solid #a5d6a7; box-shadow: 0 0 10px #2e7d3233; }
+    .st-orange { background-color: #fff3e0; color: #e65100; border: 1px solid #ffcc80; box-shadow: 0 0 10px #e6510033; }
+    .st-red { background-color: #fff5f5; color: #c53030; border: 1px solid #feb2b2; box-shadow: 0 0 15px #c5303044; }
 
     /* DETALLE AZUL BLINDADO */
     .blue-detail-container { background-color: #f0f7ff; color: #2c5282; padding: 20px; border-radius: 10px; border: 1px solid #bee3f8; }
@@ -82,15 +85,18 @@ def inject_ui_styles():
     """, unsafe_allow_html=True)
 
 inject_ui_styles()
+
+# Renderizado de cuadros negros superiores
 st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.get("active_model", "ESPERANDO...")}</div>', unsafe_allow_html=True)
+
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
 st.markdown('<div class="version-display">v. 19 feb 21:00</div>', unsafe_allow_html=True)
 
-# --- ESTRUCTURA ---
+# --- ESTRUCTURA DE PESTAÑAS ---
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 with tabs[0]:
-    # REGISTRO (Protegido)
+    # REGISTRO
     c_reg1, c_reg2, c_reg3 = st.columns([1, 2, 1])
     with c_reg1: centro = st.text_input("Centro", placeholder="G/M")
     with c_reg2:
@@ -100,7 +106,7 @@ with tabs[0]:
         res = r3.selectbox("¿Residencia?", ["No", "Sí"])
     with c_reg3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
 
-    # CALCULADORA DUAL (Protegida)
+    # CALCULADORA DUAL
     col_izq, col_der = st.columns(2, gap="large")
     with col_izq:
         with st.container(border=True):
@@ -127,17 +133,20 @@ with tabs[0]:
                 
                 resp = llamar_ia_en_cascada(prompt)
                 
-                # Lógica de Color
+                # Lógica de Color de Alerta
                 if "⛔" in resp: color, msg = "st-red", "Presencia de fármacos contraindicados"
                 elif "⚠️" in resp: color, msg = "st-orange", "Revisar adecuación / Precaución"
                 else: color, msg = "st-green", "Fármacos correctamente dosificados"
 
                 try:
-                    sintesis = resp.split("A continuación")[0].strip()
-                    detalle = "A continuación" + resp.split("A continuación")[1]
+                    partes = resp.split("A continuación")
+                    sintesis = partes[0].strip()
+                    detalle = "A continuación" + partes[1] if len(partes) > 1 else resp
                     
+                    # Cuadro de Síntesis dinámico
                     st.markdown(f'<div class="synthesis-box {color}"><b>SÍNTESIS:</b><br>{sintesis.replace("\n", "<br>")}<br><br><b>{msg}</b></div>', unsafe_allow_html=True)
                     
+                    # Bloque Azul Detalle Científico
                     st.markdown(f"""
                     <div class="blue-detail-container">
                         {detalle.replace("\n", "<br>")}
