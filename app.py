@@ -1,4 +1,4 @@
-# v. 19 feb 21:30
+# v. 19 feb 21:40
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -20,7 +20,7 @@ from streamlit_paste_button import paste_image_button
 # I. ESTRUCTURA VISUAL PROTEGIDA (ZONAS PERMANENTEMENTE BLINDADAS):
 #    - Cuadros negros superiores (ZONA y ACTIVO/CONECTADO).
 #    - Título principal, pestañas (Tabs) y visualización de versión.
-#    - Registro de paciente: "### Registro de Paciente", ID dinámico y campos.
+#    - Registro de paciente: TODO EN UNA LÍNEA (Centro, Edad, ID Alfa, Res, Fecha).
 #    - Interfaz Dual: Estructura de Calculadora y caja de FG (Purple Glow).
 #    - Lógica Cockcroft-Gault y etiqueta "Fórmula: Cockcroft-Gault".
 #    - Zona de recortes: Uploader y botón de recorte (0.65/0.35).
@@ -34,7 +34,6 @@ from streamlit_paste_button import paste_image_button
 #    - Nota Importante LITERAL (4 puntos con viñetas) al final del detalle.
 # =================================================================
 
-# --- CONFIGURACIÓN DE IA ---
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=API_KEY)
@@ -64,46 +63,27 @@ def llamar_ia_en_cascada(prompt, imagen=None):
         except: continue
     return "⚠️ Error: Sin respuesta."
 
-# --- INTERFAZ Y ESTILOS ---
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
 def inject_ui_styles():
     st.markdown("""
     <style>
     .block-container { max-width: 100% !important; padding-top: 2.5rem !important; padding-left: 4% !important; padding-right: 4% !important; }
-    
-    /* CUADROS NEGROS SUPERIORES */
-    .availability-badge { 
-        background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; 
-        border-radius: 3px; font-family: monospace !important; font-size: 0.65rem; 
-        position: fixed; top: 15px; left: 15px; z-index: 1000000; border: 1px solid #333;
-        width: 180px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
-    }
-    .model-badge { 
-        background-color: #000000 !important; color: #00FF00 !important; padding: 4px 10px; 
-        border-radius: 3px; font-family: monospace !important; font-size: 0.75rem; 
-        position: fixed; top: 15px; left: 205px; z-index: 1000000; box-shadow: 0 0 5px #00FF0033;
-    }
-
+    .availability-badge { background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.65rem; position: fixed; top: 15px; left: 15px; z-index: 1000000; border: 1px solid #333; width: 180px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .model-badge { background-color: #000000 !important; color: #00FF00 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.75rem; position: fixed; top: 15px; left: 205px; z-index: 1000000; box-shadow: 0 0 5px #00FF0033; }
     .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-top: 0px; }
     .version-display { text-align: right; font-size: 0.6rem; color: #bbb; font-family: monospace; position: fixed; bottom: 10px; right: 10px; }
-    .id-display { color: #666; font-family: monospace; font-size: 0.85rem; margin-top: -10px; margin-bottom: 20px; }
+    .id-display { color: #666; font-family: monospace; font-size: 0.85rem; margin-top: -5px; margin-bottom: 20px; }
     .formula-tag { font-size: 0.75rem; color: #888; font-style: italic; text-align: right; width: 100%; display: block; margin-top: 5px; }
-    
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
     .rgpd-box { background-color: #fff5f5; color: #c53030; padding: 10px; border-radius: 8px; border: 1px solid #feb2b2; font-size: 0.85rem; margin-bottom: 15px; text-align: center; }
-
-    /* ESTILOS DE RESULTADOS */
     .synthesis-box { padding: 20px; border-radius: 12px; margin-bottom: 20px; text-align: left; line-height: 1.8; }
-    .st-green { background-color: #f1f8e9; color: #2e7d32; border: 1px solid #a5d6a7; box-shadow: 0 2px 8px #2e7d3222; }
-    .st-orange { background-color: #fff3e0; color: #e65100; border: 1px solid #ffcc80; box-shadow: 0 2px 8px #e6510022; }
-    .st-red { background-color: #fff5f5; color: #c53030; border: 1px solid #feb2b2; box-shadow: 0 2px 10px #c5303033; }
-
+    .st-green { background-color: #f1f8e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+    .st-orange { background-color: #fff3e0; color: #e65100; border: 1px solid #ffcc80; }
+    .st-red { background-color: #fff5f5; color: #c53030; border: 1px solid #feb2b2; }
     .blue-detail-container { background-color: #f0f7ff; color: #2c5282; padding: 20px; border-radius: 10px; border: 1px solid #bee3f8; margin-top: 10px; }
     .nota-line { border-top: 1px solid #aec6cf; margin-top: 15px; padding-top: 15px; }
-    
     .warning-yellow { background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; }
-    .stButton > button { height: 48px !important; border-radius: 8px !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -111,37 +91,31 @@ if 'active_model' not in st.session_state: st.session_state.active_model = "ESPE
 if 'meds_content' not in st.session_state: st.session_state.meds_content = ""
 
 inject_ui_styles()
-
-# Renderizado de Badges blindados
 st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
-
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 19 feb 21:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 19 feb 21:40</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
 with tabs[0]:
-    # A) REGISTRO DE PACIENTE
     st.markdown("### Registro de Paciente")
-    c_reg1, c_reg2, c_reg3 = st.columns([1, 2, 1])
-    with c_reg1: centro = st.text_input("Centro", placeholder="G/M")
-    with c_reg2:
-        r1, r2, r3 = st.columns(3)
-        edad = r1.number_input("Edad", value=None, placeholder="0")
-        alfa = st.text_input("ID Alfanumérico", placeholder="Escriba...")
-        res = r3.selectbox("¿Residencia?", ["No", "Sí"])
-    with c_reg3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
+    # REGISTRO EN UNA SOLA LÍNEA (Restaurado)
+    c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1])
+    with c1: centro = st.text_input("Centro", placeholder="G/M")
+    with c2: edad_reg = st.number_input("Edad", value=None, placeholder="0")
+    with c3: alfa = st.text_input("ID Alfanumérico", placeholder="ABC-123")
+    with c4: res = st.selectbox("¿Residencia?", ["No", "Sí"])
+    with c5: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
 
-    id_final = f"{centro if centro else '---'}-{str(int(edad)) if edad else '00'}-{alfa if alfa else '---'}"
+    id_final = f"{centro if centro else '---'}-{str(int(edad_reg)) if edad_reg else '00'}-{alfa if alfa else '---'}"
     st.markdown(f'<div class="id-display">ID Registro: {id_final}</div>', unsafe_allow_html=True)
 
-    # B) INTERFAZ DUAL (CALCULADORA + FG)
     col_izq, col_der = st.columns(2, gap="large")
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            calc_e = st.number_input("Edad (años)", value=edad if edad else 65)
+            calc_e = st.number_input("Edad (años)", value=edad_reg if edad_reg else 65)
             calc_p = st.number_input("Peso (kg)", value=70.0)
             calc_c = st.number_input("Creatinina (mg/dL)", value=1.0)
             calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"])
@@ -150,56 +124,37 @@ with tabs[0]:
 
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
-        fg_m = st.text_input("Ajuste Manual", placeholder="Valor...")
+        fg_m = st.text_input("Ajuste Manual")
         valor_fg = fg_m if fg_m else fg
         st.markdown(f'<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 1rem; color: #9d00ff;">mL/min</div></div>', unsafe_allow_html=True)
         
-        # Zona de Recortes
         c_up, c_btn = st.columns([0.65, 0.35])
-        with c_up:
-            archivo = st.file_uploader("Subir", label_visibility="collapsed", type=['png', 'jpg', 'jpeg'])
-        with c_btn:
-            pasted = paste_image_button(label="✂️ RECORTE")
+        with c_up: archivo = st.file_uploader("Subir", label_visibility="collapsed", type=['png', 'jpg', 'jpeg'])
+        with c_btn: paste_image_button(label="✂️ RECORTE")
 
-    st.write("")
-    st.markdown("---")
-
-    # C) MEDICAMENTOS
+    st.write(""); st.markdown("---")
     st.markdown("#### 📝 Listado de medicamentos")
     st.markdown('<div class="rgpd-box"><b>Protección de Datos:</b> No procese datos personales identificables.</div>', unsafe_allow_html=True)
     st.session_state.meds_content = st.text_area("Listado", value=st.session_state.meds_content, height=150, label_visibility="collapsed")
 
-    # D) BOTONERA Y LÓGICA DE VALIDACIÓN
     b_val, b_res = st.columns([0.85, 0.15])
     with b_val:
         if st.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True):
             if st.session_state.meds_content:
-                with st.spinner("Validando adecuación renal..."):
-                    prompt = f"""Experto en farmacia renal. Analiza estos fármacos para FG {valor_fg} mL/min: {st.session_state.meds_content}.
-                    REGLAS RÍGIDAS:
-                    1. PARTE SINTESIS: Solo fármacos que NO sean adecuados. CADA UNO EN UNA LÍNEA. Formato: [Icono ⚠️ o ⛔] [Nombre] - [Recomendación corta].
-                    2. PARTE DETALLE: Empieza con 'A continuación, se detallan los ajustes de dosis para cada fármaco con este valor de FG:'.
-                    3. Sin saludos ni explicaciones previas."""
-                    
+                with st.spinner("Validando..."):
+                    prompt = f"Experto en farmacia renal. Analiza fármacos para FG {valor_fg}: {st.session_state.meds_content}. Reglas: 1. Síntesis corta con iconos ⚠️/⛔ por línea. 2. Detalle azul empieza con 'A continuación...'."
                     resp = llamar_ia_en_cascada(prompt)
-                    
-                    # Jerarquía de Alerta
-                    if "⛔" in resp: color, msg = "st-red", "Presencia de fármacos contraindicados"
-                    elif "⚠️" in resp: color, msg = "st-orange", "Revisar adecuación / Precaución"
-                    else: color, msg = "st-green", "Fármacos correctamente dosificados"
-
+                    color = "st-red" if "⛔" in resp else ("st-orange" if "⚠️" in resp else "st-green")
+                    msg = "Contraindicados detectados" if "⛔" in resp else ("Precaución necesaria" if "⚠️" in resp else "Dosis adecuadas")
                     try:
                         partes = resp.split("A continuación")
-                        sintesis = partes[0].strip()
-                        detalle = "A continuación" + partes[1] if len(partes) > 1 else resp
-                        
+                        sintesis = partes[0].strip(); detalle = "A continuación" + partes[1]
                         st.markdown(f'<div class="synthesis-box {color}"><b>SÍNTESIS:</b><br>{sintesis.replace("\n", "<br>")}<br><br><b>{msg}</b></div>', unsafe_allow_html=True)
-                        st.markdown(f"""<div class="blue-detail-container">{detalle.replace("\n", "<br>")}<div class="nota-line"><b>Nota Importante:</b><br>· Recomendaciones generales basadas en guías.<br>· Consultar ficha técnica oficial.<br>· Valorar contexto clínico completo.<br>· Seguimiento periódico necesario.</div></div>""", unsafe_allow_html=True)
+                        st.markdown(f'<div class="blue-detail-container">{detalle.replace("\n", "<br>")}<div class="nota-line"><b>Nota Importante:</b> Consultar guías y contexto clínico.</div></div>', unsafe_allow_html=True)
                     except: st.info(resp)
 
     with b_res:
         if st.button("🗑️ RESET", use_container_width=True):
-            st.session_state.meds_content = ""
-            st.rerun()
+            st.session_state.meds_content = ""; st.rerun()
 
 st.markdown('<div class="warning-yellow">⚠️ Apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
