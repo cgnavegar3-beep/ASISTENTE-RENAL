@@ -1,4 +1,4 @@
-# v. 19 feb 18:05
+# v. 19 feb 18:15
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -9,19 +9,6 @@ from streamlit_paste_button import paste_image_button
 
 # =================================================================
 # 🛡️ SECCIÓN DE BLINDAJE (PROHIBIDO MODIFICAR SIN PERMISO)
-# I. ESTRUCTURA VISUAL:
-#    1. Cuadros negros (ZONA y ACTIVO).
-#    2. Título principal y pestañas (Tabs).
-#    3. Registro de paciente: estructura y función.
-#    4. Interfaz Dual (Calculadora y FG): lógica Cockcroft-Gault.
-#    5. Zona de recortes (Uploader + Botón 0.65/0.35).
-#    6. Cuadro de listado de medicamentos (TextArea).
-#    7. Barra dual de botones (VALIDAR / RESET).
-#    8. Aviso amarillo inferior.
-# II. FUNCIONALIDADES CRÍTICAS:
-#    1. Cascada de Modelos (2.5 Flash > 1.5 Pro > Otros).
-#    2. Detección dinámica de modelos vivos en la cuenta.
-#    3. Actualización de feedback neón en tiempo real (Badge ACTIVO).
 # =================================================================
 
 # --- 0. CONFIGURACIÓN DE IA (SECRETS) ---
@@ -58,27 +45,20 @@ def llamar_ia_en_cascada(prompt, imagen=None):
             continue
     return "⚠️ Error: Sin respuesta de modelos."
 
-# --- 1. CONFIGURACIÓN Y ESTILOS (BLINDADO) ---
+# --- 1. CONFIGURACIÓN Y ESTILOS (BLINDADO - CORRECCIÓN DE SINTAXIS) ---
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
 def inject_ui_styles():
-    style = """
-    <style>
-    .block-container { max-width: 100% !important; padding-top: 2.5rem !important; padding-left: 4% !important; padding-right: 4% !important; }
-    .availability-badge { 
-        background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; 
-        border-radius: 3px; font-family: monospace !important; font-size: 0.65rem; 
-        position: fixed; top: 15px; left: 15px; z-index: 1000000; border: 1px solid #333;
-        width: 180px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
-    }
-    .model-badge { 
-        background-color: #000000 !important; color: #00FF00 !important; padding: 4px 10px; 
-        border-radius: 3px; font-family: monospace !important; font-size: 0.75rem; 
-        position: fixed; top: 15px; left: 205px; z-index: 1000000; box-shadow: 0 0 5px #00FF0033;
-    }
-    .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-top: 0px; margin-bottom: 0px; }
-    .version-display { text-align: center; font-size: 0.6rem; color: #bbb; font-family: monospace; margin-bottom: 15px; }
-    .id-display { color: #666; font-family: monospace; font-size: 0.85rem; margin-top: -10px; margin-bottom: 20px; }
-    .formula-container { display: flex; justify-content: flex-end; width: 100%; margin-top: 5px; }
-    .formula-tag { font-size: 0.75rem; color: #888; font-style: italic; }
-    .fg-glow-box { background-color: #0000
+    # Inyectado como string único para evitar SyntaxError con comillas triples
+    style = "<style>"
+    style += ".block-container { max-width: 100% !important; padding-top: 2.5rem !important; padding-left: 4% !important; padding-right: 4% !important; }"
+    style += ".availability-badge { background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.65rem; position: fixed; top: 15px; left: 15px; z-index: 1000000; border: 1px solid #333; width: 180px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }"
+    style += ".model-badge { background-color: #000000 !important; color: #00FF00 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.75rem; position: fixed; top: 15px; left: 205px; z-index: 1000000; box-shadow: 0 0 5px #00FF0033; }"
+    style += ".main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-top: 0px; margin-bottom: 0px; }"
+    style += ".version-display { text-align: center; font-size: 0.6rem; color: #bbb; font-family: monospace; margin-bottom: 15px; }"
+    style += ".id-display { color: #666; font-family: monospace; font-size: 0.85rem; margin-top: -10px; margin-bottom: 20px; }"
+    style += ".formula-container { display: flex; justify-content: flex-end; width: 100%; margin-top: 5px; }"
+    style += ".formula-tag { font-size: 0.75rem; color: #888; font-style: italic; }"
+    style += ".fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 20px; }"
+    style += ".rgpd-box { background-color: #fff5f5; color: #c53030; padding: 10px; border-radius: 8px; border: 1px solid #feb2b2; font-size: 0.85rem; margin-bottom: 15px; text-align: center; }"
+    style += ".warning-yellow { background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px;
