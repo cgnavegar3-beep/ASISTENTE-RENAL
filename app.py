@@ -1,4 +1,4 @@
-# v. 20 feb 11:50
+# v. 20 feb 11:55
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -83,10 +83,8 @@ import io
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
-# 🛠️ INICIALIZACIÓN CRÍTICA DE ESTADO (Para evitar AttributeErrors)
+# Inicialización de estado para evitar errores de atributo
 if 'active_model' not in st.session_state: st.session_state.active_model = "ESPERANDO..."
-if 'meds_content' not in st.session_state: st.session_state.meds_content = ""
-if 'txt_meds' not in st.session_state: st.session_state.txt_meds = ""
 
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
@@ -143,8 +141,8 @@ inject_ui_styles()
 st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 20 feb 11:50</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 20 feb 11:50</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 20 feb 11:55</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 20 feb 11:55</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -159,7 +157,10 @@ with tabs[0]:
     with c_del:
         st.write("")
         if st.button("🗑️", help="Limpiar datos del paciente"):
-            st.session_state.reg_centro = ""; st.session_state.reg_edad = None; st.session_state.reg_id = ""; st.rerun()
+            # Limpieza segura para Streamlit
+            for k in ["reg_centro", "reg_edad", "reg_id", "reg_res"]:
+                if k in st.session_state: del st.session_state[k]
+            st.rerun()
 
     id_final = f"{centro if centro else '---'}-{str(int(edad_reg)) if edad_reg else '00'}-{alfa if alfa else '---'}"
     st.markdown(f'<div class="id-display">ID Registro: {id_final}</div>', unsafe_allow_html=True)
@@ -186,27 +187,12 @@ with tabs[0]:
     with m_col1: st.markdown("#### 📝 Listado de medicamentos")
     with m_col2: st.markdown('<div class="rgpd-inline">🛡️ <b>PROTECCIÓN DE DATOS:</b> No introduzca datos personales identificativos</div>', unsafe_allow_html=True)
     
-    st.session_state.txt_meds = st.text_area("Listado", value=st.session_state.txt_meds, height=150, label_visibility="collapsed")
+    txt_meds = st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds")
 
     b_val, b_res = st.columns([0.85, 0.15])
     with b_val:
         if st.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True):
-            if st.session_state.txt_meds:
+            if txt_meds:
                 with st.spinner("Consultando evidencia clínica..."):
-                    prompt = f"""Experto farmacia renal. Analiza FG {valor_fg}: {st.session_state.txt_meds}.
-                    INSTRUCCIONES RÍGIDAS: SÍNTESIS: SOLO "Medicamentos afectados:" o "Fármacos correctamente dosificados". Prohibido SÍNTESIS/DETALLE. Lista: [Icono] [Nombre] - [Frase corta]."""
-                    resp = llamar_ia_en_cascada(prompt)
-                    glow_class = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
-                    try:
-                        partes = resp.split("A continuación, se detallan los ajustes")
-                        sintesis = partes[0].strip()
-                        detalle_clinico = "A continuación, se detallan los ajustes" + partes[1]
-                        st.markdown(f'<div class="synthesis-box {glow_class}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
-                        st.markdown(f'<div class="blue-detail-container">{detalle_clinico.replace("\n", "<br>")}<div class="nota-line">Nota Importante:<br>· Estas son recomendaciones generales.<br>· Siempre se debe consultar la ficha técnica actualizada.<br>· Considerar peso, edad y comorbilidades.<br>· Seguimiento periódico de función renal.</div></div>', unsafe_allow_html=True)
-                    except: st.info(resp)
-
-    with b_res:
-        if st.button("🗑️ RESET", use_container_width=True):
-            st.session_state.txt_meds = ""; st.rerun()
-
-st.markdown('<div class="warning-yellow">⚠️ Apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
+                    prompt = f"""Experto farmacia renal. Analiza FG {valor_fg}: {txt_meds}.
+                    INSTRUCCIONES RÍGIDAS: SÍNTESIS: SOLO "Medicamentos afectados:" o "Fármacos correctamente dosificados". Prohibido SÍNTESIS/DETALLE. Lista: [Icono] [Nombre] - [Frase corta].
