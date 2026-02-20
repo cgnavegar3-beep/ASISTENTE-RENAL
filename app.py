@@ -1,4 +1,4 @@
-# v. 20 feb 11:15
+# v. 20 feb 11:35
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -7,34 +7,77 @@ import google.generativeai as genai
 import io
 
 # =================================================================
-# 🛡️ SECCIÓN DE BLINDAJE (PROHIBIDO MODIFICAR SIN PERMISO)
-# =================================================================
-# PRINCIPIOS FUNDAMENTALES (PPIO FUNDAMENTAL):
+# # PRINCIPIOS FUNDAMENTALES:
+# #
 # 1. NUNCA BORRAR NI MODIFICAR ESTA CLÁUSULA. 
-# 2. NOMBRE SIEMPRE: "ASISTENTE RENAL" con la versión/fecha debajo.
-# 3. Antes de cualquier evolución técnica, explicar: "QUÉ", "POR QUÉ" y "CÓMO" y esperar aprobación ("adelante").
-# 
+# #
+# 2. No puedes mover nada, ni cambiar ni una sola línea de la estructura 
+# #
+#    visual (RIGOR Y SERIEDAD). Cero modificaciones sin autorización.
+# #
+# 3. Antes de cualquier evolución técnica, explicar el "qué", "por qué" 
+# #
+#    y "cómo", y esperar aprobación ("adelante" o "procede").
+# #
+# #
 # I. ESTRUCTURA VISUAL PROTEGIDA:
-#    - Título "ASISTENTE RENAL" y Versión inmediatamente debajo (Blindado).
-#    - Cuadros negros superiores (ZONA y ACTIVO/CONECTADO).
-#    - Registro de paciente: TODO EN UNA LÍNEA (Centro, Edad, ID Alfa, Res, Fecha).
-#    - Interfaz Dual: Estructura de Calculadora y caja de FG (Purple Glow).
-#    - Layout Medicamentos: Título y Aviso RGPD (estilo ampliado) en la misma línea.
-#    - Cuadro de medicamentos (TextArea) y botones de validación/reset.
-#    - Aviso amarillo de apoyo legal inferior.
-#
-# II. BLINDAJE DEL BLOQUE AZUL (blue-detail-container):
+# #
+#    1. Cuadros negros superiores (ZONA y ACTIVO).
+# #
+#    2. Título "ASISTENTE RENAL" y Versión inmediatamente debajo (Blindado).
+# #
+#    2. Título principal y pestañas (Tabs).
+# #
+#    3. Registro de paciente y función: TODO EN UNA LÍNEA (Centro, Edad, ID Alfa, 
+# #
+#       Res, Fecha).
+# #
+#    4. Interfaz Dual (Calculadora y caja de FG (Purple Glow): lógica Cockcroft-Gault.
+# #
+#       -> REFUERZO: NO SE TOCA LA CALCULADORA, NO SE TOCA EL GLOW MORADO.
+# #
+#    5. Layout Medicamentos: Título y Aviso RGPD (estilo ampliado) en la misma línea.
+# #
+#    6. Cuadro de listado de medicamentos (TextArea).
+# #
+#    7. Barra dual de botones (VALIDAR / RESET).
+# #
+#    8. Aviso amarillo de apoyo legal inferior.
+# #
+# #
+# II. FUNCIONALIDADES CRÍTICAS PROTEGIDAS:
+# #
+#    1. Cascada de Modelos (2.5 Flash > 1.5 Pro > Otros).
+# #
+#    2. Detección dinámica de modelos vivos en la cuenta.
+# #
+#    3. Actualización de feedback neón en tiempo real (Badge ACTIVO).
+# #
+#   
+# #
+# III. BLINDAJE DEL BLOQUE AZUL (blue-detail-container):
+# #
 #    - Prohibición de Fragmentación: Detalle y Nota en el mismo div CSS.
+# #
 #    - Estilo Fijo: Fondo (#f0f7ff), borde (#bee3f8).
+# #
 #    - NOTA IMPORTANTE: Texto estático (4 puntos) en negrita y azul intenso (Blindado).
-#
+# #
+# #
 # III. BLINDAJE DE SÍNTESIS DINÁMICA (Glow System):
+# #
 #    - Formato Rígido: Solo se permite "Medicamentos afectados:" o "Fármacos correctamente dosificados".
+# #
 #    - Prohibición Textual: No pueden aparecer las palabras "SÍNTESIS", "DETALLE" o similares.
+# #
 #    - Regla de Iconos: [Icono] + [Nombre] + [Frase corta]. Prohibido texto adicional.
+# #
 #    - Lógica de Color (Glow): 
+# #
 #        * Sin iconos = Verde (glow-green).
+# #
 #        * Con ⚠️ = Naranja (glow-orange).
+# #
 #        * Con ⛔ = Rojo (glow-red).
 # =================================================================
 
@@ -83,7 +126,6 @@ def inject_ui_styles():
     .formula-tag { font-size: 0.75rem; color: #888; font-style: italic; text-align: right; width: 100%; display: block; margin-top: 5px; }
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
     
-    /* Cuadro RGPD Ampliado y Estético */
     .rgpd-inline { background-color: #fff5f5; color: #c53030; padding: 8px 16px; border-radius: 8px; border: 1.5px solid #feb2b2; font-size: 0.85rem; display: inline-block; float: right; box-shadow: 2px 2px 5px rgba(0,0,0,0.05); }
     
     .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; text-align: left; border-width: 2px; border-style: solid; font-size: 0.95rem; }
@@ -106,8 +148,8 @@ st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
 
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 20 feb 11:15</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 20 feb 11:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 20 feb 11:35</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 20 feb 11:35</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -165,15 +207,11 @@ with tabs[0]:
                     glow_class = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
                     
                     try:
-                        # Separación limpia basada en el disparador obligatorio
                         partes = resp.split("A continuación, se detallan los ajustes")
                         sintesis = partes[0].strip()
                         detalle_clinico = "A continuación, se detallan los ajustes" + partes[1]
                         
-                        # Cuadro 1: Formato Rígido
                         st.markdown(f'<div class="synthesis-box {glow_class}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
-                        
-                        # Cuadro 2: Bloque Azul
                         st.markdown(f"""
                         <div class="blue-detail-container">
                             {detalle_clinico.replace("\n", "<br>")}
