@@ -1,4 +1,4 @@
-# v. 20 feb 09:45
+# v. 20 feb 10:55
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -26,8 +26,14 @@ import io
 #    - Prohibición de Fragmentación: El detalle y la Nota Importante deben vivir en el mismo div CSS.
 #    - Estilo Fijo: Fondo (#f0f7ff), borde (#bee3f8) y esquinas redondeadas (10px).
 #    - Texto Estático: La Nota Importante (4 puntos) es intocable y no se puede parafrasear.
-#    - Disparador Obligatorio: "A continuación, se detallan los ajustes de dosis...".
-#    - Limpieza: Uso forzado de una idea por línea (etiquetas <br>).
+#
+# III. BLINDAJE DE SÍNTESIS DINÁMICA (Glow System):
+#    - Formato Rígido: Solo se permite "Medicamentos afectados:" o "Fármacos correctamente dosificados".
+#    - Regla de Iconos: [Icono] + [Nombre] + [Frase corta]. Prohibido texto adicional.
+#    - Lógica de Color (Glow): 
+#        * Sin iconos = Verde (glow-green).
+#        * Con ⚠️ = Naranja (glow-orange).
+#        * Con ⛔ = Rojo (glow-red).
 # =================================================================
 
 try:
@@ -73,11 +79,11 @@ def inject_ui_styles():
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
     .rgpd-box { background-color: #fff5f5; color: #c53030; padding: 10px; border-radius: 8px; border: 1px solid #feb2b2; font-size: 0.85rem; margin-bottom: 15px; text-align: center; }
     
-    /* CUADRO SÍNTESIS CON GLOW DINÁMICO */
-    .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; text-align: left; border-width: 2px; border-style: solid; }
-    .glow-green { background-color: #f1f8e9; color: #2e7d32; border-color: #a5d6a7; box-shadow: 0 0 10px #a5d6a7; }
-    .glow-orange { background-color: #fff3e0; color: #e65100; border-color: #ffcc80; box-shadow: 0 0 10px #ffcc80; }
-    .glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; box-shadow: 0 0 15px #feb2b2; }
+    /* CUADRO SÍNTESIS CON GLOW DINÁMICO BLINDADO */
+    .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; text-align: left; border-width: 2px; border-style: solid; font-size: 0.95rem; }
+    .glow-green { background-color: #f1f8e9; color: #2e7d32; border-color: #a5d6a7; box-shadow: 0 0 12px #a5d6a7; }
+    .glow-orange { background-color: #fff3e0; color: #e65100; border-color: #ffcc80; box-shadow: 0 0 12px #ffcc80; }
+    .glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; box-shadow: 0 0 18px #feb2b2; }
 
     /* BLOQUE AZUL UNIFICADO BLINDADO */
     .blue-detail-container { background-color: #f0f7ff; color: #2c5282; padding: 20px; border-radius: 10px; border: 1px solid #bee3f8; margin-top: 10px; line-height: 1.6; }
@@ -94,7 +100,7 @@ inject_ui_styles()
 st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 20 feb 09:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 20 feb 10:55</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -138,15 +144,16 @@ with tabs[0]:
             if st.session_state.meds_content:
                 with st.spinner("Consultando evidencia clínica..."):
                     prompt = f"""Experto en farmacia renal. Analiza fármacos para FG {valor_fg}: {st.session_state.meds_content}.
-                    INSTRUCCIONES DE SALIDA:
-                    1. SÍNTESIS: Si no hay fármacos afectados, escribe EXACTAMENTE "Fármacos correctamente dosificados".
-                       Si hay afectados, escribe primero "Medicamentos afectados:" y luego cada fármaco con su icono (⚠️ o ⛔) y frase corta.
-                    2. DETALLE: Empieza EXACTAMENTE con 'A continuación, se detallan los ajustes de dosis para cada fármaco con este valor de FG:'.
-                    3. Limita el detalle técnico a lo esencial."""
+                    INSTRUCCIONES DE SALIDA (SÍNTESIS):
+                    - Si todos son correctos: "Fármacos correctamente dosificados".
+                    - Si hay afectados: "Medicamentos afectados:" seguido de lista [Icono] [Nombre] - [Frase corta].
+                    INSTRUCCIONES DE SALIDA (DETALLE):
+                    - Empieza EXACTAMENTE con 'A continuación, se detallan los ajustes de dosis para cada fármaco con este valor de FG:'.
+                    """
                     
                     resp = llamar_ia_en_cascada(prompt)
                     
-                    # Determinar color de Glow
+                    # Lógica de Color Blindada
                     if "⛔" in resp: glow_class = "glow-red"
                     elif "⚠️" in resp: glow_class = "glow-orange"
                     else: glow_class = "glow-green"
@@ -156,10 +163,8 @@ with tabs[0]:
                         sintesis = partes[0].strip()
                         detalle_clinico = "A continuación" + partes[1]
                         
-                        # Cuadro 1: Síntesis (Glow Dinámico)
                         st.markdown(f'<div class="synthesis-box {glow_class}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
                         
-                        # Cuadro 2: Detalle (Bloque Azul Blindado)
                         st.markdown(f"""
                         <div class="blue-detail-container">
                             {detalle_clinico.replace("\n", "<br>")}
