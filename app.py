@@ -1,4 +1,4 @@
-# v. 20 feb 14:55
+# v. 20 feb 15:10
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -114,39 +114,41 @@ def inject_ui_styles():
     .nota-line { border-top: 2px solid #aec6cf; margin-top: 15px; padding-top: 15px; font-size: 0.95rem; font-weight: 700; color: #003366; }
     .warning-yellow { background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; }
     
-    /* REFORMULACIÓN CROMÁTICA EYE-CARE (PESTAÑA INFORME) */
-    .seccion-label-centrada { text-align: center; font-weight: 800; color: #5d5d4a; margin: 20px 0 10px 0; font-size: 1rem; letter-spacing: 1px; }
+    /* ESTILOS PESTAÑA INFORME - UNIFICACIÓN CROMÁTICA EYE-CARE */
+    .seccion-label-grande { text-align: center; font-weight: 900; color: #4a4a3a; margin: 30px 0 15px 0; font-size: 1.4rem; letter-spacing: 2px; text-transform: uppercase; }
     
-    .surco-soip-ojo { 
-        background: #f4f1ea; /* Tono papel hueso */
-        border-radius: 18px; 
-        margin-bottom: 10px; 
-        padding: 0px 15px; 
-        box-shadow: inset 4px 4px 8px #d9d5c7, inset -4px -4px 8px #ffffff; 
+    .surco-uniforme { 
+        background: #f4f1ea; 
+        border-radius: 20px; 
+        margin-bottom: 12px; 
+        padding: 2px 18px; 
+        box-shadow: inset 5px 5px 10px #d9d5c7, inset -5px -5px 10px #ffffff; 
     }
     
     .stTextInput input { 
         background-color: transparent !important; 
         border: none !important; 
-        height: 38px !important; 
-        color: #4a4a3a !important; 
-        font-size: 0.9rem !important; 
+        height: 42px !important; 
+        color: #2d2d24 !important; 
+        font-size: 1rem !important; 
     }
 
-    .contenedor-inter-ojo { 
-        background: #efece4; 
-        border-radius: 12px; 
-        padding: 12px; 
-        border: 1px solid #dcd8cc; 
+    .contenedor-informe-unificado { 
+        background: #f4f1ea; 
+        border-radius: 15px; 
+        padding: 20px; 
+        box-shadow: inset 4px 4px 8px #d9d5c7, inset -4px -4px 8px #ffffff;
+        border: none;
     }
     
     .stTextArea textarea {
-        background-color: #fbf9f4 !important;
-        border: 1px solid #e2dfd5 !important;
-        color: #4a4a3a !important;
+        background-color: #fcfaf5 !important;
+        border: 1px solid #dcd8cc !important;
+        color: #2d2d24 !important;
+        border-radius: 10px !important;
     }
 
-    .mini-titulo-ojo { font-size: 0.65rem; color: #8a8a7a; font-weight: bold; margin-bottom: 4px; }
+    .mini-titulo-informe { font-size: 0.75rem; color: #8a8a7a; font-weight: bold; margin-bottom: 6px; text-transform: uppercase; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -169,7 +171,7 @@ with tabs[0]:
     with c5: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
     with c_del:
         st.write("")
-        st.button("🗑️", help="Limpiar datos del paciente", on_click=reset_registro, key="btn_del_reg_1")
+        st.button("🗑️", help="Limpiar datos del paciente", on_click=reset_registro, key="btn_clear_reg")
 
     id_final = f"{centro if centro else '---'}-{str(int(edad_reg)) if edad_reg else '00'}-{alfa if alfa else '---'}"
     st.markdown(f'<div class="id-display">ID Registro: {id_final}</div>', unsafe_allow_html=True)
@@ -219,33 +221,33 @@ with tabs[0]:
                     except: st.info(resp)
 
     with b_res:
-        st.button("🗑️ RESET", use_container_width=True, on_click=reset_meds, key="btn_reset_meds_final")
+        st.button("🗑️ RESET", use_container_width=True, on_click=reset_meds, key="btn_reset_total")
 
 with tabs[1]:
-    # --- MÓDULO INFORME SOIP (BAJA LUMINANCIA) ---
-    st.markdown('<p class="seccion-label-centrada">NOTA SOIP</p>', unsafe_allow_html=True)
+    # --- MÓDULO INFORME SOIP (UNIFICADO Y GRANDE) ---
+    st.markdown('<p class="seccion-label-grande">NOTA SOIP</p>', unsafe_allow_html=True)
     
-    campos_soip = [("S", "S - Subjetivo"), ("O", "O - Objetivo"), ("I", "I - Interpretación"), ("P", "P - Plan")]
-    for letra, placeholder in campos_soip:
-        st.markdown(f'<div class="surco-soip-ojo">', unsafe_allow_html=True)
-        st.text_input(letra, placeholder=placeholder, label_visibility="collapsed", key=f"eye_soip_{letra}")
+    soip_fields = [("S", "S - Subjetivo"), ("O", "O - Objetivo"), ("I", "I - Interpretación"), ("P", "P - Plan")]
+    for l, p in soip_fields:
+        st.markdown(f'<div class="surco-uniforme">', unsafe_allow_html=True)
+        st.text_input(l, placeholder=p, label_visibility="collapsed", key=f"v_soip_{l}")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<div style="border-top: 1px solid #dcd8cc; margin: 25px 0;"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="border-top: 1px solid #dcd8cc; margin: 35px 0;"></div>', unsafe_allow_html=True)
 
-    # --- MÓDULO INTERCONSULTA (CREMA) ---
-    st.markdown('<p class="seccion-label-centrada">INTERCONSULTA</p>', unsafe_allow_html=True)
+    # --- MÓDULO INTERCONSULTA (UNIFICADO Y GRANDE) ---
+    st.markdown('<p class="seccion-label-grande">INTERCONSULTA</p>', unsafe_allow_html=True)
     
-    ic1, ic2 = st.columns(2)
-    with ic1:
-        st.markdown('<div class="contenedor-inter_ojo">', unsafe_allow_html=True)
-        st.markdown('<p class="mini-titulo-ojo">Motivo de la consulta</p>', unsafe_allow_html=True)
-        st.text_area("m1_eye", height=100, label_visibility="collapsed", key="ic_motivo_eye")
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.markdown('<div class="contenedor-informe-unificado">', unsafe_allow_html=True)
+        st.markdown('<p class="mini-titulo-informe">Motivo de la consulta</p>', unsafe_allow_html=True)
+        st.text_area("ma", height=120, label_visibility="collapsed", key="v_ic_motivo")
         st.markdown('</div>', unsafe_allow_html=True)
-    with ic2:
-        st.markdown('<div class="contenedor-inter_ojo">', unsafe_allow_html=True)
-        st.markdown('<p class="mini-titulo-ojo">Información complementaria</p>', unsafe_allow_html=True)
-        st.text_area("m2_eye", height=100, label_visibility="collapsed", key="ic_info_eye")
+    with col_b:
+        st.markdown('<div class="contenedor-informe-unificado">', unsafe_allow_html=True)
+        st.markdown('<p class="mini-titulo-informe">Información complementaria</p>', unsafe_allow_html=True)
+        st.text_area("mb", height=120, label_visibility="collapsed", key="v_ic_info")
         st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown('<div class="warning-yellow">⚠️ Apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
+st.markdown('<div class="warning-yellow">⚠️ Apoyo a la revisión farmacot
