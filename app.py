@@ -1,4 +1,4 @@
-# v. 20 feb 11:45
+# v. 20 feb 11:50
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -64,7 +64,7 @@ import io
 #    - NOTA IMPORTANTE: Texto estático (4 puntos) en negrita y azul intenso (Blindado).
 # #
 # #
-# III. BLINDAJE DE SÍNTESIS DINÁMICA (Glow System):
+# IV. BLINDAJE DE SÍNTESIS DINÁMICA (Glow System):
 # #
 #    - Formato Rígido: Solo se permite "Medicamentos afectados:" o "Fármacos correctamente dosificados".
 # #
@@ -80,6 +80,13 @@ import io
 # #
 #        * Con ⛔ = Rojo (glow-red).
 # =================================================================
+
+st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
+
+# 🛠️ INICIALIZACIÓN CRÍTICA DE ESTADO (Para evitar AttributeErrors)
+if 'active_model' not in st.session_state: st.session_state.active_model = "ESPERANDO..."
+if 'meds_content' not in st.session_state: st.session_state.meds_content = ""
+if 'txt_meds' not in st.session_state: st.session_state.txt_meds = ""
 
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
@@ -109,37 +116,25 @@ def llamar_ia_en_cascada(prompt):
         except: continue
     return "⚠️ Error: Sin respuesta."
 
-st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
-
-# Lógica de Reset
-if 'reset_trigger' not in st.session_state: st.session_state.reset_trigger = False
-if 'meds_content' not in st.session_state: st.session_state.meds_content = ""
-
 def inject_ui_styles():
     st.markdown("""
     <style>
     .block-container { max-width: 100% !important; padding-top: 2.5rem !important; padding-left: 4% !important; padding-right: 4% !important; }
     .availability-badge { background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.65rem; position: fixed; top: 15px; left: 15px; z-index: 1000000; border: 1px solid #333; width: 180px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .model-badge { background-color: #000000 !important; color: #00FF00 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.75rem; position: fixed; top: 15px; left: 205px; z-index: 1000000; box-shadow: 0 0 5px #00FF0033; }
-    
     .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; padding-bottom: 0px; }
     .sub-version { text-align: center; font-size: 0.8rem; color: #666; margin-top: -10px; margin-bottom: 20px; font-family: sans-serif; }
-    
     .version-display { text-align: right; font-size: 0.6rem; color: #bbb; font-family: monospace; position: fixed; bottom: 10px; right: 10px; }
     .id-display { color: #666; font-family: monospace; font-size: 0.85rem; margin-top: -5px; margin-bottom: 20px; }
     .formula-tag { font-size: 0.75rem; color: #888; font-style: italic; text-align: right; width: 100%; display: block; margin-top: 5px; }
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
-    
     .rgpd-inline { background-color: #fff5f5; color: #c53030; padding: 8px 16px; border-radius: 8px; border: 1.5px solid #feb2b2; font-size: 0.85rem; display: inline-block; float: right; box-shadow: 2px 2px 5px rgba(0,0,0,0.05); }
-    
     .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; text-align: left; border-width: 2px; border-style: solid; font-size: 0.95rem; }
     .glow-green { background-color: #f1f8e9; color: #2e7d32; border-color: #a5d6a7; box-shadow: 0 0 12px #a5d6a7; }
     .glow-orange { background-color: #fff3e0; color: #e65100; border-color: #ffcc80; box-shadow: 0 0 12px #ffcc80; }
     .glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; box-shadow: 0 0 18px #feb2b2; }
-
     .blue-detail-container { background-color: #f0f7ff; color: #2c5282; padding: 20px; border-radius: 10px; border: 1px solid #bee3f8; margin-top: 10px; line-height: 1.6; }
     .nota-line { border-top: 2px solid #aec6cf; margin-top: 15px; padding-top: 15px; font-size: 0.95rem; font-weight: 700; color: #003366; }
-    
     .warning-yellow { background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; }
     </style>
     """, unsafe_allow_html=True)
@@ -148,8 +143,8 @@ inject_ui_styles()
 st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 20 feb 11:45</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 20 feb 11:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 20 feb 11:50</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 20 feb 11:50</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -162,7 +157,7 @@ with tabs[0]:
     with c4: res = st.selectbox("¿Residencia?", ["No", "Sí"], key="reg_res")
     with c5: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
     with c_del:
-        st.write("") # Espaciador
+        st.write("")
         if st.button("🗑️", help="Limpiar datos del paciente"):
             st.session_state.reg_centro = ""; st.session_state.reg_edad = None; st.session_state.reg_id = ""; st.rerun()
 
@@ -187,12 +182,11 @@ with tabs[0]:
         st.markdown(f'<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 1rem; color: #9d00ff;">mL/min</div></div>', unsafe_allow_html=True)
 
     st.write(""); st.markdown("---")
-    
     m_col1, m_col2 = st.columns([0.5, 0.5])
     with m_col1: st.markdown("#### 📝 Listado de medicamentos")
     with m_col2: st.markdown('<div class="rgpd-inline">🛡️ <b>PROTECCIÓN DE DATOS:</b> No introduzca datos personales identificativos</div>', unsafe_allow_html=True)
     
-    st.session_state.meds_content = st.text_area("Listado", value=st.session_state.meds_content, height=150, label_visibility="collapsed", key="txt_meds")
+    st.session_state.txt_meds = st.text_area("Listado", value=st.session_state.txt_meds, height=150, label_visibility="collapsed")
 
     b_val, b_res = st.columns([0.85, 0.15])
     with b_val:
@@ -208,11 +202,11 @@ with tabs[0]:
                         sintesis = partes[0].strip()
                         detalle_clinico = "A continuación, se detallan los ajustes" + partes[1]
                         st.markdown(f'<div class="synthesis-box {glow_class}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
-                        st.markdown(f'<div class="blue-detail-container">{detalle_clinico.replace("\n", "<br>")}<div class="nota-line">Nota Importante:<br>· Estas son recomendaciones generales.<br>· Siempre se debe consultar la ficha técnica actualizada del medicamento.<br>· Se deben considerar otros factores (peso, edad, comorbilidades).<br>· Es crucial realizar un seguimiento periódico de la función renal.</div></div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="blue-detail-container">{detalle_clinico.replace("\n", "<br>")}<div class="nota-line">Nota Importante:<br>· Estas son recomendaciones generales.<br>· Siempre se debe consultar la ficha técnica actualizada.<br>· Considerar peso, edad y comorbilidades.<br>· Seguimiento periódico de función renal.</div></div>', unsafe_allow_html=True)
                     except: st.info(resp)
 
     with b_res:
-        if st.button("🗑️ RESET", use_container_width=True, help="Limpiar listado de fármacos"):
+        if st.button("🗑️ RESET", use_container_width=True):
             st.session_state.txt_meds = ""; st.rerun()
 
 st.markdown('<div class="warning-yellow">⚠️ Apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
