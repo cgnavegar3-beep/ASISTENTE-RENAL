@@ -1,4 +1,4 @@
-# v. 20 feb 19:45
+# v. 20 feb 21:05
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -13,7 +13,7 @@ import google.generativeai as genai
 #    y "cómo", y esperar aprobación ("adelante" o "procede").
 # #
 # I. ESTRUCTURA VISUAL PROTEGIDA:
-#    1. Cuadros negros superiores (ZONA y ACTIVO) -> ULTRA-DISCRETOS.
+#    1. Cuadros negros superiores (ZONA y ACTIVO).
 #    2. Título "ASISTENTE RENAL" y Versión inmediatamente debajo (Blindado).
 #    3. Título principal y pestañas (Tabs).
 #    4. Registro de paciente y función: TODO EN UNA LÍNEA (Centro, Edad, ID Alfa, 
@@ -52,10 +52,14 @@ import google.generativeai as genai
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
-# Inicialización de estados para automatización
-for key in ["auto_soip_s", "auto_soip_o", "auto_soip_i", "auto_soip_p", "auto_ic_motivo", "auto_ic_info"]:
-    if key not in st.session_state: st.session_state[key] = ""
-if 'active_model' not in st.session_state: st.session_state.active_model = "---"
+# Inicialización de estados
+claves_estado = [
+    "auto_soip_s", "auto_soip_o", "auto_soip_i", "auto_soip_p", 
+    "auto_ic_motivo", "auto_ic_info", "active_model", "main_meds"
+]
+for k in claves_estado:
+    if k not in st.session_state:
+        st.session_state[k] = "" if k != "active_model" else "---"
 
 def reset_registro():
     st.session_state["reg_centro"] = ""
@@ -67,7 +71,8 @@ def reset_meds():
     st.session_state["main_meds"] = ""
     for k in ["auto_soip_s", "auto_soip_o", "auto_soip_i", "auto_soip_p", "auto_ic_motivo", "auto_ic_info"]:
         st.session_state[k] = ""
-    if "last_resp" in st.session_state: del st.session_state.last_resp
+    if "last_resp" in st.session_state:
+        del st.session_state.last_resp
 
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
@@ -92,11 +97,13 @@ def llamar_ia_en_cascada(prompt):
             except: continue
     return "⚠️ Error: Sin respuesta."
 
-# CSS OPTIMIZADO: Badges discretos y mayor espacio de texto
-st.markdown('<style>'
-    '.block-container { max-width: 100% !important; padding-top: 1rem !important; }'
-    '.availability-badge { background: #000; color: #444; padding: 2px 6px; border-radius: 2px; font-family: monospace; font-size: 0.5rem; position: absolute; top: 5px; left: 10px; border: 1px solid #111; }'
-    '.model-badge { background: #000; color: #00CC00; padding: 2px 6px; border-radius: 2px; font-family: monospace; font-size: 0.5rem; position: absolute; top: 5px; left: 100px; border: 1px solid #111; }'
-    '.main-title { text-align: center; font-size: 2.2rem; font-weight: 800; color: #1E1E1E; margin-top: 15px; }'
-    '.sub-version { text-align: center; font-size: 0.75rem; color: #888; margin-top: -5px; margin-bottom: 20px; }'
-    '.fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding:
+# CSS OPTIMIZADO: Badges ultra-discretos y cuadros ampliados
+st.markdown('''
+<style>
+    .block-container { max-width: 100% !important; padding-top: 1rem !important; }
+    .availability-badge { background: #000; color: #444; padding: 2px 6px; border-radius: 2px; font-family: monospace; font-size: 0.5rem; position: absolute; top: 5px; left: 10px; border: 1px solid #111; z-index: 1000; }
+    .model-badge { background: #000; color: #00CC00; padding: 2px 6px; border-radius: 2px; font-family: monospace; font-size: 0.5rem; position: absolute; top: 5px; left: 105px; border: 1px solid #111; z-index: 1000; }
+    .main-title { text-align: center; font-size: 2.2rem; font-weight: 800; color: #1E1E1E; margin-top: 15px; }
+    .sub-version { text-align: center; font-size: 0.7rem; color: #888; margin-top: -5px; margin-bottom: 20px; }
+    .fg-glow-box { background: #000; color: #FFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
+    .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2px; border-style: solid; font-size: 0.95rem; }
