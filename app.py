@@ -1,4 +1,4 @@
-# v. 20 feb 19:30
+# v. 20 feb 19:45
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -13,7 +13,7 @@ import google.generativeai as genai
 #    y "cómo", y esperar aprobación ("adelante" o "procede").
 # #
 # I. ESTRUCTURA VISUAL PROTEGIDA:
-#    1. Cuadros negros superiores (ZONA y ACTIVO) -> Ahora ultra-discretos.
+#    1. Cuadros negros superiores (ZONA y ACTIVO) -> ULTRA-DISCRETOS.
 #    2. Título "ASISTENTE RENAL" y Versión inmediatamente debajo (Blindado).
 #    3. Título principal y pestañas (Tabs).
 #    4. Registro de paciente y función: TODO EN UNA LÍNEA (Centro, Edad, ID Alfa, 
@@ -52,13 +52,10 @@ import google.generativeai as genai
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
-# Inicialización de estados
-if "auto_soip_s" not in st.session_state: st.session_state.auto_soip_s = ""
-if "auto_soip_o" not in st.session_state: st.session_state.auto_soip_o = ""
-if "auto_soip_i" not in st.session_state: st.session_state.auto_soip_i = ""
-if "auto_soip_p" not in st.session_state: st.session_state.auto_soip_p = ""
-if "auto_ic_motivo" not in st.session_state: st.session_state.auto_ic_motivo = ""
-if "auto_ic_info" not in st.session_state: st.session_state.auto_ic_info = ""
+# Inicialización de estados para automatización
+for key in ["auto_soip_s", "auto_soip_o", "auto_soip_i", "auto_soip_p", "auto_ic_motivo", "auto_ic_info"]:
+    if key not in st.session_state: st.session_state[key] = ""
+if 'active_model' not in st.session_state: st.session_state.active_model = "---"
 
 def reset_registro():
     st.session_state["reg_centro"] = ""
@@ -98,22 +95,8 @@ def llamar_ia_en_cascada(prompt):
 # CSS OPTIMIZADO: Badges discretos y mayor espacio de texto
 st.markdown('<style>'
     '.block-container { max-width: 100% !important; padding-top: 1rem !important; }'
-    '.availability-badge { background: #000; color: #555; padding: 2px 8px; border-radius: 3px; font-family: monospace; font-size: 0.55rem; position: absolute; top: 5px; left: 10px; border: 1px solid #222; }'
-    '.model-badge { background: #000; color: #00FF00; padding: 2px 8px; border-radius: 3px; font-family: monospace; font-size: 0.55rem; position: absolute; top: 5px; left: 120px; border: 1px solid #222; }'
+    '.availability-badge { background: #000; color: #444; padding: 2px 6px; border-radius: 2px; font-family: monospace; font-size: 0.5rem; position: absolute; top: 5px; left: 10px; border: 1px solid #111; }'
+    '.model-badge { background: #000; color: #00CC00; padding: 2px 6px; border-radius: 2px; font-family: monospace; font-size: 0.5rem; position: absolute; top: 5px; left: 100px; border: 1px solid #111; }'
     '.main-title { text-align: center; font-size: 2.2rem; font-weight: 800; color: #1E1E1E; margin-top: 15px; }'
     '.sub-version { text-align: center; font-size: 0.75rem; color: #888; margin-top: -5px; margin-bottom: 20px; }'
-    '.fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }'
-    '.synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2px; border-style: solid; }'
-    '.glow-green { background-color: #f1f8e9; color: #2e7d32; border-color: #a5d6a7; }'
-    '.glow-orange { background-color: #fff3e0; color: #e65100; border-color: #ffcc80; }'
-    '.glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; }'
-    '.blue-detail-container { background-color: #f0f7ff; color: #2c5282; padding: 20px; border-radius: 10px; border: 1px solid #bee3f8; }'
-    '.seccion-label-grande { text-align: center; font-weight: 900; color: #4a4a3a; margin: 25px 0 10px 0; font-size: 1.2rem; text-transform: uppercase; }'
-    '.surco-uniforme { background: #f4f1ea; border-radius: 12px; margin-bottom: 8px; padding: 2px 15px; box-shadow: inset 2px 2px 5px #d9d5c7; }'
-    '.contenedor-informe-unificado { background: #f4f1ea; border-radius: 12px; padding: 15px; box-shadow: inset 2px 2px 5px #d9d5c7; }'
-    '.linea-discreta { font-size: 0.7rem; color: #8a8a7a; font-weight: bold; text-transform: uppercase; margin-bottom: 2px; }'
-    '.stTextArea textarea, .stTextInput input { background-color: transparent !important; border: none !important; color: #2d2d24 !important; font-size: 0.9rem !important; }'
-    '.warning-yellow { background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 30px; text-align: center; }'
-'</style>', unsafe_allow_html=True)
-
-st.markdown(f'<div class="availability
+    '.fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding:
