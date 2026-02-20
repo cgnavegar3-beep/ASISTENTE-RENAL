@@ -1,4 +1,4 @@
-# v. 20 feb 12:25
+# v. 20 feb 12:35
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -92,7 +92,6 @@ import io
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
-# 🛠️ FUNCIONES DE LIMPIEZA (CALLBACKS)
 def reset_registro():
     st.session_state["reg_centro"] = ""
     st.session_state["reg_edad"] = None
@@ -159,8 +158,8 @@ inject_ui_styles()
 st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 20 feb 12:25</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 20 feb 12:25</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 20 feb 12:35</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 20 feb 12:35</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -208,4 +207,23 @@ with tabs[0]:
         if st.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True):
             if txt_meds:
                 with st.spinner("Consultando evidencia clínica..."):
-                    prompt = f"Experto farmacia renal. Analiza FG {valor_fg}: {txt_meds}. \n INSTRUCCIONES RÍGIDAS DE FORMATO: \n 1. Encabezado SÍNTESIS: SOLO 'Medicamentos afectados:' o 'Fármacos correctamente dosificados'. \n 2. PROHIBIDO usar las palabras SÍNTESIS o DETALLE. \n 3. Lista: [Icono] [Nombre] -
+                    # Concatenación segura de strings para evitar SyntaxError
+                    p1 = f"Experto farmacia renal. Analiza FG {valor_fg}: {txt_meds}. \n"
+                    p2 = "INSTRUCCIONES RÍGIDAS DE FORMATO: \n 1. Encabezado SÍNTESIS: SOLO 'Medicamentos afectados:' o 'Fármacos correctamente dosificados'. \n"
+                    p3 = "2. PROHIBIDO usar las palabras SÍNTESIS o DETALLE. \n 3. Lista: [Icono] [Nombre] - [Frase corta]. \n"
+                    p4 = "4. Inicia el bloque técnico con: 'A continuación, se detallan los ajustes de dosis para cada fármaco con este valor de FG:'."
+                    prompt = p1 + p2 + p3 + p4
+                    resp = llamar_ia_en_cascada(prompt)
+                    glow_class = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
+                    try:
+                        partes = resp.split("A continuación, se detallan los ajustes")
+                        sintesis = partes[0].strip()
+                        detalle_clinico = "A continuación, se detallan los ajustes" + partes[1]
+                        st.markdown(f'<div class="synthesis-box {glow_class}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="blue-detail-container">{detalle_clinico.replace("\n", "<br>")}<div class="nota-line">Nota Importante:<br>· Estas son recomendaciones generales.<br>· Siempre se debe consultar la ficha técnica actualizada.<br>· Considerar peso, edad y comorbilidades.<br>· Seguimiento periódico de función renal.</div></div>', unsafe_allow_html=True)
+                    except: st.info(resp)
+
+    with b_res:
+        st.button("🗑️ RESET", use_container_width=True, on_click=reset_meds)
+
+st.markdown('<div class="warning-yellow">⚠️ Apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
