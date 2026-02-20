@@ -1,4 +1,4 @@
-# v. 20 feb 10:55
+# v. 20 feb 11:15
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -15,25 +15,22 @@ import io
 # 3. Antes de cualquier evolución técnica, explicar: "QUÉ", "POR QUÉ" y "CÓMO" y esperar aprobación ("adelante").
 # 
 # I. ESTRUCTURA VISUAL PROTEGIDA:
+#    - Título "ASISTENTE RENAL" y Versión inmediatamente debajo (Blindado).
 #    - Cuadros negros superiores (ZONA y ACTIVO/CONECTADO).
 #    - Registro de paciente: TODO EN UNA LÍNEA (Centro, Edad, ID Alfa, Res, Fecha).
 #    - Interfaz Dual: Estructura de Calculadora y caja de FG (Purple Glow).
-#    - Lógica Cockcroft-Gault y etiqueta "Fórmula: Cockcroft-Gault".
-#    - Cuadro de medicamentos (TextArea) y aviso RGPD rojo.
+#    - Layout Medicamentos: Título y Aviso RGPD discreto en la misma línea.
+#    - Cuadro de medicamentos (TextArea) y botones de validación/reset.
 #    - Aviso amarillo de apoyo legal inferior.
 #
 # II. BLINDAJE DEL BLOQUE AZUL (blue-detail-container):
-#    - Prohibición de Fragmentación: El detalle y la Nota Importante deben vivir en el mismo div CSS.
-#    - Estilo Fijo: Fondo (#f0f7ff), borde (#bee3f8) y esquinas redondeadas (10px).
-#    - Texto Estático: La Nota Importante (4 puntos) es intocable y no se puede parafrasear.
+#    - Prohibición de Fragmentación: Detalle y Nota en el mismo div CSS.
+#    - Estilo Fijo: Fondo (#f0f7ff), borde (#bee3f8).
+#    - NOTA IMPORTANTE: Texto estático (4 puntos) en negrita y azul intenso (Blindado).
 #
 # III. BLINDAJE DE SÍNTESIS DINÁMICA (Glow System):
-#    - Formato Rígido: Solo se permite "Medicamentos afectados:" o "Fármacos correctamente dosificados".
-#    - Regla de Iconos: [Icono] + [Nombre] + [Frase corta]. Prohibido texto adicional.
-#    - Lógica de Color (Glow): 
-#        * Sin iconos = Verde (glow-green).
-#        * Con ⚠️ = Naranja (glow-orange).
-#        * Con ⛔ = Rojo (glow-red).
+#    - Formato Rígido: "Medicamentos afectados:" o "Fármacos correctamente dosificados".
+#    - Lógica de Color (Glow): Verde (OK), Naranja (⚠️), Rojo (⛔).
 # =================================================================
 
 try:
@@ -72,22 +69,24 @@ def inject_ui_styles():
     .block-container { max-width: 100% !important; padding-top: 2.5rem !important; padding-left: 4% !important; padding-right: 4% !important; }
     .availability-badge { background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.65rem; position: fixed; top: 15px; left: 15px; z-index: 1000000; border: 1px solid #333; width: 180px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .model-badge { background-color: #000000 !important; color: #00FF00 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.75rem; position: fixed; top: 15px; left: 205px; z-index: 1000000; box-shadow: 0 0 5px #00FF0033; }
-    .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-top: 0px; }
+    
+    .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; padding-bottom: 0px; }
+    .sub-version { text-align: center; font-size: 0.8rem; color: #666; margin-top: -10px; margin-bottom: 20px; font-family: sans-serif; }
+    
     .version-display { text-align: right; font-size: 0.6rem; color: #bbb; font-family: monospace; position: fixed; bottom: 10px; right: 10px; }
     .id-display { color: #666; font-family: monospace; font-size: 0.85rem; margin-top: -5px; margin-bottom: 20px; }
     .formula-tag { font-size: 0.75rem; color: #888; font-style: italic; text-align: right; width: 100%; display: block; margin-top: 5px; }
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
-    .rgpd-box { background-color: #fff5f5; color: #c53030; padding: 10px; border-radius: 8px; border: 1px solid #feb2b2; font-size: 0.85rem; margin-bottom: 15px; text-align: center; }
     
-    /* CUADRO SÍNTESIS CON GLOW DINÁMICO BLINDADO */
+    .rgpd-inline { background-color: #fff5f5; color: #c53030; padding: 4px 12px; border-radius: 6px; border: 1px solid #feb2b2; font-size: 0.75rem; display: inline-block; float: right; }
+    
     .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; text-align: left; border-width: 2px; border-style: solid; font-size: 0.95rem; }
     .glow-green { background-color: #f1f8e9; color: #2e7d32; border-color: #a5d6a7; box-shadow: 0 0 12px #a5d6a7; }
     .glow-orange { background-color: #fff3e0; color: #e65100; border-color: #ffcc80; box-shadow: 0 0 12px #ffcc80; }
     .glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; box-shadow: 0 0 18px #feb2b2; }
 
-    /* BLOQUE AZUL UNIFICADO BLINDADO */
     .blue-detail-container { background-color: #f0f7ff; color: #2c5282; padding: 20px; border-radius: 10px; border: 1px solid #bee3f8; margin-top: 10px; line-height: 1.6; }
-    .nota-line { border-top: 1px solid #aec6cf; margin-top: 15px; padding-top: 15px; font-size: 0.9rem; }
+    .nota-line { border-top: 1px solid #aec6cf; margin-top: 15px; padding-top: 15px; font-size: 0.95rem; font-weight: 600; color: #1a365d; }
     
     .warning-yellow { background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; }
     </style>
@@ -99,8 +98,10 @@ if 'meds_content' not in st.session_state: st.session_state.meds_content = ""
 inject_ui_styles()
 st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
+
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 20 feb 10:55</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 20 feb 11:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 20 feb 11:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -134,8 +135,12 @@ with tabs[0]:
         st.markdown(f'<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 1rem; color: #9d00ff;">mL/min</div></div>', unsafe_allow_html=True)
 
     st.write(""); st.markdown("---")
-    st.markdown("#### 📝 Listado de medicamentos")
-    st.markdown('<div class="rgpd-box"><b>Protección de Datos:</b> No procese datos personales identificables.</div>', unsafe_allow_html=True)
+    
+    # Layout Medicamentos + RGPD Discreto
+    m_col1, m_col2 = st.columns([0.6, 0.4])
+    with m_col1: st.markdown("#### 📝 Listado de medicamentos")
+    with m_col2: st.markdown('<div class="rgpd-inline"><b>RGPD:</b> No use datos personales</div>', unsafe_allow_html=True)
+    
     st.session_state.meds_content = st.text_area("Listado", value=st.session_state.meds_content, height=150, label_visibility="collapsed")
 
     b_val, b_res = st.columns([0.85, 0.15])
@@ -143,20 +148,12 @@ with tabs[0]:
         if st.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True):
             if st.session_state.meds_content:
                 with st.spinner("Consultando evidencia clínica..."):
-                    prompt = f"""Experto en farmacia renal. Analiza fármacos para FG {valor_fg}: {st.session_state.meds_content}.
-                    INSTRUCCIONES DE SALIDA (SÍNTESIS):
-                    - Si todos son correctos: "Fármacos correctamente dosificados".
-                    - Si hay afectados: "Medicamentos afectados:" seguido de lista [Icono] [Nombre] - [Frase corta].
-                    INSTRUCCIONES DE SALIDA (DETALLE):
-                    - Empieza EXACTAMENTE con 'A continuación, se detallan los ajustes de dosis para cada fármaco con este valor de FG:'.
-                    """
+                    prompt = f"""Análisis farmacia renal FG {valor_fg}: {st.session_state.meds_content}.
+                    SÍNTESIS: Si OK: "Fármacos correctamente dosificados". Si afectados: "Medicamentos afectados:" y lista [Icono] [Nombre] - [Frase corta].
+                    DETALLE: Inicia con 'A continuación, se detallan los ajustes de dosis...'."""
                     
                     resp = llamar_ia_en_cascada(prompt)
-                    
-                    # Lógica de Color Blindada
-                    if "⛔" in resp: glow_class = "glow-red"
-                    elif "⚠️" in resp: glow_class = "glow-orange"
-                    else: glow_class = "glow-green"
+                    glow_class = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
                     
                     try:
                         partes = resp.split("A continuación")
@@ -164,12 +161,11 @@ with tabs[0]:
                         detalle_clinico = "A continuación" + partes[1]
                         
                         st.markdown(f'<div class="synthesis-box {glow_class}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
-                        
                         st.markdown(f"""
                         <div class="blue-detail-container">
                             {detalle_clinico.replace("\n", "<br>")}
                             <div class="nota-line">
-                                <b>Nota Importante:</b><br>
+                                Nota Importante:<br>
                                 · Estas son recomendaciones generales.<br>
                                 · Siempre se debe consultar la ficha técnica actualizada del medicamento y las guías clínicas locales.<br>
                                 · Además del FG, se deben considerar otros factores individuales del paciente, como el peso, la edad, otras comorbilidades, la medicación concomitante y la respuesta clínica.<br>
