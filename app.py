@@ -1,4 +1,4 @@
-# v. 20 feb 11:35
+# v. 20 feb 11:45
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -30,7 +30,7 @@ import io
 # #
 #    3. Registro de paciente y función: TODO EN UNA LÍNEA (Centro, Edad, ID Alfa, 
 # #
-#       Res, Fecha).
+#       Res, Fecha + Botón Borrado Registro).
 # #
 #    4. Interfaz Dual (Calculadora y caja de FG (Purple Glow): lógica Cockcroft-Gault.
 # #
@@ -40,7 +40,7 @@ import io
 # #
 #    6. Cuadro de listado de medicamentos (TextArea).
 # #
-#    7. Barra dual de botones (VALIDAR / RESET).
+#    7. Barra dual de botones (VALIDAR / RESET TOTAL) y Reset de Registro.
 # #
 #    8. Aviso amarillo de apoyo legal inferior.
 # #
@@ -111,6 +111,10 @@ def llamar_ia_en_cascada(prompt):
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
+# Lógica de Reset
+if 'reset_trigger' not in st.session_state: st.session_state.reset_trigger = False
+if 'meds_content' not in st.session_state: st.session_state.meds_content = ""
+
 def inject_ui_styles():
     st.markdown("""
     <style>
@@ -140,27 +144,27 @@ def inject_ui_styles():
     </style>
     """, unsafe_allow_html=True)
 
-if 'active_model' not in st.session_state: st.session_state.active_model = "ESPERANDO..."
-if 'meds_content' not in st.session_state: st.session_state.meds_content = ""
-
 inject_ui_styles()
 st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
-
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 20 feb 11:35</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 20 feb 11:35</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 20 feb 11:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 20 feb 11:45</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
 with tabs[0]:
     st.markdown("### Registro de Paciente")
-    c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1])
-    with c1: centro = st.text_input("Centro", placeholder="G/M")
-    with c2: edad_reg = st.number_input("Edad", value=None, placeholder="0")
-    with c3: alfa = st.text_input("ID Alfanumérico", placeholder="ABC-123")
-    with c4: res = st.selectbox("¿Residencia?", ["No", "Sí"])
+    c1, c2, c3, c4, c5, c_del = st.columns([1, 1, 1, 1, 1, 0.4])
+    with c1: centro = st.text_input("Centro", placeholder="G/M", key="reg_centro")
+    with c2: edad_reg = st.number_input("Edad", value=None, placeholder="0", key="reg_edad")
+    with c3: alfa = st.text_input("ID Alfanumérico", placeholder="ABC-123", key="reg_id")
+    with c4: res = st.selectbox("¿Residencia?", ["No", "Sí"], key="reg_res")
     with c5: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
+    with c_del:
+        st.write("") # Espaciador
+        if st.button("🗑️", help="Limpiar datos del paciente"):
+            st.session_state.reg_centro = ""; st.session_state.reg_edad = None; st.session_state.reg_id = ""; st.rerun()
 
     id_final = f"{centro if centro else '---'}-{str(int(edad_reg)) if edad_reg else '00'}-{alfa if alfa else '---'}"
     st.markdown(f'<div class="id-display">ID Registro: {id_final}</div>', unsafe_allow_html=True)
@@ -184,50 +188,31 @@ with tabs[0]:
 
     st.write(""); st.markdown("---")
     
-    # Layout Medicamentos + RGPD Ampliado
     m_col1, m_col2 = st.columns([0.5, 0.5])
     with m_col1: st.markdown("#### 📝 Listado de medicamentos")
     with m_col2: st.markdown('<div class="rgpd-inline">🛡️ <b>PROTECCIÓN DE DATOS:</b> No introduzca datos personales identificativos</div>', unsafe_allow_html=True)
     
-    st.session_state.meds_content = st.text_area("Listado", value=st.session_state.meds_content, height=150, label_visibility="collapsed")
+    st.session_state.meds_content = st.text_area("Listado", value=st.session_state.meds_content, height=150, label_visibility="collapsed", key="txt_meds")
 
     b_val, b_res = st.columns([0.85, 0.15])
     with b_val:
         if st.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True):
-            if st.session_state.meds_content:
+            if st.session_state.txt_meds:
                 with st.spinner("Consultando evidencia clínica..."):
-                    prompt = f"""Experto farmacia renal. Analiza FG {valor_fg}: {st.session_state.meds_content}.
-                    INSTRUCCIONES RÍGIDAS DE FORMATO:
-                    1. Encabezado SÍNTESIS: SOLO puede ser "Medicamentos afectados:" o "Fármacos correctamente dosificados".
-                    2. PROHIBIDO usar las palabras "SÍNTESIS" o "DETALLE".
-                    3. Lista: [Icono] [Nombre] - [Frase corta].
-                    4. Inicia el bloque técnico con: 'A continuación, se detallan los ajustes de dosis para cada fármaco con este valor de FG:'."""
-                    
+                    prompt = f"""Experto farmacia renal. Analiza FG {valor_fg}: {st.session_state.txt_meds}.
+                    INSTRUCCIONES RÍGIDAS: SÍNTESIS: SOLO "Medicamentos afectados:" o "Fármacos correctamente dosificados". Prohibido SÍNTESIS/DETALLE. Lista: [Icono] [Nombre] - [Frase corta]."""
                     resp = llamar_ia_en_cascada(prompt)
                     glow_class = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
-                    
                     try:
                         partes = resp.split("A continuación, se detallan los ajustes")
                         sintesis = partes[0].strip()
                         detalle_clinico = "A continuación, se detallan los ajustes" + partes[1]
-                        
                         st.markdown(f'<div class="synthesis-box {glow_class}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
-                        st.markdown(f"""
-                        <div class="blue-detail-container">
-                            {detalle_clinico.replace("\n", "<br>")}
-                            <div class="nota-line">
-                                Nota Importante:<br>
-                                · Estas son recomendaciones generales.<br>
-                                · Siempre se debe consultar la ficha técnica actualizada del medicamento y las guías clínicas locales.<br>
-                                · Además del FG, se deben considerar otros factores individuales del paciente, como el peso, la edad, otras comorbilidades, la medicación concomitante y la respuesta clínica.<br>
-                                · Es crucial realizar un seguimiento periódico de la función renal para detectar cualquier cambio que pueda requerir ajustes futuros.
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        st.markdown(f'<div class="blue-detail-container">{detalle_clinico.replace("\n", "<br>")}<div class="nota-line">Nota Importante:<br>· Estas son recomendaciones generales.<br>· Siempre se debe consultar la ficha técnica actualizada del medicamento.<br>· Se deben considerar otros factores (peso, edad, comorbilidades).<br>· Es crucial realizar un seguimiento periódico de la función renal.</div></div>', unsafe_allow_html=True)
                     except: st.info(resp)
 
     with b_res:
-        if st.button("🗑️ RESET", use_container_width=True):
-            st.session_state.meds_content = ""; st.rerun()
+        if st.button("🗑️ RESET", use_container_width=True, help="Limpiar listado de fármacos"):
+            st.session_state.txt_meds = ""; st.rerun()
 
 st.markdown('<div class="warning-yellow">⚠️ Apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
