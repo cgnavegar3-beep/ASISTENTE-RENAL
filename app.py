@@ -1,4 +1,4 @@
-# v. 20 feb 12:10
+# v. 20 feb 12:25
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -79,6 +79,15 @@ import io
 #        * Con ⚠️ = Naranja (glow-orange).
 # #
 #        * Con ⛔ = Rojo (glow-red).
+# #
+# #
+# V. PROTECCIÓN INTEGRAL PESTAÑA 1 (💊 VALIDACIÓN):
+# #
+#    - Blindaje Total: Prohibida cualquier modificación en el layout, orden de columnas o funciones de la Pestaña 1.
+# #
+#    - Componentes Congelados: Registro de paciente (fila única), Calculadora dual (Glow morado), Área de texto y Botonera (Validar/Reset).
+# #
+#    - Lógica Funcional: El sistema de callbacks y el prompt de IA de esta pestaña no admiten cambios de sintaxis.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -93,7 +102,6 @@ def reset_registro():
 def reset_meds():
     st.session_state["main_meds"] = ""
 
-# Inicialización de estado
 if 'active_model' not in st.session_state: st.session_state.active_model = "ESPERANDO..."
 
 try:
@@ -151,8 +159,8 @@ inject_ui_styles()
 st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 20 feb 12:10</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 20 feb 12:10</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 20 feb 12:25</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 20 feb 12:25</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -200,18 +208,4 @@ with tabs[0]:
         if st.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True):
             if txt_meds:
                 with st.spinner("Consultando evidencia clínica..."):
-                    prompt = f"Experto farmacia renal. Analiza FG {valor_fg}: {txt_meds}. \n INSTRUCCIONES RÍGIDAS DE FORMATO: \n 1. Encabezado SÍNTESIS: SOLO 'Medicamentos afectados:' o 'Fármacos correctamente dosificados'. \n 2. PROHIBIDO usar las palabras SÍNTESIS o DETALLE. \n 3. Lista: [Icono] [Nombre] - [Frase corta]. \n 4. Inicia el bloque técnico con: 'A continuación, se detallan los ajustes de dosis para cada fármaco con este valor de FG:'."
-                    resp = llamar_ia_en_cascada(prompt)
-                    glow_class = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
-                    try:
-                        partes = resp.split("A continuación, se detallan los ajustes")
-                        sintesis = partes[0].strip()
-                        detalle_clinico = "A continuación, se detallan los ajustes" + partes[1]
-                        st.markdown(f'<div class="synthesis-box {glow_class}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
-                        st.markdown(f'<div class="blue-detail-container">{detalle_clinico.replace("\n", "<br>")}<div class="nota-line">Nota Importante:<br>· Estas son recomendaciones generales.<br>· Siempre se debe consultar la ficha técnica actualizada.<br>· Considerar peso, edad y comorbilidades.<br>· Seguimiento periódico de función renal.</div></div>', unsafe_allow_html=True)
-                    except: st.info(resp)
-
-    with b_res:
-        st.button("🗑️ RESET", use_container_width=True, on_click=reset_meds)
-
-st.markdown('<div class="warning-yellow">⚠️ Apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
+                    prompt = f"Experto farmacia renal. Analiza FG {valor_fg}: {txt_meds}. \n INSTRUCCIONES RÍGIDAS DE FORMATO: \n 1. Encabezado SÍNTESIS: SOLO 'Medicamentos afectados:' o 'Fármacos correctamente dosificados'. \n 2. PROHIBIDO usar las palabras SÍNTESIS o DETALLE. \n 3. Lista: [Icono] [Nombre] -
