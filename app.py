@@ -1,4 +1,4 @@
-# v. 20 feb 12:00
+# v. 20 feb 12:10
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -83,6 +83,17 @@ import io
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
+# 🛠️ FUNCIONES DE LIMPIEZA (CALLBACKS)
+def reset_registro():
+    st.session_state["reg_centro"] = ""
+    st.session_state["reg_edad"] = None
+    st.session_state["reg_id"] = ""
+    st.session_state["reg_res"] = "No"
+
+def reset_meds():
+    st.session_state["main_meds"] = ""
+
+# Inicialización de estado
 if 'active_model' not in st.session_state: st.session_state.active_model = "ESPERANDO..."
 
 try:
@@ -140,8 +151,8 @@ inject_ui_styles()
 st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 20 feb 12:00</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 20 feb 12:00</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 20 feb 12:10</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 20 feb 12:10</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -155,10 +166,7 @@ with tabs[0]:
     with c5: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
     with c_del:
         st.write("")
-        if st.button("🗑️", help="Limpiar datos del paciente"):
-            for k in ["reg_centro", "reg_edad", "reg_id", "reg_res"]:
-                if k in st.session_state: del st.session_state[k]
-            st.rerun()
+        st.button("🗑️", help="Limpiar datos del paciente", on_click=reset_registro)
 
     id_final = f"{centro if centro else '---'}-{str(int(edad_reg)) if edad_reg else '00'}-{alfa if alfa else '---'}"
     st.markdown(f'<div class="id-display">ID Registro: {id_final}</div>', unsafe_allow_html=True)
@@ -192,7 +200,6 @@ with tabs[0]:
         if st.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True):
             if txt_meds:
                 with st.spinner("Consultando evidencia clínica..."):
-                    # Prompt robusto con comillas simples y saltos de línea explícitos
                     prompt = f"Experto farmacia renal. Analiza FG {valor_fg}: {txt_meds}. \n INSTRUCCIONES RÍGIDAS DE FORMATO: \n 1. Encabezado SÍNTESIS: SOLO 'Medicamentos afectados:' o 'Fármacos correctamente dosificados'. \n 2. PROHIBIDO usar las palabras SÍNTESIS o DETALLE. \n 3. Lista: [Icono] [Nombre] - [Frase corta]. \n 4. Inicia el bloque técnico con: 'A continuación, se detallan los ajustes de dosis para cada fármaco con este valor de FG:'."
                     resp = llamar_ia_en_cascada(prompt)
                     glow_class = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
@@ -205,8 +212,6 @@ with tabs[0]:
                     except: st.info(resp)
 
     with b_res:
-        if st.button("🗑️ RESET", use_container_width=True):
-            if "main_meds" in st.session_state: del st.session_state["main_meds"]
-            st.rerun()
+        st.button("🗑️ RESET", use_container_width=True, on_click=reset_meds)
 
 st.markdown('<div class="warning-yellow">⚠️ Apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
