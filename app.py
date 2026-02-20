@@ -1,4 +1,4 @@
-# v. 20 feb 15:10
+# v. 20 feb 15:30
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -114,40 +114,12 @@ def inject_ui_styles():
     .nota-line { border-top: 2px solid #aec6cf; margin-top: 15px; padding-top: 15px; font-size: 0.95rem; font-weight: 700; color: #003366; }
     .warning-yellow { background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; }
     
-    /* ESTILOS PESTAÑA INFORME - UNIFICACIÓN CROMÁTICA EYE-CARE */
+    /* ESTILOS PESTAÑA INFORME (PALETA EYE-CARE) */
     .seccion-label-grande { text-align: center; font-weight: 900; color: #4a4a3a; margin: 30px 0 15px 0; font-size: 1.4rem; letter-spacing: 2px; text-transform: uppercase; }
-    
-    .surco-uniforme { 
-        background: #f4f1ea; 
-        border-radius: 20px; 
-        margin-bottom: 12px; 
-        padding: 2px 18px; 
-        box-shadow: inset 5px 5px 10px #d9d5c7, inset -5px -5px 10px #ffffff; 
-    }
-    
-    .stTextInput input { 
-        background-color: transparent !important; 
-        border: none !important; 
-        height: 42px !important; 
-        color: #2d2d24 !important; 
-        font-size: 1rem !important; 
-    }
-
-    .contenedor-informe-unificado { 
-        background: #f4f1ea; 
-        border-radius: 15px; 
-        padding: 20px; 
-        box-shadow: inset 4px 4px 8px #d9d5c7, inset -4px -4px 8px #ffffff;
-        border: none;
-    }
-    
-    .stTextArea textarea {
-        background-color: #fcfaf5 !important;
-        border: 1px solid #dcd8cc !important;
-        color: #2d2d24 !important;
-        border-radius: 10px !important;
-    }
-
+    .surco-uniforme { background: #f4f1ea; border-radius: 20px; margin-bottom: 12px; padding: 2px 18px; box-shadow: inset 5px 5px 10px #d9d5c7, inset -5px -5px 10px #ffffff; }
+    .stTextInput input { background-color: transparent !important; border: none !important; height: 42px !important; color: #2d2d24 !important; font-size: 1rem !important; }
+    .contenedor-informe-unificado { background: #f4f1ea; border-radius: 15px; padding: 20px; box-shadow: inset 4px 4px 8px #d9d5c7, inset -4px -4px 8px #ffffff; border: none; }
+    .stTextArea textarea { background-color: #fcfaf5 !important; border: 1px solid #dcd8cc !important; color: #2d2d24 !important; border-radius: 10px !important; }
     .mini-titulo-informe { font-size: 0.75rem; color: #8a8a7a; font-weight: bold; margin-bottom: 6px; text-transform: uppercase; }
     </style>
     """, unsafe_allow_html=True)
@@ -224,20 +196,14 @@ with tabs[0]:
         st.button("🗑️ RESET", use_container_width=True, on_click=reset_meds, key="btn_reset_total")
 
 with tabs[1]:
-    # --- MÓDULO INFORME SOIP (UNIFICADO Y GRANDE) ---
     st.markdown('<p class="seccion-label-grande">NOTA SOIP</p>', unsafe_allow_html=True)
-    
     soip_fields = [("S", "S - Subjetivo"), ("O", "O - Objetivo"), ("I", "I - Interpretación"), ("P", "P - Plan")]
     for l, p in soip_fields:
         st.markdown(f'<div class="surco-uniforme">', unsafe_allow_html=True)
         st.text_input(l, placeholder=p, label_visibility="collapsed", key=f"v_soip_{l}")
         st.markdown('</div>', unsafe_allow_html=True)
-
     st.markdown('<div style="border-top: 1px solid #dcd8cc; margin: 35px 0;"></div>', unsafe_allow_html=True)
-
-    # --- MÓDULO INTERCONSULTA (UNIFICADO Y GRANDE) ---
     st.markdown('<p class="seccion-label-grande">INTERCONSULTA</p>', unsafe_allow_html=True)
-    
     col_a, col_b = st.columns(2)
     with col_a:
         st.markdown('<div class="contenedor-informe-unificado">', unsafe_allow_html=True)
@@ -250,4 +216,4 @@ with tabs[1]:
         st.text_area("mb", height=120, label_visibility="collapsed", key="v_ic_info")
         st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown('<div class="warning-yellow">⚠️ Apoyo a la revisión farmacot
+st.markdown('<div class="warning-yellow">⚠️ Apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
