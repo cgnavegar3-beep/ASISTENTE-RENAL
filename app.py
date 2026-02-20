@@ -19,7 +19,7 @@ import io
 #    - Cuadros negros superiores (ZONA y ACTIVO/CONECTADO).
 #    - Registro de paciente: TODO EN UNA LÍNEA (Centro, Edad, ID Alfa, Res, Fecha).
 #    - Interfaz Dual: Estructura de Calculadora y caja de FG (Purple Glow).
-#    - Layout Medicamentos: Título y Aviso RGPD discreto en la misma línea.
+#    - Layout Medicamentos: Título y Aviso RGPD (estilo ampliado) en la misma línea.
 #    - Cuadro de medicamentos (TextArea) y botones de validación/reset.
 #    - Aviso amarillo de apoyo legal inferior.
 #
@@ -29,8 +29,13 @@ import io
 #    - NOTA IMPORTANTE: Texto estático (4 puntos) en negrita y azul intenso (Blindado).
 #
 # III. BLINDAJE DE SÍNTESIS DINÁMICA (Glow System):
-#    - Formato Rígido: "Medicamentos afectados:" o "Fármacos correctamente dosificados".
-#    - Lógica de Color (Glow): Verde (OK), Naranja (⚠️), Rojo (⛔).
+#    - Formato Rígido: Solo se permite "Medicamentos afectados:" o "Fármacos correctamente dosificados".
+#    - Prohibición Textual: No pueden aparecer las palabras "SÍNTESIS", "DETALLE" o similares.
+#    - Regla de Iconos: [Icono] + [Nombre] + [Frase corta]. Prohibido texto adicional.
+#    - Lógica de Color (Glow): 
+#        * Sin iconos = Verde (glow-green).
+#        * Con ⚠️ = Naranja (glow-orange).
+#        * Con ⛔ = Rojo (glow-red).
 # =================================================================
 
 try:
@@ -78,7 +83,8 @@ def inject_ui_styles():
     .formula-tag { font-size: 0.75rem; color: #888; font-style: italic; text-align: right; width: 100%; display: block; margin-top: 5px; }
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
     
-    .rgpd-inline { background-color: #fff5f5; color: #c53030; padding: 4px 12px; border-radius: 6px; border: 1px solid #feb2b2; font-size: 0.75rem; display: inline-block; float: right; }
+    /* Cuadro RGPD Ampliado y Estético */
+    .rgpd-inline { background-color: #fff5f5; color: #c53030; padding: 8px 16px; border-radius: 8px; border: 1.5px solid #feb2b2; font-size: 0.85rem; display: inline-block; float: right; box-shadow: 2px 2px 5px rgba(0,0,0,0.05); }
     
     .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; text-align: left; border-width: 2px; border-style: solid; font-size: 0.95rem; }
     .glow-green { background-color: #f1f8e9; color: #2e7d32; border-color: #a5d6a7; box-shadow: 0 0 12px #a5d6a7; }
@@ -86,7 +92,7 @@ def inject_ui_styles():
     .glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; box-shadow: 0 0 18px #feb2b2; }
 
     .blue-detail-container { background-color: #f0f7ff; color: #2c5282; padding: 20px; border-radius: 10px; border: 1px solid #bee3f8; margin-top: 10px; line-height: 1.6; }
-    .nota-line { border-top: 1px solid #aec6cf; margin-top: 15px; padding-top: 15px; font-size: 0.95rem; font-weight: 600; color: #1a365d; }
+    .nota-line { border-top: 2px solid #aec6cf; margin-top: 15px; padding-top: 15px; font-size: 0.95rem; font-weight: 700; color: #003366; }
     
     .warning-yellow { background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; }
     </style>
@@ -136,10 +142,10 @@ with tabs[0]:
 
     st.write(""); st.markdown("---")
     
-    # Layout Medicamentos + RGPD Discreto
-    m_col1, m_col2 = st.columns([0.6, 0.4])
+    # Layout Medicamentos + RGPD Ampliado
+    m_col1, m_col2 = st.columns([0.5, 0.5])
     with m_col1: st.markdown("#### 📝 Listado de medicamentos")
-    with m_col2: st.markdown('<div class="rgpd-inline"><b>RGPD:</b> No use datos personales</div>', unsafe_allow_html=True)
+    with m_col2: st.markdown('<div class="rgpd-inline">🛡️ <b>PROTECCIÓN DE DATOS:</b> No introduzca datos personales identificativos</div>', unsafe_allow_html=True)
     
     st.session_state.meds_content = st.text_area("Listado", value=st.session_state.meds_content, height=150, label_visibility="collapsed")
 
@@ -148,19 +154,26 @@ with tabs[0]:
         if st.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True):
             if st.session_state.meds_content:
                 with st.spinner("Consultando evidencia clínica..."):
-                    prompt = f"""Análisis farmacia renal FG {valor_fg}: {st.session_state.meds_content}.
-                    SÍNTESIS: Si OK: "Fármacos correctamente dosificados". Si afectados: "Medicamentos afectados:" y lista [Icono] [Nombre] - [Frase corta].
-                    DETALLE: Inicia con 'A continuación, se detallan los ajustes de dosis...'."""
+                    prompt = f"""Experto farmacia renal. Analiza FG {valor_fg}: {st.session_state.meds_content}.
+                    INSTRUCCIONES RÍGIDAS DE FORMATO:
+                    1. Encabezado SÍNTESIS: SOLO puede ser "Medicamentos afectados:" o "Fármacos correctamente dosificados".
+                    2. PROHIBIDO usar las palabras "SÍNTESIS" o "DETALLE".
+                    3. Lista: [Icono] [Nombre] - [Frase corta].
+                    4. Inicia el bloque técnico con: 'A continuación, se detallan los ajustes de dosis para cada fármaco con este valor de FG:'."""
                     
                     resp = llamar_ia_en_cascada(prompt)
                     glow_class = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
                     
                     try:
-                        partes = resp.split("A continuación")
+                        # Separación limpia basada en el disparador obligatorio
+                        partes = resp.split("A continuación, se detallan los ajustes")
                         sintesis = partes[0].strip()
-                        detalle_clinico = "A continuación" + partes[1]
+                        detalle_clinico = "A continuación, se detallan los ajustes" + partes[1]
                         
+                        # Cuadro 1: Formato Rígido
                         st.markdown(f'<div class="synthesis-box {glow_class}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
+                        
+                        # Cuadro 2: Bloque Azul
                         st.markdown(f"""
                         <div class="blue-detail-container">
                             {detalle_clinico.replace("\n", "<br>")}
