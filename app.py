@@ -1,4 +1,4 @@
-# v. 22 feb 15:30
+# v. 22 feb 16:15
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -170,8 +170,8 @@ inject_ui_styles()
 st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 22 feb 15:30</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 22 feb 15:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 22 feb 16:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 22 feb 16:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -228,26 +228,29 @@ with tabs[0]:
                     partes = resp.split("A continuación, se detallan los ajustes")
                     sintesis = partes[0].strip()
                     detalle_clinico = "A continuación, se detallan los ajustes" + partes[1]
+                    # CORRECCIÓN DUPLICIDAD: Limpiamos detalle de ruidos post-nota
+                    detalle_clinico = detalle_clinico.split("Nota Importante:")[0].strip()
+
                     st.markdown(f'<div class="synthesis-box {glow_class}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="blue-detail-container">{detalle_clinico.replace("\n", "<br>")}<div class="nota-line">Nota Importante:<br>· Estas son recomendaciones generales.<br>· Siempre se debe consultar la ficha técnica actualizada.<br>· Considerar peso, edad y comorbilidades.<br>· Seguimiento periódico de función renal.</div></div>', unsafe_allow_html=True)
                     
-                    # --- AUTOMATIZACIÓN INMEDIATA PESTAÑA 2 ---
+                    # --- AUTOMATIZACIÓN PESTAÑA 2 REFINADA ---
                     st.session_state.soip_s = "Revisión farmacoterapéutica orientada a identificar medicamentos que precisan ajuste de dosis por filtrado glomerular."
-                    st.session_state.soip_o = f"Edad: {calc_e} años | Peso: {calc_p} kg | Creatinina: {calc_c} mg/dL | FG: {valor_fg} mL/min"
+                    st.session_state.soip_o = f"Edad: {calc_e} años | Creatinina: {calc_c} mg/dL | Peso: {calc_p} kg | FG: {valor_fg} mL/min"
                     
-                    # Limpieza para la Interpretación (I)
-                    meds_list = sintesis.replace("Medicamentos afectados:", "").replace("Fármacos correctamente dosificados", "").strip()
-                    if not meds_list: meds_list = "No se identifican fármacos que requieran ajuste."
+                    # Filtrar SOLO medicamentos con alerta (⚠️ o ⛔)
+                    lineas = sintesis.split("\n")
+                    alertas = [l for l in lineas if "⚠️" in l or "⛔" in l or "🚨" in l]
+                    meds_filtrados = "\n".join(alertas) if alertas else "No se identifican fármacos que requieran ajuste."
                     
-                    soip_i_final = f"Se identifican los siguientes fármacos con dosis no adecuadas según FG:\n\n{meds_list}\n\nValoración global: riesgo moderado de toxicidad acumulativa; medicación en general compatible con la función renal salvo los ajustes señalados."
-                    st.session_state.soip_i = soip_i_final
+                    st.session_state.soip_i = f"Se identifican los siguientes fármacos con dosis no adecuadas según FG:\n\n{meds_filtrados}\n\nValoración global: riesgo moderado de toxicidad acumulativa; medicación en general compatible con la función renal salvo los ajustes señalados."
                     st.session_state.soip_p = "Se realiza interconsulta (IC) a su médico de atención primaria (MAP) y se recomienda seguimiento de función renal."
                     
-                    # INTERCONSULTA
-                    st.session_state.ic_motivo = f"Se ha realizado una revisión farmacoterapéutica orientada a identificar medicamentos que precisan ajuste de dosis según filtrado glomerular.\n\n{soip_i_final}\n\nObjetivo de la IC: Se solicita valoración del MAP sobre los ajustes de medicación recomendados, y decisión sobre cambios de dosis, sustitución o seguimiento según criterio clínico."
-                    st.session_state.ic_info = f"RESUMEN DEL CUADRO AZUL (Recomendaciones Técnicas):\n{detalle_clinico[:1000]}"
+                    # INTERCONSULTA REFINADA
+                    st.session_state.ic_motivo = f"Solicito valoración médica tras revisión farmacoterapéutica orientada a identificar medicamentos que precisan ajuste de dosis según filtrado glomerular.\nEn dicha revisión se han identificado los siguientes fármacos con posible inadecuación posológica en función del FG actual:\n\n{meds_filtrados}\n\nGracias."
+                    st.session_state.ic_info = f"A continuación, se detallan los ajustes de dosis para cada fármaco con este valor de FG:\n\n{detalle_clinico[:1200]}"
                     
-                    st.rerun() # Forzar actualización para que los campos de la pestaña 2 se vean rellenos
+                    st.rerun()
                 except: st.info(resp)
 
     st.button("🗑️ RESET TOTAL", use_container_width=True, on_click=reset_meds)
@@ -270,7 +273,7 @@ with tabs[1]:
         st.markdown('<div class="linea-discreta-soip">Motivo de Interconsulta</div>', unsafe_allow_html=True)
         st.text_area("Mot", value=st.session_state.ic_motivo, height=250, label_visibility="collapsed")
     with i_col2:
-        st.markdown('<div class="linea-discreta-soip">Información Técnico-Clínica</div>', unsafe_allow_html=True)
-        st.text_area("Info", value=st.session_state.ic_info, height=250, label_visibility="collapsed")
+        st.markdown('<div class="linea-discreta-soip">Información Clínica</div>', unsafe_allow_html=True)
+        st.text_area("InfoClin", value=st.session_state.ic_info, height=250, label_visibility="collapsed")
 
 st.markdown('<div class="warning-yellow">⚠️ Apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
