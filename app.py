@@ -1,4 +1,4 @@
-# v. 22 feb 10:30
+# v. 22 feb 10:35
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -142,40 +142,64 @@ def llamar_ia_en_cascada(prompt):
 def inject_ui_styles():
     st.markdown("""
     <style>
-    /* RESET DE HEADER POR DEFECTO */
     header[data-testid="stHeader"] { visibility: hidden; }
+    .stApp { background-color: white; }
     
-    /* BLOQUE SUPERIOR PERSISTENTE (Sticky) */
-    [data-testid="stVerticalBlock"] > div:has(.availability-badge) {
+    /* INMOVILIZAR CABECERA (ESTILO EXCEL) */
+    .stMainBlockContainer {
+        padding-top: 0rem !important;
+    }
+    
+    [data-testid="stVerticalBlock"] > div:first-child {
         position: sticky;
         top: 0;
-        z-index: 1000;
+        z-index: 1001;
         background-color: white;
-    }
-    
-    .block-container { 
-        max-width: 100% !important; 
-        padding-top: 1.5rem !important; 
-        padding-left: 4% !important; 
-        padding-right: 4% !important; 
+        padding-top: 15px;
+        padding-bottom: 0px;
     }
 
-    /* BADGES SUPERIORES (Relativos al bloque sticky) */
-    .availability-badge { background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.65rem; border: 1px solid #333; width: 180px; display: inline-block; margin-right: 10px; }
-    .model-badge { background-color: #000000 !important; color: #00FF00 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.75rem; box-shadow: 0 0 5px #00FF0033; display: inline-block; }
+    /* BADGES DISCRETOS (Estilo original restaurado) */
+    .availability-badge { 
+        background-color: #000000 !important; 
+        color: #888 !important; 
+        padding: 4px 10px; 
+        border-radius: 3px; 
+        font-family: monospace !important; 
+        font-size: 0.65rem; 
+        border: 1px solid #333; 
+        width: fit-content;
+        max-width: 180px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: inline-block;
+        margin-right: 5px;
+    }
+    .model-badge { 
+        background-color: #000000 !important; 
+        color: #00FF00 !important; 
+        padding: 4px 10px; 
+        border-radius: 3px; 
+        font-family: monospace !important; 
+        font-size: 0.75rem; 
+        box-shadow: 0 0 5px #00FF0033; 
+        display: inline-block;
+    }
     
-    .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; padding-bottom: 0px; }
-    .sub-version { text-align: center; font-size: 0.8rem; color: #666; margin-top: -10px; margin-bottom: 10px; font-family: sans-serif; }
+    .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin: 0; }
+    .sub-version { text-align: center; font-size: 0.8rem; color: #666; margin-top: -5px; margin-bottom: 5px; }
     
-    /* PESTAÑAS STICKY */
+    /* PESTAÑAS INMOVILIZADAS */
     div[data-testid="stTabs"] {
         position: sticky;
-        top: 115px;
-        z-index: 999;
+        top: 105px; /* Justo debajo del título */
+        z-index: 1000;
         background-color: white;
-        padding-bottom: 5px;
+        padding-top: 5px;
     }
 
+    .block-container { max-width: 100% !important; padding-left: 4% !important; padding-right: 4% !important; }
     .version-display { text-align: right; font-size: 0.6rem; color: #bbb; font-family: monospace; position: fixed; bottom: 10px; right: 10px; }
     .id-display { color: #666; font-family: monospace; font-size: 0.85rem; margin-top: -5px; margin-bottom: 20px; }
     .formula-tag { font-size: 0.75rem; color: #888; font-style: italic; text-align: right; width: 100%; display: block; margin-top: 5px; }
@@ -200,17 +224,15 @@ def inject_ui_styles():
 
 inject_ui_styles()
 
-# BLOQUE SUPERIOR ANCLADO
+# FILA 1 Y 2: BADGES Y TÍTULO (INMOVILIZADOS)
 with st.container():
-    c_badges = st.columns([0.2, 0.8])
-    with c_badges[0]:
-        st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="position: absolute; left: 15px; top: 15px;"><div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div><div class="model-badge">{st.session_state.active_model}</div></div>', unsafe_allow_html=True)
     st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-version">v. 22 feb 10:30</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-version">v. 22 feb 10:35</div>', unsafe_allow_html=True)
 
-st.markdown('<div class="version-display">v. 22 feb 10:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 22 feb 10:35</div>', unsafe_allow_html=True)
 
+# FILA 3: PESTAÑAS (INMOVILIZADAS)
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
 with tabs[0]:
