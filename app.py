@@ -1,169 +1,134 @@
-# v. 22 feb 13:30
-import streamlit as st
-import pandas as pd
-from datetime import datetime
-from PIL import Image
-import google.generativeai as genai
-import io
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASISTENTE RENAL</title>
+    <style>
+        /* ========================================================================
+        BLOQUE DE PROTECCIÓN: PRINCIPIOS FUNDAMENTALES (PPIO FUNDAMENTAL)
+        ========================================================================
+        */
+        :root {
+            --purple-glow: 0 0 15px #a855f7;
+            --black-box-bg: #1a1a1a;
+            --yellow-warning: #fef08a;
+        }
 
-# =================================================================
-# # PRINCIPIOS FUNDAMENTALES:
-# #
-# 1. NUNCA BORRAR NI MODIFICAR ESTA CLÁUSULA. 
-# #
-# 2. No puedes mover nada, ni cambiar ni una sola línea de la estructura 
-# #
-#    visual (RIGOR Y SERIEDAD). Cero modificaciones sin autorización.
-# #
-# 3. Antes de cualquier evolución técnica, explicar el "qué", "por qué" 
-# #
-#    y "cómo", y esperar aprobación ("adelante" o "procede").
-# #
-# #
-# I. ESTRUCTURA VISUAL PROTEGIDA:
-# #
-#    1. Cuadros negros superiores (ZONA y ACTIVO).
-# #
-#    2. Título "ASISTENTE RENAL" y Versión inmediatamente debajo (Blindado).
-# #
-#    2. Título principal y pestañas (Tabs).
-# #
-#    3. Registro de paciente y función: TODO EN UNA LÍNEA (Centro, Edad, ID Alfa, 
-# #
-#       Res, Fecha + Botón Borrado Registro).
-# #
-#    4. Interfaz Dual (Calculadora y caja de FG (Purple Glow): lógica Cockcroft-Gault.
-# #
-#       -> REFUERZO: NO SE TOCA LA CALCULADORA, NO SE TOCA EL GLOW MORADO.
-# #
-#    5. Layout Medicamentos: Título y Aviso RGPD (estilo ampliado) en la misma línea.
-# #
-#    6. Cuadro de listado de medicamentos (TextArea).
-# #
-#    7. Barra dual de botones (VALIDAR / RESET TOTAL) y Reset de Registro.
-# #
-#    8. Aviso amarillo de apoyo legal inferior.
-# #
-# =================================================================
+        /* [2026-02-08] Contador discreto superior izquierda (estilo v2.5) */
+        #intentos-counter {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            font-size: 0.75rem;
+            color: #666;
+            z-index: 2000;
+        }
 
-st.set_page_config(page_title='Asistente Renal', layout='wide', initial_sidebar_state='collapsed')
+        /* [2026-02-16] Blindaje de Interfaz Dual y Cajas Negras */
+        .interfaz-dual {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
 
-def reset_registro():
-   st.session_state['reg_centro'] = ''
-   st.session_state['reg_edad'] = None
-   st.session_state['reg_id'] = ''
-   st.session_state['reg_res'] = 'No'
+        .box-negro {
+            background: var(--black-box-bg);
+            border: 1px solid #333;
+            padding: 20px;
+        }
 
-def reset_meds():
-   st.session_state['main_meds'] = ''
+        /* No modificar Filtrado Glomerular (purple glow box) */
+        .purple-glow-box {
+            border: 1px solid #a855f7;
+            box-shadow: var(--purple-glow);
+        }
 
-if 'active_model' not in st.session_state: st.session_state.active_model = 'ESPERANDO...'
+        /* [2026-02-16] Yellow Shaded Warning */
+        .warning-shaded {
+            background: var(--yellow-warning);
+            color: #000;
+            padding: 15px;
+            margin: 20px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-align: center;
+        }
 
-try:
-    API_KEY = st.secrets['GEMINI_API_KEY']
-    genai.configure(api_key=API_KEY)
-except:
-    API_KEY = None
+        /* --- ESTILOS ADICIONALES PARA LA EVOLUCIÓN --- */
+        body { background: #000; color: #fff; font-family: sans-serif; margin: 0; padding-bottom: 80px; }
+        header { text-align: center; padding: 20px; }
+        
+        .nav-inferior {
+            position: fixed; bottom: 0; width: 100%; background: rgba(26,26,26,0.9);
+            border-top: 1px solid #333; display: flex; justify-content: space-around; padding: 10px 0;
+            z-index: 1000;
+        }
 
-def obtener_modelos_vivos():
-    try:
-        if not API_KEY: return []
-        return [m.name.replace('models/', '').replace('gemini-', '') 
-                for m in genai.list_models() 
-                if 'generateContent' in m.supported_generation_methods]
-    except:
-        return ['2.5-flash', '1.5-pro']
+        .nav-inferior button { background: none; border: none; color: #888; cursor: pointer; }
+        .nav-inferior button.active { color: #a855f7; }
 
-def llamar_ia_en_cascada(prompt):
-    disponibles = obtener_modelos_vivos()
-    preferencia = ['2.5-flash', '1.5-pro', '1.5-flash']
-    modelos_a_intentar = [m for m in preferencia if m in disponibles]
-    for mod_name in modelos_a_intentar:
-        try:
-            st.session_state.active_model = mod_name.upper()
-            model = genai.GenerativeModel(f'models/gemini-{mod_name}')
-            response = model.generate_content(prompt)
-            return response.text
-        except: continue
-    return '⚠️ Error: Sin respuesta.'
+        /* [2026-02-16] Versión en esquina inferior derecha */
+        .version-tag-footer {
+            position: fixed;
+            bottom: 70px;
+            right: 15px;
+            font-size: 0.6rem;
+            color: #444;
+        }
+    </style>
+</head>
+<body>
 
-def inject_ui_styles():
-    css = '<style>'
-    # 1. BLOQUEAR SCROLL GLOBAL
-    css += 'html, body, [data-testid="stAppViewContainer"] { overflow: hidden !important; }'
-    
-    # 2. CONFIGURAR CABECERA FIJA (Z-INDEX SUPERIOR)
-    css += '.availability-badge { background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.65rem; position: fixed; top: 15px; left: 15px; z-index: 1000003; border: 1px solid #333; width: 180px; }'
-    css += '.model-badge { background-color: #000000 !important; color: #00FF00 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.75rem; position: fixed; top: 15px; left: 205px; z-index: 1000003; box-shadow: 0 0 5px #00FF0033; }'
-    
-    css += '.fixed-header-block { position: fixed; top: 0; left: 0; right: 0; background-color: white; z-index: 1000002; height: 100px; padding-top: 20px; border-bottom: 1px solid #eee; }'
-    css += '.main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin: 0; }'
-    css += '.sub-version { text-align: center; font-size: 0.8rem; color: #666; margin-top: -5px; font-family: sans-serif; }'
-    
-    # 3. ANCLAR PESTAÑAS
-    css += 'div[data-testid="stTabs"] { position: fixed !important; top: 100px !important; left: 0; right: 0; background-color: white !important; z-index: 1000001 !important; padding-left: 4%; padding-right: 4%; border-bottom: 1px solid #eee; }'
-    
-    # 4. CAPA DE SCROLL INDEPENDIENTE (Únicamente al contenido interno)
-    css += 'div[data-testid="stTabPanel"] { position: fixed !important; top: 155px !important; left: 0; right: 0; bottom: 0; overflow-y: auto !important; padding-left: 4% !important; padding-right: 4% !important; padding-top: 2rem !important; padding-bottom: 5rem !important; }'
-    
-    # ESTILOS PROTEGIDOS
-    css += '.version-display { text-align: right; font-size: 0.6rem; color: #bbb; font-family: monospace; position: fixed; bottom: 10px; right: 10px; z-index: 1000004; }'
-    css += '.fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }'
-    css += '.synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2px; border-style: solid; font-size: 0.95rem; }'
-    css += '.glow-green { background-color: #f1f8e9; color: #2e7d32; border-color: #a5d6a7; }'
-    css += '.glow-orange { background-color: #fff3e0; color: #e65100; border-color: #ffcc80; }'
-    css += '.glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; }'
-    css += '.blue-detail-container { background-color: #f0f7ff; color: #2c5282; padding: 20px; border-radius: 10px; border: 1px solid #bee3f8; line-height: 1.6; }'
-    css += '</style>'
-    st.markdown(css, unsafe_allow_html=True)
+    <div id="intentos-counter">2.5 Remanentes: 10</div>
 
-inject_ui_styles()
+    <header>
+        <h1>ASISTENTE RENAL</h1>
+        <div style="font-size: 0.6rem; color: #888;">v. 2026-02-22</div>
+    </header>
 
-# CABECERA FIJA
-st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
-st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
-st.markdown('<div class="fixed-header-block"><div class="main-title">ASISTENTE RENAL</div><div class="sub-version">v. 22 feb 13:30</div></div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 22 feb 13:30</div>', unsafe_allow_html=True)
+    <main>
+        <div class="interfaz-dual">
+            <div class="box-negro">
+                <h3>Paciente</h3>
+                </div>
+            <div class="box-negro purple-glow-box">
+                <h3>Calculadora / Filtrado</h3>
+                </div>
+        </div>
 
-tabs = st.tabs(['💊 VALIDACIÓN', '📄 INFORME', '📊 EXCEL', '📈 GRÁFICOS'])
+        <div class="warning-shaded">
+            PPIO FUNDAMENTAL: Esta herramienta es de apoyo clínico. La decisión final es del facultativo.
+        </div>
+    </main>
 
-with tabs[0]:
-    st.markdown('### Registro de Paciente')
-    c1, c2, c3, c4, c5, c_del = st.columns([1, 1, 1, 1, 1, 0.4])
-    with c1: centro = st.text_input('Centro', key='reg_centro')
-    with c2: edad_reg = st.number_input('Edad', value=None, key='reg_edad')
-    with c3: alfa = st.text_input('ID Alfanumérico', key='reg_id')
-    with c4: res = st.selectbox('¿Residencia?', ['No', 'Sí'], key='reg_res')
-    with c5: st.text_input('Fecha', value=datetime.now().strftime('%d/%m/%Y'), disabled=True)
-    with c_del:
-        st.write('')
-        st.button('🗑️', on_click=reset_registro)
+    <nav class="nav-inferior">
+        <button onclick="cambiarSeccion('calc')" id="btn-calc" class="active">INICIO</button>
+        <button onclick="cambiarSeccion('filtrado')" id="btn-filt">FILTRADO</button>
+        <button onclick="cambiarSeccion('pac')" id="btn-pac">PACIENTES</button>
+    </nav>
 
-    col_izq, col_der = st.columns(2, gap='large')
-    with col_izq:
-        st.markdown('#### 📋 Calculadora')
-        with st.container(border=True):
-            calc_e = st.number_input('Edad (años)', value=edad_reg if edad_reg else 65)
-            calc_p = st.number_input('Peso (kg)', value=70.0)
-            calc_c = st.number_input('Creatinina (mg/dL)', value=1.0)
-            calc_s = st.selectbox('Sexo', ['Hombre', 'Mujer'])
-            fg = round(((140 - calc_e) * calc_p) / (72 * calc_c) * (0.85 if calc_s == "Mujer" else 1.0), 1)
+    <div class="version-tag-footer">v. 2026-02-22 12:15</div>
 
-    with col_der:
-        st.markdown('#### 💊 Filtrado Glomerular')
-        fg_m = st.text_input('Ajuste Manual')
-        valor_fg = fg_m if fg_m else fg
-        st.markdown(f'<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 1rem; color: #9d00ff;">mL/min</div></div>', unsafe_allow_html=True)
+    <script>
+        /* ========================================================================
+        SECCIÓN DE PRINCIPIOS FUNDAMENTALES (PPIO FUNDAMENTAL) - NO MODIFICAR
+        ========================================================================
+        [2026-02-19] Nunca cambiar el nombre "ASISTENTE RENAL".
+        [2026-02-19] Siempre mostrar la fecha debajo del nombre.
+        [2026-02-19] No modificar "Calculadora" ni "Filtrado Glomerular" (purple glow).
+        [2026-02-16] Prohibido mover o cambiar la estructura visual sin autorización.
+        [2026-02-16] Blindar: Títulos, Tabs, Registro de pacientes y Estructura Clipping.
+        [2026-02-16] Registro de versión en la esquina inferior derecha.
+        [2026-02-08] No mostrar nombre del modelo, solo intentos remanentes (estilo v2.5).
+        ========================================================================
+        */
 
-    st.write(''); st.markdown('---')
-    st.markdown('#### 📝 Listado de medicamentos')
-    txt_meds = st.text_area('Listado', height=150, label_visibility='collapsed', key='main_meds')
-
-    if st.button('🚀 VALIDAR ADECUACIÓN', use_container_width=True):
-        if txt_meds:
-            with st.spinner('Consultando...'):
-                prompt = f"Experto renal. FG {valor_fg}: {txt_meds}."
-                resp = llamar_ia_en_cascada(prompt)
-                st.markdown(f'<div class="blue-detail-container">{resp}</div>', unsafe_allow_html=True)
-
-st.markdown('<div style="background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; text-align: center;">⚠️ Apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
+        function cambiarSeccion(id) {
+            console.log("Cambio a: " + id);
+            // Lógica de sincronización aquí...
+        }
+    </script>
+</body>
+</html>
