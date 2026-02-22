@@ -1,4 +1,4 @@
-# v. 22 feb 10:25
+# v. 22 feb 10:30
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -142,52 +142,38 @@ def llamar_ia_en_cascada(prompt):
 def inject_ui_styles():
     st.markdown("""
     <style>
-    /* HEADER FIJO (Sticky) */
-    header[data-testid="stHeader"] { z-index: 0; }
+    /* RESET DE HEADER POR DEFECTO */
+    header[data-testid="stHeader"] { visibility: hidden; }
     
-    .stApp > header {
-        display: none;
-    }
-
-    [data-testid="stHeader"] {
-        background-color: rgba(255,255,255,0.95);
-    }
-
-    /* Contenedor Superior Fijo */
-    .fixed-header {
-        position: fixed;
+    /* BLOQUE SUPERIOR PERSISTENTE (Sticky) */
+    [data-testid="stVerticalBlock"] > div:has(.availability-badge) {
+        position: sticky;
         top: 0;
-        left: 0;
-        width: 100%;
-        background-color: white;
         z-index: 1000;
-        padding-top: 15px;
-        border-bottom: 1px solid #eee;
+        background-color: white;
     }
-
+    
     .block-container { 
         max-width: 100% !important; 
-        padding-top: 10rem !important; /* Espacio para el header fijo */
+        padding-top: 1.5rem !important; 
         padding-left: 4% !important; 
         padding-right: 4% !important; 
     }
 
-    /* BADGES SUPERIORES */
-    .availability-badge { background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.65rem; position: fixed; top: 15px; left: 15px; z-index: 1000001; border: 1px solid #333; width: 180px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    .model-badge { background-color: #000000 !important; color: #00FF00 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.75rem; position: fixed; top: 15px; left: 205px; z-index: 1000001; box-shadow: 0 0 5px #00FF0033; }
+    /* BADGES SUPERIORES (Relativos al bloque sticky) */
+    .availability-badge { background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.65rem; border: 1px solid #333; width: 180px; display: inline-block; margin-right: 10px; }
+    .model-badge { background-color: #000000 !important; color: #00FF00 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.75rem; box-shadow: 0 0 5px #00FF0033; display: inline-block; }
     
     .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; padding-bottom: 0px; }
     .sub-version { text-align: center; font-size: 0.8rem; color: #666; margin-top: -10px; margin-bottom: 10px; font-family: sans-serif; }
     
-    /* Pestañas fijas */
+    /* PESTAÑAS STICKY */
     div[data-testid="stTabs"] {
-        position: fixed;
-        top: 110px;
-        width: 92%;
-        background-color: white;
+        position: sticky;
+        top: 115px;
         z-index: 999;
-        margin-left: auto;
-        margin-right: auto;
+        background-color: white;
+        padding-bottom: 5px;
     }
 
     .version-display { text-align: right; font-size: 0.6rem; color: #bbb; font-family: monospace; position: fixed; bottom: 10px; right: 10px; }
@@ -214,12 +200,16 @@ def inject_ui_styles():
 
 inject_ui_styles()
 
-# HEADER FIJO (Visual)
-st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
-st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
-st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 22 feb 10:25</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 22 feb 10:25</div>', unsafe_allow_html=True)
+# BLOQUE SUPERIOR ANCLADO
+with st.container():
+    c_badges = st.columns([0.2, 0.8])
+    with c_badges[0]:
+        st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-version">v. 22 feb 10:30</div>', unsafe_allow_html=True)
+
+st.markdown('<div class="version-display">v. 22 feb 10:30</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
