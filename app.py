@@ -1,4 +1,4 @@
-# v. 22 feb 18:45
+# v. 22 feb 18:50
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -126,16 +126,18 @@ def llamar_ia_en_cascada(prompt):
                 model = genai.GenerativeModel(f'models/gemini-{mod_name}')
                 return model.generate_content(prompt).text
             except: continue
-    return "⚠️ Error de conexión."
+    return "⚠️ Error."
 
 def inject_ui_styles():
     st.markdown("""
     <style>
     .block-container { max-width: 100% !important; padding-top: 2.5rem !important; padding-left: 4% !important; padding-right: 4% !important; }
-    .availability-badge { background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.65rem; position: fixed; top: 15px; left: 15px; z-index: 1000000; border: 1px solid #333; width: 180px; }
-    .model-badge { background-color: #000000 !important; color: #00FF00 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.75rem; position: fixed; top: 15px; left: 205px; z-index: 1000000; box-shadow: 0 0 5px #00FF0033; }
+    /* CUADROS NEGROS SUPERIORES COMPACTOS */
+    .availability-badge { background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.65rem; position: fixed; top: 15px; left: 15px; z-index: 1000000; border: 1px solid #333; width: 120px; text-align: center; }
+    .model-badge { background-color: #000000 !important; color: #00FF00 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.75rem; position: fixed; top: 15px; left: 145px; z-index: 1000000; box-shadow: 0 0 5px #00FF0033; border: 1px solid #333; }
+    
     .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; }
-    .sub-version { text-align: center; font-size: 0.8rem; color: #666; margin-top: -10px; margin-bottom: 20px; }
+    .sub-version { text-align: center; font-size: 0.6rem; color: #bbb; margin-top: -5px; margin-bottom: 20px; font-family: monospace; }
     .id-display { color: #666; font-family: monospace; font-size: 0.85rem; margin-top: -5px; margin-bottom: 20px; }
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
     .rgpd-inline { background-color: #fff5f5; color: #c53030; padding: 8px 16px; border-radius: 8px; border: 1.5px solid #feb2b2; font-size: 0.85rem; display: inline-block; float: right; }
@@ -152,10 +154,10 @@ def inject_ui_styles():
     """, unsafe_allow_html=True)
 
 inject_ui_styles()
-st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="availability-badge">ZONA ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 22 feb 18:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 22 feb 18:50</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -201,17 +203,14 @@ with tabs[0]:
         if txt_meds:
             with st.spinner("Procesando..."):
                 prompt = f"""Experto farmacia renal. Analiza FG {valor_fg}: {txt_meds}.
-                REGLA DE ORO: No puedes escribir párrafos largos en el primer bloque.
-                
-                BLOQUE III (SÍNTESIS): 
+                REGLA DE ORO BLOQUE III (SÍNTESIS): 
                 - Título: 'Medicamentos afectados:' o 'Fármacos correctamente dosificados'.
                 - Contenido: SOLO líneas con [Icono ⚠️ o ⛔] [Nombre] - [Frase corta]. 
-                - Si no hay afectados, no listes nada, solo el título 'Fármacos correctamente dosificados'.
-                - PROHIBIDO: SÍNTESIS, DETALLE, RESUMEN, metabolismo, eliminación.
+                - Prohibido cualquier texto explicativo adicional aquí.
                 
-                BLOQUE IV (DETALLE): 
+                REGLA BLOQUE IV (DETALLE): 
                 - Inicia con: 'A continuación, se detallan los ajustes de dosis para cada fármaco:'
-                - Aquí sí explica metabolismo, eliminación y justificación clínica de forma técnica y profesional.
+                - Explica metabolismo y justificación técnica.
                 """
                 resp = llamar_ia_en_cascada(prompt)
                 
@@ -227,18 +226,16 @@ with tabs[0]:
                     st.markdown(f'<div class="synthesis-box {glow_class}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="blue-detail-container">{detalle.replace("\n", "<br>")}<div class="nota-line">Nota Importante: Revisar ficha técnica y seguimiento renal.</div></div>', unsafe_allow_html=True)
                     
-                    # VOLCADO A PESTAÑA 2 (INFORME)
-                    meds_solo_nombres = "\n".join([l for l in sintesis.split("\n") if "⚠️" in l or "⛔" in l])
-                    
+                    # VOLCADO A PESTAÑA 2
+                    meds_list = "\n".join([l for l in sintesis.split("\n") if "⚠️" in l or "⛔" in l])
                     st.session_state.soip_s = "Revisión farmacoterapéutica orientada a identificar medicamentos que precisan ajuste de dosis por filtrado glomerular."
-                    st.session_state.soip_o = f"Edad: {calc_e} años | Peso: {calc_p} kg | Creatinina: {calc_c} mg/dL | FG: {valor_fg} mL/min"
-                    st.session_state.soip_i = f"Se detectan medicamentos no ajustados al FG actual, con necesidad de adaptación posológica o reconsideración terapéutica:\n\n{meds_solo_nombres}" if meds_solo_nombres else "Fármacos correctamente dosificados."
+                    st.session_state.soip_o = f"Edad: {calc_e if calc_e else '0'} años | Peso: {calc_p if calc_p else '0'} kg | Cr: {calc_c if calc_c else '0'} mg/dL | FG: {valor_fg} mL/min"
+                    st.session_state.soip_i = f"Se detectan medicamentos no ajustados al FG actual, con necesidad de adaptación posológica o reconsideración terapéutica:\n\n{meds_list}" if meds_list else "Fármacos correctamente dosificados."
                     st.session_state.soip_p = "Se realiza interconsulta (IC) a su médico de atención primaria (MAP) para que valore adecuación terapéutica y se recomienda seguimiento de función renal."
-                    
-                    st.session_state.ic_motivo = f"Solicito valoración médica tras revisión farmacoterapéutica por función renal, en la que se detectan fármacos con posible inadecuación posológica según FG actual.\n\nFármacos:\n{meds_solo_nombres if meds_solo_nombres else 'Ninguno'}"
+                    st.session_state.ic_motivo = f"Solicito valoración médica tras revisión farmacoterapéutica por función renal, en la que se detectan fármacos con posible inadecuación posológica según FG actual.\n\nFármacos:\n{meds_list if meds_list else 'Ninguno'}"
                     st.session_state.ic_info = (detalle[:700] + "...") if len(detalle) > 700 else detalle
                     st.rerun()
-                except: st.error("Error al procesar la respuesta. Intente de nuevo.")
+                except: st.error("Error de formato.")
 
     st.button("🗑️ RESET TOTAL", on_click=reset_meds)
 
