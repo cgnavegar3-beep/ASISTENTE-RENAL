@@ -1,4 +1,4 @@
-# v. 22 feb 22:05
+# v. 22 feb 22:15
 import streamlit as st
 import pandas as pd
 import io
@@ -44,15 +44,6 @@ import google.generativeai as genai
 #    7. Barra dual de botones (VALIDAR / RESET TOTAL) y Reset de Registro.
 # #
 #    8. Aviso amarillo de apoyo legal inferior.
-# #
-# #
-# II. FUNCIONALIDADES CRÍTICAS PROTEGIDAS:
-# #
-#    1. Cascada de Modelos (2.5 Flash > Flash-latest > 1.5 Pro > Otros).
-# #
-#    2. Detección dinámica de modelos vivos en la cuenta.
-# #
-#    3. Actualización de feedback neón en tiempo real (Badge ACTIVO).
 # #
 # #
 # III. BLINDAJE DE SÍNTESIS DINÁMICA (Glow System):
@@ -104,7 +95,7 @@ import google.generativeai as genai
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
-# Estados de sesión
+# Inicialización de estados
 for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds", "active_model"]:
     if key not in st.session_state: st.session_state[key] = ""
 if st.session_state.active_model == "": st.session_state.active_model = "ESPERANDO..."
@@ -158,7 +149,7 @@ def inject_ui_styles():
     .glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; box-shadow: 0 0 18px #feb2b2; }
     .blue-detail-container { background-color: #f0f7ff; color: #2c5282; padding: 20px; border-radius: 10px; border: 1px solid #bee3f8; margin-top: 10px; }
     .nota-line { border-top: 2px solid #aec6cf; margin-top: 15px; padding-top: 15px; font-weight: 700; color: #003366; font-size: 0.85rem; }
-    .warning-yellow { background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-weight: bold; }
+    .warning-yellow { background-color: #fff9db; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.9rem; }
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
     .header-capsule { background-color: #e2e8f0; color: #2d3748; padding: 10px 30px; border-radius: 50px; display: inline-block; font-weight: 800; font-size: 0.9rem; margin-bottom: 20px; }
     </style>
@@ -168,17 +159,15 @@ inject_ui_styles()
 st.markdown('<div class="availability-badge">ZONA ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 22 feb 22:05</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 22 feb 22:15</div>', unsafe_allow_html=True)
 
-# RESTAURACIÓN DE LAS 4 PESTAÑAS
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
 with tabs[0]:
-    # --- PESTAÑA 1 (BLINDADA) ---
     st.markdown("### Registro de Paciente")
     c1, c2, c3, c4, c5, c_del = st.columns([1, 1, 1, 1, 1, 0.4])
     with c1: centro = st.text_input("Centro", placeholder="G/M", key="reg_centro")
-    with c2: edad_reg = st.number_input("Edad", value=None, placeholder="0", key="reg_edad")
+    with c2: edad_reg = st.number_input("Edad", min_value=0, max_value=120, value=None, step=1, placeholder="0", key="reg_edad")
     with c3: alfa = st.text_input("ID Alfanumérico", placeholder="ABC-123", key="reg_id")
     with c4: res = st.selectbox("¿Residencia?", ["No", "Sí"], key="reg_res")
     with c5: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
@@ -191,11 +180,11 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            calc_e = st.number_input("Edad (años)", value=edad_reg if edad_reg else None, placeholder="Ej: 65")
+            calc_e = st.number_input("Edad (años)", value=int(edad_reg) if edad_reg else None, step=1, placeholder="Ej: 65")
             calc_p = st.number_input("Peso (kg)", value=None, placeholder="Ej: 70.0")
             calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="Ej: 1.0")
             calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"])
-            fg = round(((140 - calc_e) * calc_p) / (72 * calc_c) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e and calc_p and calc_c else 0.0
+            fg = round(((140 - (calc_e or 0)) * (calc_p or 0)) / (72 * (calc_c or 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e and calc_p and calc_c else 0.0
             st.markdown('<span style="font-size:0.7rem; color:#888; float:right;">Fórmula: Cockcroft-Gault</span>', unsafe_allow_html=True)
 
     with col_der:
@@ -218,8 +207,11 @@ with tabs[0]:
         if txt_meds:
             with st.spinner("Validando..."):
                 prompt = (f"Analiza FG {valor_fg} mL/min: {txt_meds}. "
-                          f"REGLA: Inicia con 'Se detectan medicamentos no ajustados al FG actual ({valor_fg} ml/min)' si hay afectados. "
-                          f"Usa iconos ⚠️ o ⛔. Detalle inicia con: 'A continuación, se detallan los ajustes de dosis para cada fármaco:'.")
+                          f"NORMA ESTRICTA: Si detectas fármacos afectados, tu respuesta debe empezar con la frase exacta: "
+                          f"'Se detectan medicamentos no ajustados al FG actual ({valor_fg} ml/min)'. "
+                          f"Inmediatamente debajo, lista solo los afectados con este formato: [Icono ⚠️ o ⛔] [Nombre] - [Frase corta de ajuste]. "
+                          f"Luego, tras una línea en blanco, añade 'A continuación, se detallan los ajustes de dosis para cada fármaco:' y explica el detalle.")
+                
                 resp = llamar_ia_en_cascada(prompt)
                 glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
                 try:
@@ -235,17 +227,16 @@ with tabs[0]:
                     st.markdown(f'<div class="blue-detail-container">{detalle.replace("\n", "<br>")}{nota_tecnica}</div>', unsafe_allow_html=True)
                     
                     st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
-                    obj_list = [f"Edad: {calc_e}" if calc_e and calc_e > 0 else "", f"Peso: {calc_p}" if calc_p and calc_p > 0 else "", f"Cr: {calc_c}" if calc_c and calc_c > 0 else "", f"FG: {valor_fg}"]
+                    obj_list = [f"Edad: {int(calc_e)}" if calc_e and calc_e > 0 else "", f"Peso: {calc_p}" if calc_p and calc_p > 0 else "", f"Cr: {calc_c}" if calc_c and calc_c > 0 else "", f"FG: {valor_fg}"]
                     st.session_state.soip_o = " | ".join([x for x in obj_list if x])
                     st.session_state.soip_i = sintesis
                     st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
                     st.session_state.ic_motivo = f"Solicito valoración médica tras revisión de medicación por función renal.\n\n{sintesis}"
                     st.session_state.ic_info = detalle
                     st.rerun()
-                except: st.error("Error.")
+                except: st.error("Error en el formato.")
 
 with tabs[1]:
-    # --- PESTAÑA 2 (INFORME RESTAURADA) ---
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📄 Nota Evolutiva SOIP</div></div>', unsafe_allow_html=True)
     st.markdown('<div class="linea-discreta-soip">Subjetivo (S)</div>', unsafe_allow_html=True)
     st.text_area("s_txt", st.session_state.soip_s, height=70, label_visibility="collapsed")
@@ -264,13 +255,5 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">Información Clínica / Sugerencia Técnica</div>', unsafe_allow_html=True)
     st.text_area("ic_inf", st.session_state.ic_info, height=300, label_visibility="collapsed")
 
-with tabs[2]:
-    st.markdown("### 📊 Registro Histórico (Excel)")
-    st.info("Espacio reservado para la base de datos de logs.")
-
-with tabs[3]:
-    st.markdown("### 📈 Análisis de Tendencias")
-    st.info("Espacio reservado para gráficos de evolución renal.")
-
-# NUEVA NOTA AMARILLA ACTUALIZADA
+# AVISO AMARILLO PÁLIDO
 st.markdown('<div class="warning-yellow">⚠️ Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
