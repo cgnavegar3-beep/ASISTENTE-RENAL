@@ -1,4 +1,4 @@
-# v. 22 feb 10:35
+# v. 22 feb 10:40
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -142,24 +142,34 @@ def llamar_ia_en_cascada(prompt):
 def inject_ui_styles():
     st.markdown("""
     <style>
+    /* ELIMINACIÓN DE CABECERA POR DEFECTO */
     header[data-testid="stHeader"] { visibility: hidden; }
-    .stApp { background-color: white; }
     
-    /* INMOVILIZAR CABECERA (ESTILO EXCEL) */
+    /* INMOVILIZACIÓN DE CABECERA (BLOQUE SUPERIOR) */
     .stMainBlockContainer {
         padding-top: 0rem !important;
     }
     
-    [data-testid="stVerticalBlock"] > div:first-child {
+    /* Contenedor Sticky para Badges + Título */
+    .sticky-header {
         position: sticky;
         top: 0;
         z-index: 1001;
         background-color: white;
         padding-top: 15px;
-        padding-bottom: 0px;
+        padding-bottom: 5px;
+        margin-top: -60px; /* Ajuste para compensar espacio de Streamlit */
     }
 
-    /* BADGES DISCRETOS (Estilo original restaurado) */
+    /* BADGES DISCRETOS Y ALINEADOS */
+    .badges-container {
+        position: absolute;
+        left: 20px;
+        top: 15px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
     .availability-badge { 
         background-color: #000000 !important; 
         color: #888 !important; 
@@ -168,13 +178,10 @@ def inject_ui_styles():
         font-family: monospace !important; 
         font-size: 0.65rem; 
         border: 1px solid #333; 
-        width: fit-content;
-        max-width: 180px;
+        width: 170px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        display: inline-block;
-        margin-right: 5px;
     }
     .model-badge { 
         background-color: #000000 !important; 
@@ -184,19 +191,22 @@ def inject_ui_styles():
         font-family: monospace !important; 
         font-size: 0.75rem; 
         box-shadow: 0 0 5px #00FF0033; 
-        display: inline-block;
+        min-width: 80px;
+        text-align: center;
     }
     
     .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin: 0; }
-    .sub-version { text-align: center; font-size: 0.8rem; color: #666; margin-top: -5px; margin-bottom: 5px; }
+    .sub-version { text-align: center; font-size: 0.8rem; color: #666; margin-top: -5px; }
     
     /* PESTAÑAS INMOVILIZADAS */
     div[data-testid="stTabs"] {
         position: sticky;
-        top: 105px; /* Justo debajo del título */
+        top: 100px;
         z-index: 1000;
         background-color: white;
         padding-top: 5px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #f0f0f0;
     }
 
     .block-container { max-width: 100% !important; padding-left: 4% !important; padding-right: 4% !important; }
@@ -224,15 +234,21 @@ def inject_ui_styles():
 
 inject_ui_styles()
 
-# FILA 1 Y 2: BADGES Y TÍTULO (INMOVILIZADOS)
-with st.container():
-    st.markdown(f'<div style="position: absolute; left: 15px; top: 15px;"><div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div><div class="model-badge">{st.session_state.active_model}</div></div>', unsafe_allow_html=True)
-    st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-version">v. 22 feb 10:35</div>', unsafe_allow_html=True)
+# CABECERA INMOVILIZADA (FILAS 1 Y 2)
+st.markdown(f"""
+<div class="sticky-header">
+    <div class="badges-container">
+        <div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>
+        <div class="model-badge">{st.session_state.active_model}</div>
+    </div>
+    <div class="main-title">ASISTENTE RENAL</div>
+    <div class="sub-version">v. 22 feb 10:40</div>
+</div>
+""", unsafe_allow_html=True)
 
-st.markdown('<div class="version-display">v. 22 feb 10:35</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 22 feb 10:40</div>', unsafe_allow_html=True)
 
-# FILA 3: PESTAÑAS (INMOVILIZADAS)
+# PESTAÑAS (FILA 3 - INMOVILIZADA POR CSS)
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
 with tabs[0]:
