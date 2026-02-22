@@ -1,4 +1,4 @@
-# v. 22 feb 20:50
+# v. 22 feb 21:05
 import streamlit as st
 import pandas as pd
 import io
@@ -8,7 +8,7 @@ import google.generativeai as genai
 # =================================================================
 # # PRINCIPIOS FUNDAMENTALES:
 # #
-# GEMINI SIEMPRE TENDRA RIGOR, RESPETARA Y VERIFICARA QUE SE CUMPLAN ESTOS PRINCIPIOS ANTES Y DESPUES DE REALIZAR CUALQUIER CAMBIO.
+# GEMINI SIEMPRE TENDRA RIGOR, RESPETARA Y VERIFICARA QUE SE CUMPLAN ESTOS PRINCIPIOS AMTES Y DESPUES DE REALIZAR CUALQUIER CAMBIO.
 # #
 # 1. NUNCA BORRAR NI MODIFICAR ESTA CLÁUSULA. 
 # #
@@ -150,21 +150,29 @@ def llamar_ia_en_cascada(prompt):
                 model = genai.GenerativeModel(f'models/gemini-{mod_name}')
                 return model.generate_content(prompt).text
             except: continue
-    return "⚠️ Error de conexión."
+    return "⚠️ Error."
 
 def inject_styles():
     st.markdown("""
     <style>
-    .block-container { max-width: 100% !important; padding-top: 2.5rem !important; padding-left: 4% !important; padding-right: 4% !important; }
-    .availability-badge { background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace; font-size: 0.65rem; position: fixed; top: 15px; left: 15px; z-index: 10000; border: 1px solid #333; width: 100px; text-align: center; }
-    .model-badge { background-color: #000000 !important; color: #00FF00 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace; font-size: 0.75rem; position: fixed; top: 15px; left: 125px; z-index: 10000; box-shadow: 0 0 5px #00FF0033; border: 1px solid #333; min-width: 90px; text-align: center; }
-    .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; }
+    .block-container { max-width: 100% !important; padding-top: 1rem !important; padding-left: 4% !important; padding-right: 4% !important; }
+    
+    /* Cuadros negros superiores I.1 */
+    .top-black-box { background-color: #000000; color: #FFFFFF; padding: 5px 15px; border-radius: 5px; font-family: monospace; font-size: 0.7rem; display: inline-block; border: 1px solid #333; margin-right: 10px; }
+    .neon-green-text { color: #00FF00; text-shadow: 0 0 5px #00FF00; }
+    
+    .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; margin-top: 10px; }
     .sub-version { text-align: center; font-size: 0.6rem; color: #bbb; margin-top: -5px; margin-bottom: 20px; font-family: monospace; }
+    
+    /* Glow Morado I.4 */
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
-    .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; line-height: 1.4; }
+    
+    /* Sombreados III */
+    .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; }
     .glow-green { background-color: #f1f8e9; color: #2e7d32; border-color: #a5d6a7; box-shadow: 0 0 12px #a5d6a7; }
     .glow-orange { background-color: #fff3e0; color: #e65100; border-color: #ffcc80; box-shadow: 0 0 12px #ffcc80; }
     .glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; box-shadow: 0 0 18px #feb2b2; }
+    
     .blue-detail-container { background-color: #f0f7ff; color: #2c5282; padding: 20px; border-radius: 10px; border: 1px solid #bee3f8; margin-top: 10px; }
     .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
@@ -173,24 +181,34 @@ def inject_styles():
     """, unsafe_allow_html=True)
 
 inject_styles()
-st.markdown('<div class="availability-badge">ZONA ACTIVA</div>', unsafe_allow_html=True)
-st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
+
+# I.1 Cuadros Negros Superiores
+c_top1, c_top2 = st.columns([1, 1])
+with c_top1: st.markdown(f'<div class="top-black-box">ZONA: <span style="color:#888;">ACTIVA</span></div>', unsafe_allow_html=True)
+with c_top2: st.markdown(f'<div style="text-align:right;"><div class="top-black-box">ACTIVO: <span class="neon-green-text">{st.session_state.active_model}</span></div></div>', unsafe_allow_html=True)
+
+# I.2 Título y Versión
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 22 feb 20:50</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 22 feb 21:05</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
 with tabs[0]:
-    # --- REGISTRO PACIENTE (FILA ÚNICA) ---
+    # --- I.3 REGISTRO PACIENTE (FILA ÚNICA) ---
     st.markdown("### Registro de Paciente")
     c1, c2, c3, c4, c5, c_del = st.columns([1, 1, 1, 1, 1, 0.4])
     with c1: centro = st.text_input("Centro", placeholder="G/M", key="reg_centro")
     with c2: edad_reg = st.number_input("Edad", min_value=0, max_value=120, value=None, step=1, key="reg_edad")
     with c3: alfa = st.text_input("ID Alfanumérico", placeholder="ABC-123", key="reg_id")
     with c4: res = st.selectbox("¿Residencia?", ["No", "Sí"], key="reg_res")
-    with c5: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
+    with c5: fecha_str = st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
     with c_del: st.write(""); st.button("🗑️", on_click=reset_registro)
 
+    # I.3 Fórmula de ID de registro
+    id_final = f"{centro if centro else '---'}-{str(int(edad_reg)) if edad_reg else '00'}-{alfa if alfa else '---'}"
+    st.markdown(f'<div style="color:#666; font-family:monospace; font-size:0.8rem; margin-bottom:20px;">ID PACIENTE: {id_final}</div>', unsafe_allow_html=True)
+
+    # I.4 Interfaz Dual
     col_izq, col_der = st.columns(2, gap="large")
     with col_izq:
         st.markdown("#### 📋 Calculadora")
@@ -203,25 +221,30 @@ with tabs[0]:
 
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
-        fg_m = st.text_input("Ajuste Manual")
+        fg_m = st.text_input("Ajuste Manual (opcional)")
         valor_fg = fg_m if fg_m else fg
         st.markdown(f'<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 1rem; color: #9d00ff;">mL/min</div></div>', unsafe_allow_html=True)
 
     st.write(""); st.markdown("---")
+    # I.5 Layout Medicamentos
     m_col1, m_col2 = st.columns([0.5, 0.5])
     with m_col1: st.markdown("#### 📝 Listado de medicamentos")
-    with m_col2: st.markdown('<div style="float:right; color:red; font-size:0.8rem;">🛡️ RGPD: No datos personales</div>', unsafe_allow_html=True)
+    with m_col2: st.markdown('<div style="float:right; background-color:#fff5f5; color:#c53030; padding:8px 16px; border-radius:8px; border:1.5px solid #feb2b2; font-size:0.8rem;">🛡️ RGPD: No introduzca datos personales</div>', unsafe_allow_html=True)
+    
+    # I.6 TextArea
     txt_meds = st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds")
 
+    # I.7 Barra dual de botones
     b1, b2 = st.columns([0.85, 0.15])
     with b1: btn_val = st.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True)
-    with b2: st.button("🗑️ RESET TOTAL", on_click=reset_meds, use_container_width=True)
+    with b2: st.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
 
     if btn_val and txt_meds:
-        with st.spinner("Analizando..."):
+        with st.spinner("Analizando bajo protocolos de rigor..."):
             prompt = (f"Analiza FG {valor_fg}: {txt_meds}. PRINCIPIO III: Título 'Medicamentos afectados:'. "
-                      f"Regla Agresiva: NO menciones metabolismo/eliminación aquí. Solo listado con iconos ⚠️ o ⛔. "
-                      f"Luego añade 'A continuación, se detallan los ajustes...' y el detalle técnico.")
+                      f"NO menciones metabolismo/eliminación. Solo listado con iconos ⚠️ o ⛔. "
+                      f"Inicia con 'Se detectan medicamentos no ajustados al FG actual ({valor_fg} ml/min)'. "
+                      f"Luego añade 'A continuación, se detallan los ajustes...'")
             resp = llamar_ia_en_cascada(prompt)
             glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
             try:
@@ -231,13 +254,13 @@ with tabs[0]:
                 
                 # Bloque Azul IV
                 st.markdown(f"""<div class="blue-detail-container">{detalle.replace("\n", "<br>")}
-                <br><br><b>NOTA IMPORTANTE:</b><br>
+                <br><br><span style="color:#2c5282;"><b>NOTA IMPORTANTE:</b></span><br>
                 1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).<br>
                 2. Los ajustes propuestos son orientativos según filtrado glomerular actual.<br>
                 3. La decisión final corresponde siempre al prescriptor médico.<br>
                 4. Considere la situación clínica global del paciente antes de modificar dosis.</div>""", unsafe_allow_html=True)
                 
-                # Blindaje Pestaña 2 VI
+                # Sincronización VI
                 st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
                 st.session_state.soip_o = f"Edad: {int(calc_e) if calc_e else 0} | Peso: {calc_p if calc_p else 0} | Cr: {calc_c if calc_c else 0} | FG: {valor_fg}"
                 st.session_state.soip_i = sintesis
@@ -245,10 +268,10 @@ with tabs[0]:
                 st.session_state.ic_motivo = f"Solicito valoración médica tras revisión de medicación por función renal.\n\nLISTADO DETECTADO:\n{sintesis}"
                 st.session_state.ic_info = detalle
                 st.rerun()
-            except: st.error("Error de formato en la respuesta.")
+            except: st.error("Error en formato.")
 
 with tabs[1]:
-    # --- PESTAÑA 2: INFORME (BLINDADA) ---
+    # --- VI. BLINDAJE PESTAÑA 2 (SOIP & IC) ---
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📄 Nota Evolutiva SOIP</div></div>', unsafe_allow_html=True)
     st.markdown('<div class="linea-discreta-soip">Subjetivo (S)</div>', unsafe_allow_html=True)
     st.text_area("s_txt", st.session_state.soip_s, height=70, label_visibility="collapsed")
@@ -260,12 +283,12 @@ with tabs[1]:
     st.text_area("p_txt", st.session_state.soip_p, height=100, label_visibility="collapsed")
     
     st.write(""); st.markdown('<div style="text-align:center;"><div class="header-capsule">📨 Solicitud de Interconsulta</div></div>', unsafe_allow_html=True)
-    st.markdown('<div class="linea-discreta-soip">Motivo de la Interconsulta</div>', unsafe_allow_html=True)
+    st.markdown('<div class="linea-discreta-soip">Motivo de la Interconsulta (Autocompletado con "I")</div>', unsafe_allow_html=True)
     st.text_area("ic_mot", st.session_state.ic_motivo, height=180, label_visibility="collapsed")
-    st.markdown('<div class="linea-discreta-soip">Información Clínica / Sugerencia Técnica</div>', unsafe_allow_html=True)
+    st.markdown('<div class="linea-discreta-soip">Información Clínica</div>', unsafe_allow_html=True)
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
-# AVISO AMARILLO LEY I.8
+# I.8 AVISO AMARILLO LEGAL
 st.markdown("""
 <div class="warning-yellow">
     ⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b><br><br>
@@ -274,5 +297,5 @@ st.markdown("""
     <b>3. La decisión final corresponde siempre al prescriptor médico.</b><br>
     <b>4. Considere la situación clínica global del paciente antes de modificar dosis.</b>
 </div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 22 feb 20:50</div>
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 22 feb 21:05</div>
 """, unsafe_allow_html=True)
