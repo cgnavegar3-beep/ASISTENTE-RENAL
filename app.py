@@ -1,4 +1,4 @@
-# v. 22 feb 20:50
+# v. 22 feb 20:55
 import streamlit as st
 import pandas as pd
 import io
@@ -104,7 +104,7 @@ import google.generativeai as genai
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
-# Estados de sesión
+# Mantener estados de sesión (sin cambios)
 for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds", "active_model"]:
     if key not in st.session_state: st.session_state[key] = ""
 if st.session_state.active_model == "": st.session_state.active_model = "ESPERANDO..."
@@ -130,7 +130,6 @@ def obtener_modelos_vivos():
 
 def llamar_ia_en_cascada(prompt):
     disponibles = obtener_modelos_vivos()
-    # ORDEN RIGUROSO: 2.5 FLASH > FLASH-LATEST > 1.5 PRO
     orden = ['2.5-flash', 'flash-latest', '1.5-pro']
     resto = [m for m in disponibles if m not in orden]
     for mod_name in (orden + resto):
@@ -140,7 +139,7 @@ def llamar_ia_en_cascada(prompt):
                 model = genai.GenerativeModel(f'models/gemini-{mod_name}')
                 return model.generate_content(prompt).text
             except: continue
-    return "⚠️ Sin modelos."
+    return "⚠️ Error."
 
 def inject_ui_styles():
     st.markdown("""
@@ -160,7 +159,7 @@ def inject_ui_styles():
     .blue-detail-container { background-color: #f0f7ff; color: #2c5282; padding: 20px; border-radius: 10px; border: 1px solid #bee3f8; margin-top: 10px; }
     .nota-line { border-top: 2px solid #aec6cf; margin-top: 15px; padding-top: 15px; font-weight: 700; color: #003366; font-size: 0.85rem; }
     .warning-yellow { background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; }
-    .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
+    .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
     .header-capsule { background-color: #e2e8f0; color: #2d3748; padding: 10px 30px; border-radius: 50px; display: inline-block; font-weight: 800; font-size: 0.9rem; margin-bottom: 20px; }
     </style>
     """, unsafe_allow_html=True)
@@ -169,11 +168,12 @@ inject_ui_styles()
 st.markdown('<div class="availability-badge">ZONA ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 22 feb 20:50</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 22 feb 20:55</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
 with tabs[0]:
+    # --- PESTAÑA 1: BLINDADA ---
     st.markdown("### Registro de Paciente")
     c1, c2, c3, c4, c5, c_del = st.columns([1, 1, 1, 1, 1, 0.4])
     with c1: centro = st.text_input("Centro", placeholder="G/M", key="reg_centro")
@@ -210,7 +210,6 @@ with tabs[0]:
     
     txt_meds = st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds")
 
-    # BARRA DUAL ASIMÉTRICA (PRINCIPIO I.7)
     b1, b2 = st.columns([0.85, 0.15])
     with b1: btn_val = st.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True)
     with b2: st.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
@@ -226,7 +225,6 @@ with tabs[0]:
                     sintesis, detalle = partes[0].strip(), "A continuación, se detallan los ajustes" + partes[1]
                     st.markdown(f'<div class="synthesis-box {glow}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
                     
-                    # PRINCIPIO IV: NOTA TÉCNICA LITERAL
                     nota_tecnica = """<div class="nota-line"><b>NOTA TÉCNICA DE SEGURIDAD:</b><br>
                     1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).<br>
                     2. Los ajustes propuestos son orientativos según filtrado glomerular actual.<br>
@@ -234,19 +232,41 @@ with tabs[0]:
                     4. Considere la situación clínica global del paciente antes de modificar dosis.</div>"""
                     st.markdown(f'<div class="blue-detail-container">{detalle.replace("\n", "<br>")}{nota_tecnica}</div>', unsafe_allow_html=True)
                     
+                    # CARGA DE DATOS PARA PESTAÑA 2 (RESTAURADA)
                     st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
-                    obj = [f"Edad: {calc_e}" if calc_e else "", f"Peso: {calc_p}" if calc_p else "", f"Cr: {calc_c}" if calc_c else "", f"FG: {valor_fg}"]
-                    st.session_state.soip_o = " | ".join([x for x in obj if x])
-                    st.session_state.soip_i, st.session_state.soip_p = sintesis, "Se recomienda interconsulta al MAP."
-                    st.session_state.ic_motivo, st.session_state.ic_info = f"Ajuste por FG...\n\n{sintesis}", detalle[:800]
+                    st.session_state.soip_o = f"Edad: {calc_e} | Peso: {calc_p} | Cr: {calc_c} | FG: {valor_fg}"
+                    st.session_state.soip_i = sintesis
+                    st.session_state.soip_p = "Se recomienda interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
+                    st.session_state.ic_motivo = f"Solicito valoración médica tras revisión farmacoterapéutica orientada a la adecuación posológica según filtrado glomerular.\n\n{sintesis}"
+                    st.session_state.ic_info = detalle
                     st.rerun()
                 except: st.error("Error.")
 
 with tabs[1]:
+    # --- PESTAÑA 2: RESTAURACIÓN TOTAL ---
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📄 Nota Evolutiva SOIP</div></div>', unsafe_allow_html=True)
-    st.text_area("sv", st.session_state.soip_s, height=70, label_visibility="collapsed")
-    st.text_area("ov", st.session_state.soip_o, height=70, label_visibility="collapsed")
-    st.text_area("iv", st.session_state.soip_i, height=120, label_visibility="collapsed")
-    st.text_area("pv", st.session_state.soip_p, height=70, label_visibility="collapsed")
+    
+    st.markdown('<div class="linea-discreta-soip">Subjetivo (S)</div>', unsafe_allow_html=True)
+    st.text_area("s_txt", st.session_state.soip_s, height=70, label_visibility="collapsed")
+    
+    st.markdown('<div class="linea-discreta-soip">Objetivo (O)</div>', unsafe_allow_html=True)
+    st.text_area("o_txt", st.session_state.soip_o, height=70, label_visibility="collapsed")
+    
+    st.markdown('<div class="linea-discreta-soip">Interpretación (I)</div>', unsafe_allow_html=True)
+    st.text_area("i_txt", st.session_state.soip_i, height=120, label_visibility="collapsed")
+    
+    st.markdown('<div class="linea-discreta-soip">Plan (P)</div>', unsafe_allow_html=True)
+    st.text_area("p_txt", st.session_state.soip_p, height=100, label_visibility="collapsed")
+    
+    st.write(""); st.write("")
+    st.markdown('<div style="text-align:center;"><div class="header-capsule">📨 Solicitud de Interconsulta</div></div>', unsafe_allow_html=True)
+    
+    c_ic1, c_ic2 = st.columns(2, gap="medium")
+    with c_ic1:
+        st.markdown('<div class="linea-discreta-soip">Motivo de la Interconsulta</div>', unsafe_allow_html=True)
+        st.text_area("ic_mot", st.session_state.ic_motivo, height=250, label_visibility="collapsed")
+    with c_ic2:
+        st.markdown('<div class="linea-discreta-soip">Información Clínica / Sugerencia Técnica</div>', unsafe_allow_html=True)
+        st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
 st.markdown('<div class="warning-yellow">⚠️ Apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
