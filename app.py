@@ -1,4 +1,4 @@
-# v. 22 feb 17:30
+# v. 22 feb 18:20
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -176,8 +176,8 @@ inject_ui_styles()
 st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 22 feb 17:30</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 22 feb 17:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 22 feb 18:20</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 22 feb 18:20</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -228,19 +228,16 @@ with tabs[0]:
         if st.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True):
             if txt_meds:
                 with st.spinner("Consultando evidencia clínica..."):
-                    # Prompt optimizado para cumplir con la nueva lógica III y IV
                     p1 = f"Experto farmacia renal. Analiza FG {valor_fg}: {txt_meds}. \n"
                     p2 = "REGLAS RÍGIDAS (BLOQUE III): \n"
                     p3 = "1. Si hay fármacos afectados, título: 'Medicamentos afectados:'. Si no, título: 'Fármacos correctamente dosificados'. \n"
-                    p4 = "2. PROHIBIDO usar 'SÍNTESIS' o 'DETALLE'. \n"
-                    p5 = "3. En la síntesis SOLO listar líneas con ⚠️ o ⛔. Formato: [Icono] [Nombre] - [Frase corta]. \n"
-                    p6 = "4. NUNCA listar fármacos correctos en la síntesis. \n"
-                    p7 = "5. Inicia el Bloque IV con: 'A continuación, se detallan los ajustes de dosis para cada fármaco:'."
-                    prompt = p1 + p2 + p3 + p4 + p5 + p6 + p7
+                    p4 = "2. En la síntesis SOLO listar líneas con ⚠️ o ⛔. Formato: [Icono] [Nombre] - [Frase corta]. \n"
+                    p5 = "3. NUNCA listar fármacos correctos en la síntesis. \n"
+                    p6 = "4. Inicia el Bloque IV con: 'A continuación, se detallan los ajustes de dosis para cada fármaco:'."
+                    prompt = p1 + p2 + p3 + p4 + p5 + p6
                     
                     resp = llamar_ia_en_cascada(prompt)
                     
-                    # Lógica de Jerarquía de Gravedad (Glow System)
                     if "⛔" in resp: glow_class = "glow-red"
                     elif "⚠️" in resp: glow_class = "glow-orange"
                     else: glow_class = "glow-green"
@@ -253,10 +250,35 @@ with tabs[0]:
                         st.markdown(f'<div class="synthesis-box {glow_class}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
                         st.markdown(f'<div class="blue-detail-container">{detalle_clinico.replace("\n", "<br>")}<div class="nota-line">Nota Importante:<br>· Estas son recomendaciones generales.<br>· Siempre se debe consultar la ficha técnica actualizada.<br>· Considerar peso, edad y comorbilidades.<br>· Seguimiento periódico de función renal.</div></div>', unsafe_allow_html=True)
                         
-                        st.session_state.soip_o = f"ID: {id_final} | Peso: {calc_p if calc_p else '--'}kg | FG: {valor_fg} mL/min"
-                        st.session_state.soip_i = sintesis
-                        st.session_state.ic_motivo = f"Paciente {id_final}. Hallazgos: {sintesis[:110]}..."
-                        st.session_state.ic_info = detalle_clinico
+                        # LOGICA DE VOLCADO A PESTAÑA 2
+                        meds_list_clean = "\n".join([line for line in sintesis.split("\n") if "⚠️" in line or "⛔" in line])
+                        
+                        # S: Subjetivo
+                        st.session_state.soip_s = "Revisión farmacoterapéutica orientada a identificar medicamentos que precisan ajuste de dosis por filtrado glomerular."
+                        
+                        # O: Objetivo (Solo si están marcados)
+                        obj_text = f"Datos clínicos: "
+                        if calc_e: obj_text += f"Edad: {calc_e} años. "
+                        if calc_p: obj_text += f"Peso: {calc_p} kg. "
+                        if calc_c: obj_text += f"Creatinina: {calc_c} mg/dL. "
+                        obj_text += f"FG calculado (Cockcroft-Gault): {valor_fg} mL/min."
+                        st.session_state.soip_o = obj_text
+                        
+                        # I: Interpretación
+                        if meds_list_clean:
+                            st.session_state.soip_i = f"Se detectan medicamentos no ajustados al FG actual, con necesidad de adaptación posológica o reconsideración terapéutica:\n\n{meds_list_clean}"
+                        else:
+                            st.session_state.soip_i = "No se detectan medicamentos con necesidad de ajuste según el FG actual."
+                        
+                        # P: Plan
+                        st.session_state.soip_p = "Se realiza interconsulta (IC) a su médico de atención primaria (MAP) para que valore adecuación terapéutica y se recomienda seguimiento de función renal."
+                        
+                        # Interconsulta: Motivo
+                        st.session_state.ic_motivo = f"Solicito valoración médica tras revisión farmacoterapéutica por función renal, en la que se detectan fármacos con posible inadecuación posológica según FG actual.\n\nFármacos detectados:\n{meds_list_clean if meds_list_clean else 'Ninguno'}"
+                        
+                        # Interconsulta: Info Técnica (Síntesis del cuadro azul)
+                        st.session_state.ic_info = detalle_clinico[:800] + "..." if len(detalle_clinico) > 800 else detalle_clinico
+
                     except: st.info(resp)
 
     with b_res:
@@ -265,21 +287,21 @@ with tabs[0]:
 with tabs[1]:
     st.markdown('<div style="text-align: center;"><div class="header-capsule">📄 Nota Evolutiva SOIP</div></div>', unsafe_allow_html=True)
     st.markdown('<div class="linea-discreta-soip">Subjetivo (S)</div>', unsafe_allow_html=True)
-    st.session_state.soip_s = st.text_area("S_label", value=st.session_state.soip_s, height=80, label_visibility="collapsed", key="s_input")
+    st.text_area("S_label", value=st.session_state.soip_s, height=70, label_visibility="collapsed", key="s_input")
     st.markdown('<div class="linea-discreta-soip">Objetivo (O)</div>', unsafe_allow_html=True)
-    st.session_state.soip_o = st.text_area("O_label", value=st.session_state.soip_o, height=80, label_visibility="collapsed", key="o_input")
+    st.text_area("O_label", value=st.session_state.soip_o, height=70, label_visibility="collapsed", key="o_input")
     st.markdown('<div class="linea-discreta-soip">Interpretación (I)</div>', unsafe_allow_html=True)
-    st.session_state.soip_i = st.text_area("I_label", value=st.session_state.soip_i, height=80, label_visibility="collapsed", key="i_input")
+    st.text_area("I_label", value=st.session_state.soip_i, height=120, label_visibility="collapsed", key="i_input")
     st.markdown('<div class="linea-discreta-soip">Plan (P)</div>', unsafe_allow_html=True)
-    st.session_state.soip_p = st.text_area("P_label", value=st.session_state.soip_p, height=80, label_visibility="collapsed", key="p_input")
+    st.text_area("P_label", value=st.session_state.soip_p, height=70, label_visibility="collapsed", key="p_input")
     st.markdown('<div class="divider-tecnico"></div>', unsafe_allow_html=True)
     st.markdown('<div style="text-align: center;"><div class="header-capsule">📨 Solicitud de Interconsulta</div></div>', unsafe_allow_html=True)
     i_col1, i_col2 = st.columns(2)
     with i_col1:
         st.markdown('<div class="linea-discreta-soip">Motivo de Interconsulta</div>', unsafe_allow_html=True)
-        st.session_state.ic_motivo = st.text_area("Mot_label", value=st.session_state.ic_motivo, height=220, label_visibility="collapsed", key="mot_input")
+        st.text_area("Mot_label", value=st.session_state.ic_motivo, height=220, label_visibility="collapsed", key="mot_input")
     with i_col2:
         st.markdown('<div class="linea-discreta-soip">Información Técnico-Clínica</div>', unsafe_allow_html=True)
-        st.session_state.ic_info = st.text_area("Info_label", value=st.session_state.ic_info, height=220, label_visibility="collapsed", key="info_input")
+        st.text_area("Info_label", value=st.session_state.ic_info, height=220, label_visibility="collapsed", key="info_input")
 
 st.markdown('<div class="warning-yellow">⚠️ Apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
