@@ -1,4 +1,4 @@
-# v. 22 feb 10:20
+# v. 22 feb 10:25
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -142,11 +142,54 @@ def llamar_ia_en_cascada(prompt):
 def inject_ui_styles():
     st.markdown("""
     <style>
-    .block-container { max-width: 100% !important; padding-top: 2.5rem !important; padding-left: 4% !important; padding-right: 4% !important; }
-    .availability-badge { background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.65rem; position: fixed; top: 15px; left: 15px; z-index: 1000000; border: 1px solid #333; width: 180px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    .model-badge { background-color: #000000 !important; color: #00FF00 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.75rem; position: fixed; top: 15px; left: 205px; z-index: 1000000; box-shadow: 0 0 5px #00FF0033; }
+    /* HEADER FIJO (Sticky) */
+    header[data-testid="stHeader"] { z-index: 0; }
+    
+    .stApp > header {
+        display: none;
+    }
+
+    [data-testid="stHeader"] {
+        background-color: rgba(255,255,255,0.95);
+    }
+
+    /* Contenedor Superior Fijo */
+    .fixed-header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        background-color: white;
+        z-index: 1000;
+        padding-top: 15px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .block-container { 
+        max-width: 100% !important; 
+        padding-top: 10rem !important; /* Espacio para el header fijo */
+        padding-left: 4% !important; 
+        padding-right: 4% !important; 
+    }
+
+    /* BADGES SUPERIORES */
+    .availability-badge { background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.65rem; position: fixed; top: 15px; left: 15px; z-index: 1000001; border: 1px solid #333; width: 180px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .model-badge { background-color: #000000 !important; color: #00FF00 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.75rem; position: fixed; top: 15px; left: 205px; z-index: 1000001; box-shadow: 0 0 5px #00FF0033; }
+    
     .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; padding-bottom: 0px; }
-    .sub-version { text-align: center; font-size: 0.8rem; color: #666; margin-top: -10px; margin-bottom: 20px; font-family: sans-serif; }
+    .sub-version { text-align: center; font-size: 0.8rem; color: #666; margin-top: -10px; margin-bottom: 10px; font-family: sans-serif; }
+    
+    /* Pestañas fijas */
+    div[data-testid="stTabs"] {
+        position: fixed;
+        top: 110px;
+        width: 92%;
+        background-color: white;
+        z-index: 999;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
     .version-display { text-align: right; font-size: 0.6rem; color: #bbb; font-family: monospace; position: fixed; bottom: 10px; right: 10px; }
     .id-display { color: #666; font-family: monospace; font-size: 0.85rem; margin-top: -5px; margin-bottom: 20px; }
     .formula-tag { font-size: 0.75rem; color: #888; font-style: italic; text-align: right; width: 100%; display: block; margin-top: 5px; }
@@ -160,7 +203,7 @@ def inject_ui_styles():
     .nota-line { border-top: 2px solid #aec6cf; margin-top: 15px; padding-top: 15px; font-size: 0.95rem; font-weight: 700; color: #003366; }
     .warning-yellow { background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; }
     
-    /* ESTILOS PESTAÑA INFORME EVOLUCIONADA */
+    /* ESTILOS PESTAÑA INFORME */
     .header-capsule { background-color: #e2e8f0; color: #2d3748; padding: 10px 30px; border-radius: 50px; display: inline-block; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; font-size: 0.9rem; margin-bottom: 20px; border: 1px solid #cbd5e0; }
     .divider-tecnico { border: 0; height: 2px; background-image: linear-gradient(to right, rgba(0,0,0,0), rgba(157, 0, 255, 0.4), rgba(0,0,0,0)); margin: 40px 0; }
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 0 auto 5px auto; width: 98%; padding-top: 2px; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
@@ -170,11 +213,13 @@ def inject_ui_styles():
     """, unsafe_allow_html=True)
 
 inject_ui_styles()
+
+# HEADER FIJO (Visual)
 st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 22 feb 10:20</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 22 feb 10:20</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 22 feb 10:25</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 22 feb 10:25</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -238,7 +283,7 @@ with tabs[0]:
                         
                         st.session_state.soip_o = f"ID: {id_final} | Peso: {calc_p}kg | FG: {valor_fg} mL/min"
                         st.session_state.soip_i = sintesis
-                        st.session_state.ic_motivo = f"Paciente {id_final}. Hallazgos: {sintesis[:110]}..."
+                        st.session_state.ic_motivo = f"Paciente {id_final}. Resumen: {sintesis[:110]}..."
                         st.session_state.ic_info = detalle_clinico
                     except: st.info(resp)
 
@@ -247,16 +292,12 @@ with tabs[0]:
 
 with tabs[1]:
     st.markdown('<div style="text-align: center;"><div class="header-capsule">📄 Nota Evolutiva SOIP</div></div>', unsafe_allow_html=True)
-    
     st.markdown('<div class="linea-discreta-soip">Subjetivo (S)</div>', unsafe_allow_html=True)
     st.session_state.soip_s = st.text_area("S_label", value=st.session_state.soip_s, height=80, label_visibility="collapsed", key="s_input")
-    
     st.markdown('<div class="linea-discreta-soip">Objetivo (O)</div>', unsafe_allow_html=True)
     st.session_state.soip_o = st.text_area("O_label", value=st.session_state.soip_o, height=80, label_visibility="collapsed", key="o_input")
-    
     st.markdown('<div class="linea-discreta-soip">Interpretación (I)</div>', unsafe_allow_html=True)
     st.session_state.soip_i = st.text_area("I_label", value=st.session_state.soip_i, height=80, label_visibility="collapsed", key="i_input")
-    
     st.markdown('<div class="linea-discreta-soip">Plan (P)</div>', unsafe_allow_html=True)
     st.session_state.soip_p = st.text_area("P_label", value=st.session_state.soip_p, height=80, label_visibility="collapsed", key="p_input")
 
