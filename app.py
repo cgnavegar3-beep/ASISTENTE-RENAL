@@ -1,4 +1,4 @@
-# v. 22 feb 10:20
+# v. 22 feb 17:06
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -175,8 +175,8 @@ inject_ui_styles()
 st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 22 feb 10:20</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 22 feb 10:20</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 22 feb 17:06</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 22 feb 17:06</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -199,11 +199,17 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            calc_e = st.number_input("Edad (años)", value=edad_reg if edad_reg else 65)
-            calc_p = st.number_input("Peso (kg)", value=70.0)
-            calc_c = st.number_input("Creatinina (mg/dL)", value=1.0)
+            # CAMBIO TÉCNICO: Placeholders en lugar de valores fijos
+            calc_e = st.number_input("Edad (años)", value=edad_reg if edad_reg else None, placeholder="Ej: 65")
+            calc_p = st.number_input("Peso (kg)", value=None, placeholder="Ej: 70.0")
+            calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="Ej: 1.0")
             calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"])
-            fg = round(((140 - calc_e) * calc_p) / (72 * calc_c) * (0.85 if calc_s == "Mujer" else 1.0), 1)
+            
+            # Lógica de cálculo segura para evitar errores con campos vacíos
+            if calc_e and calc_p and calc_c:
+                fg = round(((140 - calc_e) * calc_p) / (72 * calc_c) * (0.85 if calc_s == "Mujer" else 1.0), 1)
+            else:
+                fg = 0.0
             st.markdown('<span class="formula-tag">Fórmula: Cockcroft-Gault</span>', unsafe_allow_html=True)
 
     with col_der:
@@ -238,7 +244,7 @@ with tabs[0]:
                         st.markdown(f'<div class="synthesis-box {glow_class}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
                         st.markdown(f'<div class="blue-detail-container">{detalle_clinico.replace("\n", "<br>")}<div class="nota-line">Nota Importante:<br>· Estas son recomendaciones generales.<br>· Siempre se debe consultar la ficha técnica actualizada.<br>· Considerar peso, edad y comorbilidades.<br>· Seguimiento periódico de función renal.</div></div>', unsafe_allow_html=True)
                         
-                        st.session_state.soip_o = f"ID: {id_final} | Peso: {calc_p}kg | FG: {valor_fg} mL/min"
+                        st.session_state.soip_o = f"ID: {id_final} | Peso: {calc_p if calc_p else '--'}kg | FG: {valor_fg} mL/min"
                         st.session_state.soip_i = sintesis
                         st.session_state.ic_motivo = f"Paciente {id_final}. Hallazgos: {sintesis[:110]}..."
                         st.session_state.ic_info = detalle_clinico
