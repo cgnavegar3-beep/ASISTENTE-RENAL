@@ -1,4 +1,4 @@
-# v. 22 feb 10:15
+# v. 22 feb 10:20
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -160,8 +160,9 @@ def inject_ui_styles():
     .nota-line { border-top: 2px solid #aec6cf; margin-top: 15px; padding-top: 15px; font-size: 0.95rem; font-weight: 700; color: #003366; }
     .warning-yellow { background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; }
     
-    /* ESTILOS SURCO CÁPSULA - PESTAÑA INFORME */
-    .centrado-title { text-align: center; color: #1E1E1E; font-weight: 700; margin-top: 15px; margin-bottom: 15px; }
+    /* ESTILOS PESTAÑA INFORME EVOLUCIONADA */
+    .header-capsule { background-color: #e2e8f0; color: #2d3748; padding: 10px 30px; border-radius: 50px; display: inline-block; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; font-size: 0.9rem; margin-bottom: 20px; border: 1px solid #cbd5e0; }
+    .divider-tecnico { border: 0; height: 2px; background-image: linear-gradient(to right, rgba(0,0,0,0), rgba(157, 0, 255, 0.4), rgba(0,0,0,0)); margin: 40px 0; }
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 0 auto 5px auto; width: 98%; padding-top: 2px; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
     div[data-baseweb="textarea"] { background-color: #f4f1ea !important; border: none !important; border-radius: 25px !important; box-shadow: inset 2px 2px 5px #d9d5c7 !important; padding: 5px 15px !important; }
     textarea { background-color: transparent !important; border: none !important; font-family: serif !important; color: #444 !important; }
@@ -172,8 +173,8 @@ inject_ui_styles()
 st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 22 feb 10:15</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 22 feb 10:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 22 feb 10:20</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 22 feb 10:20</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -235,7 +236,6 @@ with tabs[0]:
                         st.markdown(f'<div class="synthesis-box {glow_class}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
                         st.markdown(f'<div class="blue-detail-container">{detalle_clinico.replace("\n", "<br>")}<div class="nota-line">Nota Importante:<br>· Estas son recomendaciones generales.<br>· Siempre se debe consultar la ficha técnica actualizada.<br>· Considerar peso, edad y comorbilidades.<br>· Seguimiento periódico de función renal.</div></div>', unsafe_allow_html=True)
                         
-                        # Automatización datos SOIP
                         st.session_state.soip_o = f"ID: {id_final} | Peso: {calc_p}kg | FG: {valor_fg} mL/min"
                         st.session_state.soip_i = sintesis
                         st.session_state.ic_motivo = f"Paciente {id_final}. Hallazgos: {sintesis[:110]}..."
@@ -246,9 +246,8 @@ with tabs[0]:
         st.button("🗑️ RESET", use_container_width=True, on_click=reset_meds)
 
 with tabs[1]:
-    st.markdown('<h3 class="centrado-title">📄 Nota Evolutiva SOIP</h3>', unsafe_allow_html=True)
+    st.markdown('<div style="text-align: center;"><div class="header-capsule">📄 Nota Evolutiva SOIP</div></div>', unsafe_allow_html=True)
     
-    # Estructura vertical SOIP en cápsulas
     st.markdown('<div class="linea-discreta-soip">Subjetivo (S)</div>', unsafe_allow_html=True)
     st.session_state.soip_s = st.text_area("S_label", value=st.session_state.soip_s, height=80, label_visibility="collapsed", key="s_input")
     
@@ -261,8 +260,9 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">Plan (P)</div>', unsafe_allow_html=True)
     st.session_state.soip_p = st.text_area("P_label", value=st.session_state.soip_p, height=80, label_visibility="collapsed", key="p_input")
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown('<h3 class="centrado-title">📨 Solicitud de Interconsulta</h3>', unsafe_allow_html=True)
+    st.markdown('<div class="divider-tecnico"></div>', unsafe_allow_html=True)
+    
+    st.markdown('<div style="text-align: center;"><div class="header-capsule">📨 Solicitud de Interconsulta</div></div>', unsafe_allow_html=True)
     i_col1, i_col2 = st.columns(2)
     with i_col1:
         st.markdown('<div class="linea-discreta-soip">Motivo de Interconsulta</div>', unsafe_allow_html=True)
