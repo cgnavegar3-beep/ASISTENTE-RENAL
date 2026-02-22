@@ -1,4 +1,4 @@
-# v. 22 feb 11:40
+# v. 22 feb 11:55
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -134,14 +134,17 @@ def llamar_ia_en_cascada(prompt):
 
 def inject_ui_styles():
     css = '<style>'
-    css += '.block-container { max-width: 100% !important; padding-top: 10rem !important; padding-left: 4% !important; padding-right: 4% !important; }'
+    # REHABILITACIÓN DEL SCROLL:
+    css += 'html, body, [data-testid="stAppViewContainer"] { overflow-y: auto !important; }'
+    css += '.block-container { max-width: 100% !important; padding-top: 11rem !important; padding-left: 4% !important; padding-right: 4% !important; overflow-y: visible !important; }'
+    
     css += '[data-testid="stHeader"] { background: rgba(0,0,0,0); }'
     css += '.availability-badge { background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.65rem; position: fixed; top: 15px; left: 15px; z-index: 1000001; border: 1px solid #333; width: 180px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }'
     css += '.model-badge { background-color: #000000 !important; color: #00FF00 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.75rem; position: fixed; top: 15px; left: 205px; z-index: 1000001; box-shadow: 0 0 5px #00FF0033; }'
-    css += '.fixed-title-container { position: fixed; top: 0; left: 0; right: 0; background-color: white; z-index: 999; padding-top: 20px; height: 100px; border-bottom: 1px solid #eee; }'
+    css += '.fixed-title-container { position: fixed; top: 0; left: 0; right: 0; background-color: white; z-index: 999; padding-top: 20px; height: 110px; border-bottom: 1px solid #eee; }'
     css += '.main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin: 0; }'
     css += '.sub-version { text-align: center; font-size: 0.8rem; color: #666; margin-top: -5px; font-family: sans-serif; }'
-    css += 'div[data-testid="stTabs"] { position: fixed !important; top: 100px !important; background-color: white !important; z-index: 998 !important; width: 100%; padding-left: 4%; padding-right: 4%; }'
+    css += 'div[data-testid="stTabs"] { position: fixed !important; top: 110px !important; background-color: white !important; z-index: 998 !important; width: 100%; padding-left: 4%; padding-right: 4%; }'
     css += '.version-display { text-align: right; font-size: 0.6rem; color: #bbb; font-family: monospace; position: fixed; bottom: 10px; right: 10px; }'
     css += '.id-display { color: #666; font-family: monospace; font-size: 0.85rem; margin-top: -5px; margin-bottom: 20px; }'
     css += '.formula-tag { font-size: 0.75rem; color: #888; font-style: italic; text-align: right; width: 100%; display: block; margin-top: 5px; }'
@@ -162,8 +165,8 @@ inject_ui_styles()
 st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
 
-st.markdown('<div class="fixed-title-container"><div class="main-title">ASISTENTE RENAL</div><div class="sub-version">v. 22 feb 11:40</div></div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 22 feb 11:40</div>', unsafe_allow_html=True)
+st.markdown('<div class="fixed-title-container"><div class="main-title">ASISTENTE RENAL</div><div class="sub-version">v. 22 feb 11:55</div></div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 22 feb 11:55</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(['💊 VALIDACIÓN', '📄 INFORME', '📊 EXCEL', '📈 GRÁFICOS'])
 
