@@ -1,4 +1,4 @@
-# v. 22 feb 11:30
+# v. 22 feb 12:45
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -137,31 +137,25 @@ def inject_ui_styles():
     <style>
     .block-container { max-width: 100% !important; padding-top: 1.5rem !important; padding-left: 4% !important; padding-right: 4% !important; }
     
-    /* CABECERA FIJA */
-    [data-testid="stHeader"] { background-color: rgba(255,255,255,0); }
+    /* CONTROL DE CABECERA NATIVA */
+    [data-testid="stHeader"] { background: white !important; z-index: 997; }
     
-    .sticky-header {
-        position: sticky;
-        top: 0;
-        background-color: white;
-        z-index: 999;
-        padding-top: 10px;
-        border-bottom: 1px solid #eee;
-    }
-
+    /* CUADROS NEGROS (MÁXIMA PRIORIDAD) */
     .availability-badge { background-color: #1a1a1a !important; color: #888 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.65rem; position: fixed; top: 15px; left: 15px; z-index: 1000001; border: 1px solid #333; width: 180px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .model-badge { background-color: #000000 !important; color: #00FF00 !important; padding: 4px 10px; border-radius: 3px; font-family: monospace !important; font-size: 0.75rem; position: fixed; top: 15px; left: 205px; z-index: 1000001; box-shadow: 0 0 5px #00FF0033; }
     
+    /* TITULO Y VERSION FIJOS */
     .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; padding-bottom: 0px; }
     .sub-version { text-align: center; font-size: 0.8rem; color: #666; margin-top: -10px; margin-bottom: 10px; font-family: sans-serif; }
     .version-display { text-align: right; font-size: 0.6rem; color: #bbb; font-family: monospace; position: fixed; bottom: 10px; right: 10px; }
     
-    /* FIJAR TABS */
+    /* TÉCNICA STICKY PARA PESTAÑAS */
     div[data-testid="stTabs"] {
         position: sticky;
-        top: 95px;
-        background-color: white;
+        top: 0px;
+        background-color: white !important;
         z-index: 998;
+        padding-top: 5px;
     }
 
     .id-display { color: #666; font-family: monospace; font-size: 0.85rem; margin-top: -5px; margin-bottom: 20px; }
@@ -181,17 +175,12 @@ def inject_ui_styles():
 
 inject_ui_styles()
 
-# Contenedor para elementos fijos superiores
-header_container = st.container()
-with header_container:
-    st.markdown('<div class="sticky-header">', unsafe_allow_html=True)
-    st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
-    st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-version">v. 22 feb 11:30</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown('<div class="version-display">v. 22 feb 11:30</div>', unsafe_allow_html=True)
+# Los cuadros y el título se mantienen en su sitio para no romper la estructura visual blindada
+st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 22 feb 12:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 22 feb 12:45</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
