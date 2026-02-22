@@ -1,4 +1,4 @@
-# v. 22 feb 10:40
+# v. 22 feb 11:45
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -142,33 +142,31 @@ def llamar_ia_en_cascada(prompt):
 def inject_ui_styles():
     st.markdown("""
     <style>
-    /* ELIMINACIÓN DE CABECERA POR DEFECTO */
+    /* 1. RESET DE CONTENEDORES PARA PERMITIR STICKY NATURALEZA EXCEL */
     header[data-testid="stHeader"] { visibility: hidden; }
+    .stApp { background-color: white; }
     
-    /* INMOVILIZACIÓN DE CABECERA (BLOQUE SUPERIOR) */
-    .stMainBlockContainer {
-        padding-top: 0rem !important;
+    /* Desbloqueo de scroll para el sticky sin romper layout */
+    .stMainBlockContainer { 
+        padding-top: 2rem !important; 
+        overflow-y: visible !important;
     }
     
-    /* Contenedor Sticky para Badges + Título */
-    .sticky-header {
+    /* 2. ANCLAJE DEL BLOQUE DE CABECERA (BADGES + TÍTULO) */
+    /* Apuntamos al contenedor padre que Streamlit genera para los primeros elementos */
+    [data-testid="stVerticalBlock"] > div:first-of-type {
         position: sticky;
         top: 0;
         z-index: 1001;
         background-color: white;
-        padding-top: 15px;
-        padding-bottom: 5px;
-        margin-top: -60px; /* Ajuste para compensar espacio de Streamlit */
+        padding-bottom: 10px;
     }
 
-    /* BADGES DISCRETOS Y ALINEADOS */
+    /* 3. ESTILIZACIÓN DE ELEMENTOS (SIN CAMBIOS ESTRUCTURALES) */
     .badges-container {
-        position: absolute;
-        left: 20px;
-        top: 15px;
         display: flex;
         gap: 8px;
-        align-items: center;
+        margin-bottom: 10px;
     }
     .availability-badge { 
         background-color: #000000 !important; 
@@ -178,10 +176,7 @@ def inject_ui_styles():
         font-family: monospace !important; 
         font-size: 0.65rem; 
         border: 1px solid #333; 
-        width: 170px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        width: fit-content;
     }
     .model-badge { 
         background-color: #000000 !important; 
@@ -191,24 +186,22 @@ def inject_ui_styles():
         font-family: monospace !important; 
         font-size: 0.75rem; 
         box-shadow: 0 0 5px #00FF0033; 
-        min-width: 80px;
-        text-align: center;
     }
     
     .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin: 0; }
     .sub-version { text-align: center; font-size: 0.8rem; color: #666; margin-top: -5px; }
     
-    /* PESTAÑAS INMOVILIZADAS */
+    /* 4. ANCLAJE DE PESTAÑAS (DEBAJO DEL BLOQUE ANTERIOR) */
     div[data-testid="stTabs"] {
         position: sticky;
-        top: 100px;
+        top: 110px; /* Offset calculado dinámicamente por el navegador al ser hermano */
         z-index: 1000;
         background-color: white;
         padding-top: 5px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #f0f0f0;
+        border-bottom: 1px solid #eee;
     }
 
+    /* 5. RESTO DE ESTILOS BLINDADOS */
     .block-container { max-width: 100% !important; padding-left: 4% !important; padding-right: 4% !important; }
     .version-display { text-align: right; font-size: 0.6rem; color: #bbb; font-family: monospace; position: fixed; bottom: 10px; right: 10px; }
     .id-display { color: #666; font-family: monospace; font-size: 0.85rem; margin-top: -5px; margin-bottom: 20px; }
@@ -234,21 +227,20 @@ def inject_ui_styles():
 
 inject_ui_styles()
 
-# CABECERA INMOVILIZADA (FILAS 1 Y 2)
-st.markdown(f"""
-<div class="sticky-header">
+# 1. BLOQUE SUPERIOR (ZONA, ACTIVO, TÍTULO, VERSIÓN)
+with st.container():
+    st.markdown(f'''
     <div class="badges-container">
         <div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>
         <div class="model-badge">{st.session_state.active_model}</div>
     </div>
     <div class="main-title">ASISTENTE RENAL</div>
-    <div class="sub-version">v. 22 feb 10:40</div>
-</div>
-""", unsafe_allow_html=True)
+    <div class="sub-version">v. 22 feb 11:45</div>
+    ''', unsafe_allow_html=True)
 
-st.markdown('<div class="version-display">v. 22 feb 10:40</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 22 feb 11:45</div>', unsafe_allow_html=True)
 
-# PESTAÑAS (FILA 3 - INMOVILIZADA POR CSS)
+# 2. PESTAÑAS (TABS)
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
 with tabs[0]:
