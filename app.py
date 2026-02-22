@@ -1,4 +1,4 @@
-# v. 22 feb 11:45
+# v. 22 feb 12:15
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -142,31 +142,22 @@ def llamar_ia_en_cascada(prompt):
 def inject_ui_styles():
     st.markdown("""
     <style>
-    /* 1. RESET DE CONTENEDORES PARA PERMITIR STICKY NATURALEZA EXCEL */
     header[data-testid="stHeader"] { visibility: hidden; }
-    .stApp { background-color: white; }
     
-    /* Desbloqueo de scroll para el sticky sin romper layout */
-    .stMainBlockContainer { 
-        padding-top: 2rem !important; 
-        overflow-y: visible !important;
-    }
-    
-    /* 2. ANCLAJE DEL BLOQUE DE CABECERA (BADGES + TÍTULO) */
-    /* Apuntamos al contenedor padre que Streamlit genera para los primeros elementos */
-    [data-testid="stVerticalBlock"] > div:first-of-type {
-        position: sticky;
-        top: 0;
-        z-index: 1001;
-        background-color: white;
-        padding-bottom: 10px;
+    /* Espacio reservado para la cabecera fija para que el contenido no empiece debajo */
+    .stMainBlockContainer {
+        padding-top: 170px !important;
     }
 
-    /* 3. ESTILIZACIÓN DE ELEMENTOS (SIN CAMBIOS ESTRUCTURALES) */
-    .badges-container {
+    /* 1. BADGES FIJOS Y DISCRETOS (Esquina Superior Izquierda) */
+    .badges-fixed-wrapper {
+        position: fixed;
+        top: 40px;
+        left: 4%;
+        z-index: 999999;
         display: flex;
         gap: 8px;
-        margin-bottom: 10px;
+        width: fit-content;
     }
     .availability-badge { 
         background-color: #000000 !important; 
@@ -177,6 +168,7 @@ def inject_ui_styles():
         font-size: 0.65rem; 
         border: 1px solid #333; 
         width: fit-content;
+        white-space: nowrap;
     }
     .model-badge { 
         background-color: #000000 !important; 
@@ -185,25 +177,43 @@ def inject_ui_styles():
         border-radius: 3px; 
         font-family: monospace !important; 
         font-size: 0.75rem; 
-        box-shadow: 0 0 5px #00FF0033; 
-    }
-    
-    .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin: 0; }
-    .sub-version { text-align: center; font-size: 0.8rem; color: #666; margin-top: -5px; }
-    
-    /* 4. ANCLAJE DE PESTAÑAS (DEBAJO DEL BLOQUE ANTERIOR) */
-    div[data-testid="stTabs"] {
-        position: sticky;
-        top: 110px; /* Offset calculado dinámicamente por el navegador al ser hermano */
-        z-index: 1000;
-        background-color: white;
-        padding-top: 5px;
-        border-bottom: 1px solid #eee;
+        box-shadow: 0 0 5px #00FF0033;
+        width: fit-content;
+        text-align: center;
     }
 
-    /* 5. RESTO DE ESTILOS BLINDADOS */
+    /* 2. TÍTULO Y VERSIÓN FIJOS (Centrados) */
+    .title-fixed-wrapper {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 100px;
+        background-color: white;
+        z-index: 999998;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+    .main-title { font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin: 0; }
+    .sub-version { font-size: 0.8rem; color: #666; margin-top: -5px; }
+    
+    /* 3. PESTAÑAS FIJAS (Debajo del Título) */
+    div[data-testid="stTabs"] {
+        position: fixed;
+        top: 100px;
+        left: 4%;
+        right: 4%;
+        z-index: 999997;
+        background-color: white;
+        padding-top: 5px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    /* ESTILOS DE COMPONENTES PROTEGIDOS */
     .block-container { max-width: 100% !important; padding-left: 4% !important; padding-right: 4% !important; }
-    .version-display { text-align: right; font-size: 0.6rem; color: #bbb; font-family: monospace; position: fixed; bottom: 10px; right: 10px; }
+    .version-display { text-align: right; font-size: 0.6rem; color: #bbb; font-family: monospace; position: fixed; bottom: 10px; right: 10px; z-index: 10; }
     .id-display { color: #666; font-family: monospace; font-size: 0.85rem; margin-top: -5px; margin-bottom: 20px; }
     .formula-tag { font-size: 0.75rem; color: #888; font-style: italic; text-align: right; width: 100%; display: block; margin-top: 5px; }
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
@@ -227,20 +237,21 @@ def inject_ui_styles():
 
 inject_ui_styles()
 
-# 1. BLOQUE SUPERIOR (ZONA, ACTIVO, TÍTULO, VERSIÓN)
-with st.container():
-    st.markdown(f'''
-    <div class="badges-container">
+# RENDERIZADO DE CABECERA INMOVILIZADA
+st.markdown(f'''
+    <div class="badges-fixed-wrapper">
         <div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>
         <div class="model-badge">{st.session_state.active_model}</div>
     </div>
-    <div class="main-title">ASISTENTE RENAL</div>
-    <div class="sub-version">v. 22 feb 11:45</div>
-    ''', unsafe_allow_html=True)
+    <div class="title-fixed-wrapper">
+        <div class="main-title">ASISTENTE RENAL</div>
+        <div class="sub-version">v. 22 feb 12:15</div>
+    </div>
+''', unsafe_allow_html=True)
 
-st.markdown('<div class="version-display">v. 22 feb 11:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 22 feb 12:15</div>', unsafe_allow_html=True)
 
-# 2. PESTAÑAS (TABS)
+# SISTEMA DE PESTAÑAS
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
 with tabs[0]:
