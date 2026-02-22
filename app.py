@@ -1,4 +1,4 @@
-# v. 22 feb 17:06
+# v. 22 feb 17:30
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -53,34 +53,35 @@ import io
 # #
 #    3. Actualización de feedback neón en tiempo real (Badge ACTIVO).
 # #
-#    
 # #
-# III. BLINDAJE DEL BLOQUE AZUL (blue-detail-container):
+# III. BLINDAJE DE SÍNTESIS DINÁMICA (Glow System):
+# #
+#    - Títulos Permitidos: SOLO "Medicamentos afectados:" o "Fármacos correctamente dosificados".
+# #
+#    - Prohibición Textual: Prohibido usar "SÍNTESIS", "DETALLE", "RESUMEN" o similares.
+# #
+#    - Regla de Contenido Estricta: Solo se listan medicamentos afectados (⚠️ o ⛔).
+# #
+#    - Exclusión: NUNCA listar nombres de fármacos correctamente dosificados en la síntesis.
+# #
+#    - Formato de Línea: [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta]. Sin texto adicional.
+# #
+#    - Lógica de Color (Jerarquía de Gravedad): 
+# #
+#        1. ROJO (glow-red): Si aparece al menos un icono ⛔ (Contraindicado).
+# #
+#        2. NARANJA (glow-orange): Si no hay ⛔ pero aparece al menos un icono ⚠️ (Ajuste).
+# #
+#        3. VERDE (glow-green): Si no hay iconos ⚠️ ni ⛔ (Todo correcto).
+# #
+# #
+# IV. BLINDAJE DEL BLOQUE AZUL (blue-detail-container):
 # #
 #    - Prohibición de Fragmentación: Detalle y Nota en el mismo div CSS.
 # #
 #    - Estilo Fijo: Fondo (#f0f7ff), borde (#bee3f8).
 # #
 #    - NOTA IMPORTANTE: Texto estático (4 puntos) en negrita y azul intenso (Blindado).
-# #
-# #
-# IV. BLINDAJE DE SÍNTESIS DINÁMICA (Glow System):
-# #
-#    - Formato Rígido: Solo se permite "Medicamentos afectados:" o "Fármacos correctamente dosificados".
-# #
-#    - Prohibición Textual: No pueden aparecer las palabras "SÍNTESIS", "DETALLE" o similares.
-# #
-#    - Regla de Información: Solo aparecerán medicamentos afectados
-# #
-#    - Regla de Iconos: [Icono  ⚠️ o ⛔] + [Nombre] + [Frase corta]. Prohibido texto adicional.
-# #
-#    - Lógica de Color (Glow): 
-# #
-#        * Sin iconos = Verde (glow-green).
-# #
-#        * Con ⚠️ = Naranja (glow-orange).
-# #
-#        * Con ⛔ = Rojo (glow-red).
 # #
 # #
 # V. PROTECCIÓN INTEGRAL PESTAÑA 1 (💊 VALIDACIÓN):
@@ -162,7 +163,7 @@ def inject_ui_styles():
     .nota-line { border-top: 2px solid #aec6cf; margin-top: 15px; padding-top: 15px; font-size: 0.95rem; font-weight: 700; color: #003366; }
     .warning-yellow { background-color: #fdfde0; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; }
     
-    /* ESTILOS PESTAÑA INFORME EVOLUCIONADA */
+    /* ESTILOS PESTAÑA INFORME */
     .header-capsule { background-color: #e2e8f0; color: #2d3748; padding: 10px 30px; border-radius: 50px; display: inline-block; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; font-size: 0.9rem; margin-bottom: 20px; border: 1px solid #cbd5e0; }
     .divider-tecnico { border: 0; height: 2px; background-image: linear-gradient(to right, rgba(0,0,0,0), rgba(157, 0, 255, 0.4), rgba(0,0,0,0)); margin: 40px 0; }
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 0 auto 5px auto; width: 98%; padding-top: 2px; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
@@ -175,8 +176,8 @@ inject_ui_styles()
 st.markdown(f'<div class="availability-badge">ZONA: {" | ".join(obtener_modelos_vivos())}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 22 feb 17:06</div>', unsafe_allow_html=True)
-st.markdown('<div class="version-display">v. 22 feb 17:06</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 22 feb 17:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="version-display">v. 22 feb 17:30</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -199,13 +200,10 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            # CAMBIO TÉCNICO: Placeholders en lugar de valores fijos
             calc_e = st.number_input("Edad (años)", value=edad_reg if edad_reg else None, placeholder="Ej: 65")
             calc_p = st.number_input("Peso (kg)", value=None, placeholder="Ej: 70.0")
             calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="Ej: 1.0")
             calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"])
-            
-            # Lógica de cálculo segura para evitar errores con campos vacíos
             if calc_e and calc_p and calc_c:
                 fg = round(((140 - calc_e) * calc_p) / (72 * calc_c) * (0.85 if calc_s == "Mujer" else 1.0), 1)
             else:
@@ -230,17 +228,28 @@ with tabs[0]:
         if st.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True):
             if txt_meds:
                 with st.spinner("Consultando evidencia clínica..."):
+                    # Prompt optimizado para cumplir con la nueva lógica III y IV
                     p1 = f"Experto farmacia renal. Analiza FG {valor_fg}: {txt_meds}. \n"
-                    p2 = "INSTRUCCIONES RÍGIDAS DE FORMATO: \n 1. Encabezado SÍNTESIS: SOLO 'Medicamentos afectados:' o 'Fármacos correctamente dosificados'. \n"
-                    p3 = "2. PROHIBIDO usar las palabras SÍNTESIS o DETALLE. \n 3. Lista: [Icono] [Nombre] - [Frase corta]. \n"
-                    p4 = "4. Inicia el bloque técnico con: 'A continuación, se detallan los ajustes de dosis para cada fármaco con este valor de FG:'."
-                    prompt = p1 + p2 + p3 + p4
+                    p2 = "REGLAS RÍGIDAS (BLOQUE III): \n"
+                    p3 = "1. Si hay fármacos afectados, título: 'Medicamentos afectados:'. Si no, título: 'Fármacos correctamente dosificados'. \n"
+                    p4 = "2. PROHIBIDO usar 'SÍNTESIS' o 'DETALLE'. \n"
+                    p5 = "3. En la síntesis SOLO listar líneas con ⚠️ o ⛔. Formato: [Icono] [Nombre] - [Frase corta]. \n"
+                    p6 = "4. NUNCA listar fármacos correctos en la síntesis. \n"
+                    p7 = "5. Inicia el Bloque IV con: 'A continuación, se detallan los ajustes de dosis para cada fármaco:'."
+                    prompt = p1 + p2 + p3 + p4 + p5 + p6 + p7
+                    
                     resp = llamar_ia_en_cascada(prompt)
-                    glow_class = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
+                    
+                    # Lógica de Jerarquía de Gravedad (Glow System)
+                    if "⛔" in resp: glow_class = "glow-red"
+                    elif "⚠️" in resp: glow_class = "glow-orange"
+                    else: glow_class = "glow-green"
+                    
                     try:
                         partes = resp.split("A continuación, se detallan los ajustes")
                         sintesis = partes[0].strip()
                         detalle_clinico = "A continuación, se detallan los ajustes" + partes[1]
+                        
                         st.markdown(f'<div class="synthesis-box {glow_class}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
                         st.markdown(f'<div class="blue-detail-container">{detalle_clinico.replace("\n", "<br>")}<div class="nota-line">Nota Importante:<br>· Estas son recomendaciones generales.<br>· Siempre se debe consultar la ficha técnica actualizada.<br>· Considerar peso, edad y comorbilidades.<br>· Seguimiento periódico de función renal.</div></div>', unsafe_allow_html=True)
                         
@@ -255,21 +264,15 @@ with tabs[0]:
 
 with tabs[1]:
     st.markdown('<div style="text-align: center;"><div class="header-capsule">📄 Nota Evolutiva SOIP</div></div>', unsafe_allow_html=True)
-    
     st.markdown('<div class="linea-discreta-soip">Subjetivo (S)</div>', unsafe_allow_html=True)
     st.session_state.soip_s = st.text_area("S_label", value=st.session_state.soip_s, height=80, label_visibility="collapsed", key="s_input")
-    
     st.markdown('<div class="linea-discreta-soip">Objetivo (O)</div>', unsafe_allow_html=True)
     st.session_state.soip_o = st.text_area("O_label", value=st.session_state.soip_o, height=80, label_visibility="collapsed", key="o_input")
-    
     st.markdown('<div class="linea-discreta-soip">Interpretación (I)</div>', unsafe_allow_html=True)
     st.session_state.soip_i = st.text_area("I_label", value=st.session_state.soip_i, height=80, label_visibility="collapsed", key="i_input")
-    
     st.markdown('<div class="linea-discreta-soip">Plan (P)</div>', unsafe_allow_html=True)
     st.session_state.soip_p = st.text_area("P_label", value=st.session_state.soip_p, height=80, label_visibility="collapsed", key="p_input")
-
     st.markdown('<div class="divider-tecnico"></div>', unsafe_allow_html=True)
-    
     st.markdown('<div style="text-align: center;"><div class="header-capsule">📨 Solicitud de Interconsulta</div></div>', unsafe_allow_html=True)
     i_col1, i_col2 = st.columns(2)
     with i_col1:
