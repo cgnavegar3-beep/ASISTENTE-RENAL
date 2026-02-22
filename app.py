@@ -294,10 +294,6 @@ with tabs[1]:
 st.markdown("""
 <div class="warning-yellow">
     ⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b><br><br>
-    <b>1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</b><br>
-    <b>2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</b><br>
-    <b>3. La decisión final corresponde siempre al prescriptor médico.</b><br>
-    <b>4. Considere la situación clínica global del paciente antes de modificar dosis.</b>
 </div>
 <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 22 feb 21:15</div>
 """, unsafe_allow_html=True)
