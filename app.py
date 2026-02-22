@@ -1,4 +1,4 @@
-# v. 22 feb 20:55
+# v. 22 feb 21:10
 import streamlit as st
 import pandas as pd
 import io
@@ -104,7 +104,7 @@ import google.generativeai as genai
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
-# Mantener estados de sesión (sin cambios)
+# Estados de sesión
 for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds", "active_model"]:
     if key not in st.session_state: st.session_state[key] = ""
 if st.session_state.active_model == "": st.session_state.active_model = "ESPERANDO..."
@@ -139,7 +139,7 @@ def llamar_ia_en_cascada(prompt):
                 model = genai.GenerativeModel(f'models/gemini-{mod_name}')
                 return model.generate_content(prompt).text
             except: continue
-    return "⚠️ Error."
+    return "⚠️ Error de conexión."
 
 def inject_ui_styles():
     st.markdown("""
@@ -168,12 +168,11 @@ inject_ui_styles()
 st.markdown('<div class="availability-badge">ZONA ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="model-badge">{st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 22 feb 20:55</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 22 feb 21:10</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
 with tabs[0]:
-    # --- PESTAÑA 1: BLINDADA ---
     st.markdown("### Registro de Paciente")
     c1, c2, c3, c4, c5, c_del = st.columns([1, 1, 1, 1, 1, 0.4])
     with c1: centro = st.text_input("Centro", placeholder="G/M", key="reg_centro")
@@ -217,7 +216,14 @@ with tabs[0]:
     if btn_val:
         if txt_meds:
             with st.spinner("Validando..."):
-                prompt = f"Analiza FG {valor_fg}: {txt_meds}. REGLA: Si hay afectados: 'Se detectan medicamentos no ajustados al FG actual...'. Si no: 'MEDICAMENTOS CORRECTAMENTE DOSIFICADOS'. Detalle inicia con: 'A continuación, se detallan los ajustes de dosis para cada fármaco:'."
+                # PROMPT REFINADO SEGÚN PRINCIPIO III
+                prompt = (f"Analiza FG {valor_fg} mL/min: {txt_meds}. "
+                          f"REGLA CRÍTICA: Si hay fármacos afectados, inicia EXACTAMENTE con: 'Se detectan medicamentos no ajustados al FG actual ({valor_fg} ml/min)'. "
+                          f"Debajo, lista los afectados usando: [Icono ⚠️ o ⛔] [Nombre] - [Frase corta de ajuste]. "
+                          f"Si todo es correcto, usa: 'MEDICAMENTOS CORRECTAMENTE DOSIFICADOS'. "
+                          f"PROHIBIDO: No menciones fármacos bien dosificados en la lista. "
+                          f"Detalle técnico inicia con: 'A continuación, se detallan los ajustes de dosis para cada fármaco:'.")
+                
                 resp = llamar_ia_en_cascada(prompt)
                 glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
                 try:
@@ -232,35 +238,30 @@ with tabs[0]:
                     4. Considere la situación clínica global del paciente antes de modificar dosis.</div>"""
                     st.markdown(f'<div class="blue-detail-container">{detalle.replace("\n", "<br>")}{nota_tecnica}</div>', unsafe_allow_html=True)
                     
-                    # CARGA DE DATOS PARA PESTAÑA 2 (RESTAURADA)
+                    # CARGA DE DATOS PARA PESTAÑA 2
                     st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
                     st.session_state.soip_o = f"Edad: {calc_e} | Peso: {calc_p} | Cr: {calc_c} | FG: {valor_fg}"
                     st.session_state.soip_i = sintesis
-                    st.session_state.soip_p = "Se recomienda interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
+                    # CORRECCIÓN LITERAL EN PLAN P
+                    st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
                     st.session_state.ic_motivo = f"Solicito valoración médica tras revisión farmacoterapéutica orientada a la adecuación posológica según filtrado glomerular.\n\n{sintesis}"
                     st.session_state.ic_info = detalle
                     st.rerun()
-                except: st.error("Error.")
+                except: st.error("Error en el formato de respuesta.")
 
 with tabs[1]:
-    # --- PESTAÑA 2: RESTAURACIÓN TOTAL ---
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📄 Nota Evolutiva SOIP</div></div>', unsafe_allow_html=True)
-    
     st.markdown('<div class="linea-discreta-soip">Subjetivo (S)</div>', unsafe_allow_html=True)
     st.text_area("s_txt", st.session_state.soip_s, height=70, label_visibility="collapsed")
-    
     st.markdown('<div class="linea-discreta-soip">Objetivo (O)</div>', unsafe_allow_html=True)
     st.text_area("o_txt", st.session_state.soip_o, height=70, label_visibility="collapsed")
-    
     st.markdown('<div class="linea-discreta-soip">Interpretación (I)</div>', unsafe_allow_html=True)
     st.text_area("i_txt", st.session_state.soip_i, height=120, label_visibility="collapsed")
-    
     st.markdown('<div class="linea-discreta-soip">Plan (P)</div>', unsafe_allow_html=True)
     st.text_area("p_txt", st.session_state.soip_p, height=100, label_visibility="collapsed")
     
     st.write(""); st.write("")
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📨 Solicitud de Interconsulta</div></div>', unsafe_allow_html=True)
-    
     c_ic1, c_ic2 = st.columns(2, gap="medium")
     with c_ic1:
         st.markdown('<div class="linea-discreta-soip">Motivo de la Interconsulta</div>', unsafe_allow_html=True)
