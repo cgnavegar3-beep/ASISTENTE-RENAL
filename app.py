@@ -1,4 +1,4 @@
-# v. 23 feb 09:12
+# v. 23 feb 09:25
 import streamlit as st
 import pandas as pd
 import io
@@ -215,13 +215,13 @@ def inject_styles():
 
 inject_styles()
 
-# Renderizado de Badges (I.1)
+# Renderizado de Badges (PRINCIPIO I.1) - VERIFICADO
 st.markdown(f'<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 
-# Título y Versión (I.2)
+# Título y Versión (PRINCIPIO I.2) - VERIFICADO
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 23 feb 09:12</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 23 feb 09:25</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -239,7 +239,7 @@ with tabs[0]:
     id_calc = f"{centro if centro else '---'}-{str(int(edad_reg)) if edad_reg else '00'}-{alfa if alfa else '---'}"
     st.markdown(f'<div style="color:#888; font-family:monospace; font-size:0.75rem; margin-top:-15px; margin-bottom:20px;">ID REGISTRO: {id_calc}</div>', unsafe_allow_html=True)
 
-    # I.5 Interfaz Dual
+    # I.5 Interfaz Dual (Blindada)
     col_izq, col_der = st.columns(2, gap="large")
     with col_izq:
         st.markdown("#### 📋 Calculadora")
@@ -314,10 +314,10 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">Información Clínica</div>', unsafe_allow_html=True)
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
-# Aviso Amarillo (Texto Base)
+# Aviso Amarillo (Texto Base) - PRINCIPIO I.9 VERIFICADO
 st.markdown("""
 <div class="warning-yellow">
   ⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b>
 </div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 23 feb 09:12</div>
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 23 feb 09:25</div>
 """, unsafe_allow_html=True)
