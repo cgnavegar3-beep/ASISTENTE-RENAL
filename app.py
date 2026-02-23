@@ -1,4 +1,4 @@
-# v. 23 feb 09:25
+# v. 23 feb 09:32
 import streamlit as st
 import pandas as pd
 import io
@@ -187,13 +187,13 @@ def llamar_ia_en_cascada(prompt):
 def inject_styles():
     st.markdown("""
     <style>
-    .block-container { max-width: 100% !important; padding-top: 3rem !important; padding-left: 4% !important; padding-right: 4% !important; }
+    .block-container { max-width: 100% !important; padding-top: 1rem !important; padding-left: 4% !important; padding-right: 4% !important; }
     
-    /* I.1 BLINDAJE CUADROS NEGROS - POSICIÓN ALINEADA IZQUIERDA */
-    .black-badge-zona { background-color: #000000; color: #888; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 15px; left: 15px; z-index: 99999; }
-    .black-badge-activo { background-color: #000000; color: #00FF00; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 15px; left: 145px; z-index: 99999; text-shadow: 0 0 5px #00FF00; }
+    /* I.1 BLINDAJE CUADROS NEGROS - REFUERZO Z-INDEX Y POSICIÓN */
+    .black-badge-zona { background-color: #000000; color: #888; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 10px; left: 15px; z-index: 999999; }
+    .black-badge-activo { background-color: #000000; color: #00FF00; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 10px; left: 145px; z-index: 999999; text-shadow: 0 0 5px #00FF00; }
     
-    .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; margin-top: 0px; }
+    .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; margin-top: 20px; }
     .sub-version { text-align: center; font-size: 0.6rem; color: #bbb; margin-top: -5px; margin-bottom: 20px; font-family: monospace; }
     
     /* I.5 Glow Morado */
@@ -215,13 +215,13 @@ def inject_styles():
 
 inject_styles()
 
-# Renderizado de Badges (PRINCIPIO I.1) - VERIFICADO
-st.markdown(f'<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
+# Renderizado Obligatorio (Principio I.1)
+st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 
-# Título y Versión (PRINCIPIO I.2) - VERIFICADO
+# Título y Versión (Principio I.2)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 23 feb 09:25</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 23 feb 09:32</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -239,7 +239,7 @@ with tabs[0]:
     id_calc = f"{centro if centro else '---'}-{str(int(edad_reg)) if edad_reg else '00'}-{alfa if alfa else '---'}"
     st.markdown(f'<div style="color:#888; font-family:monospace; font-size:0.75rem; margin-top:-15px; margin-bottom:20px;">ID REGISTRO: {id_calc}</div>', unsafe_allow_html=True)
 
-    # I.5 Interfaz Dual (Blindada)
+    # I.5 Interfaz Dual
     col_izq, col_der = st.columns(2, gap="large")
     with col_izq:
         st.markdown("#### 📋 Calculadora")
@@ -279,15 +279,14 @@ with tabs[0]:
             try:
                 partes = resp.split("A continuación, se detallan los ajustes")
                 sintesis, detalle = partes[0].strip(), "A continuación, se detallan los ajustes" + (partes[1] if len(partes)>1 else "")
-                
                 with placeholder_salida.container():
                     st.markdown(f'<div class="synthesis-box {glow}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
                     st.markdown(f"""<div class="blue-detail-container">{detalle.replace("\n", "<br>")}
                     <br><br><span style="color:#2c5282;"><b>NOTA IMPORTANTE:</b></span><br>
-                    <b>1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</b><br>
-                    <b>2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</b><br>
-                    <b>3. La decisión final corresponde siempre al prescriptor médico.</b><br>
-                    <b>4. Considere la situación clínica global del paciente antes de modificar dosis.</b></div>""", unsafe_allow_html=True)
+                    <b>3.1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</b><br>
+                    <b>3.2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</b><br>
+                    <b>3.3. La decisión final corresponde siempre al prescriptor médico.</b><br>
+                    <b>3.4. Considere la situación clínica global del paciente antes de modificar dosis.</b></div>""", unsafe_allow_html=True)
                 
                 st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
                 st.session_state.soip_o = f"Edad: {int(calc_e) if calc_e else 0} | Peso: {calc_p if calc_p else 0} | Cr: {calc_c if calc_c else 0} | FG: {valor_fg}"
@@ -314,10 +313,10 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">Información Clínica</div>', unsafe_allow_html=True)
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
-# Aviso Amarillo (Texto Base) - PRINCIPIO I.9 VERIFICADO
+# Aviso Amarillo (Texto Base) - PRINCIPIO I.9
 st.markdown("""
 <div class="warning-yellow">
   ⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b>
 </div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 23 feb 09:25</div>
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 23 feb 09:32</div>
 """, unsafe_allow_html=True)
