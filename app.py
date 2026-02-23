@@ -1,4 +1,4 @@
-# v. 23 feb 09:32
+# v. 23 feb 09:45
 import streamlit as st
 import pandas as pd
 import io
@@ -188,24 +188,15 @@ def inject_styles():
     st.markdown("""
     <style>
     .block-container { max-width: 100% !important; padding-top: 1rem !important; padding-left: 4% !important; padding-right: 4% !important; }
-    
-    /* I.1 BLINDAJE CUADROS NEGROS - REFUERZO Z-INDEX Y POSICIÓN */
     .black-badge-zona { background-color: #000000; color: #888; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 10px; left: 15px; z-index: 999999; }
     .black-badge-activo { background-color: #000000; color: #00FF00; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 10px; left: 145px; z-index: 999999; text-shadow: 0 0 5px #00FF00; }
-    
     .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; margin-top: 20px; }
     .sub-version { text-align: center; font-size: 0.6rem; color: #bbb; margin-top: -5px; margin-bottom: 20px; font-family: monospace; }
-    
-    /* I.5 Glow Morado */
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
-    
-    /* III Glow System */
     .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; }
     .glow-green { background-color: #f1f8e9; color: #2e7d32; border-color: #a5d6a7; box-shadow: 0 0 12px #a5d6a7; }
     .glow-orange { background-color: #fff3e0; color: #e65100; border-color: #ffcc80; box-shadow: 0 0 12px #ffcc80; }
     .glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; box-shadow: 0 0 18px #feb2b2; }
-    
-    /* IV Bloque Azul */
     .blue-detail-container { background-color: #f0f7ff; color: #2c5282; padding: 20px; border-radius: 10px; border: 1px solid #bee3f8; margin-top: 10px; }
     .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
@@ -214,19 +205,14 @@ def inject_styles():
     """, unsafe_allow_html=True)
 
 inject_styles()
-
-# Renderizado Obligatorio (Principio I.1)
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
-
-# Título y Versión (Principio I.2)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 23 feb 09:32</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 23 feb 09:45</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
 with tabs[0]:
-    # --- I.4 REGISTRO PACIENTE (FILA ÚNICA) ---
     st.markdown("### Registro de Paciente")
     c1, c2, c3, c4, c5, c_del = st.columns([1, 1, 1, 1, 1, 0.4])
     with c1: centro = st.text_input("Centro", placeholder="G/M", key="reg_centro")
@@ -239,16 +225,15 @@ with tabs[0]:
     id_calc = f"{centro if centro else '---'}-{str(int(edad_reg)) if edad_reg else '00'}-{alfa if alfa else '---'}"
     st.markdown(f'<div style="color:#888; font-family:monospace; font-size:0.75rem; margin-top:-15px; margin-bottom:20px;">ID REGISTRO: {id_calc}</div>', unsafe_allow_html=True)
 
-    # I.5 Interfaz Dual
     col_izq, col_der = st.columns(2, gap="large")
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
             calc_e = st.number_input("Edad (años)", value=int(edad_reg) if edad_reg else None, step=1)
-            calc_p = st.number_input("Peso (kg)", value=None)
-            calc_c = st.number_input("Creatinina (mg/dL)", value=None)
+            calc_p = st.number_input("Peso (kg)", value=0.0)
+            calc_c = st.number_input("Creatinina (mg/dL)", value=0.0)
             calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"])
-            fg = round(((140 - (calc_e or 0)) * (calc_p or 0)) / (72 * (calc_c or 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e and calc_p and calc_c else 0.0
+            fg = round(((140 - (calc_e or 0)) * (calc_p or 0)) / (72 * (calc_c or 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e and calc_p > 0 and calc_c > 0 else 0.0
 
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
@@ -270,15 +255,18 @@ with tabs[0]:
     if btn_val and txt_meds:
         placeholder_salida = st.empty()
         with st.spinner("Procesando..."):
-            prompt = (f"Analiza FG {valor_fg}: {txt_meds}. III. BLINDAJE: Título 'Medicamentos afectados:'. "
-                      f"NO menciones metabolismo ni eliminación. Solo iconos ⚠️/⛔ + Nombre + Frase. "
-                      f"Empieza con 'Se detectan medicamentos no ajustados al FG actual ({valor_fg} ml/min)'.")
+            prompt = (f"Analiza FG {valor_fg}: {txt_meds}. "
+                      f"Instrucción Título: Comienza directamente con 'Medicamentos afectados:' o 'Fármacos correctamente dosificados:'. "
+                      f"No uses 'SÍNTESIS', 'III BLINDAJE' ni hables de metabolismo. "
+                      f"Usa iconos ⚠️/⛔ + Nombre + Frase. "
+                      f"Separa el detalle posterior con la frase 'A continuación, se detallan los ajustes:'.")
             resp = llamar_ia_en_cascada(prompt)
             glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
             
             try:
                 partes = resp.split("A continuación, se detallan los ajustes")
                 sintesis, detalle = partes[0].strip(), "A continuación, se detallan los ajustes" + (partes[1] if len(partes)>1 else "")
+                
                 with placeholder_salida.container():
                     st.markdown(f'<div class="synthesis-box {glow}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
                     st.markdown(f"""<div class="blue-detail-container">{detalle.replace("\n", "<br>")}
@@ -288,8 +276,15 @@ with tabs[0]:
                     <b>3.3. La decisión final corresponde siempre al prescriptor médico.</b><br>
                     <b>3.4. Considere la situación clínica global del paciente antes de modificar dosis.</b></div>""", unsafe_allow_html=True)
                 
+                # Lógica de Filtrado de Ceros para Objetivo (O) - PRINCIPIO VI.2.2
+                obj_parts = []
+                if calc_e and calc_e > 0: obj_parts.append(f"Edad: {int(calc_e)}")
+                if calc_p and calc_p > 0: obj_parts.append(f"Peso: {calc_p}")
+                if calc_c and calc_c > 0: obj_parts.append(f"Cr: {calc_c}")
+                if float(valor_fg) > 0: obj_parts.append(f"FG: {valor_fg}")
+                
                 st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
-                st.session_state.soip_o = f"Edad: {int(calc_e) if calc_e else 0} | Peso: {calc_p if calc_p else 0} | Cr: {calc_c if calc_c else 0} | FG: {valor_fg}"
+                st.session_state.soip_o = " | ".join(obj_parts)
                 st.session_state.soip_i = sintesis
                 st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
                 st.session_state.ic_motivo = f"Solicito valoración médica tras revisión de medicación por función renal.\n\nLISTADO DETECTADO:\n{sintesis}"
@@ -313,10 +308,9 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">Información Clínica</div>', unsafe_allow_html=True)
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
-# Aviso Amarillo (Texto Base) - PRINCIPIO I.9
 st.markdown("""
 <div class="warning-yellow">
   ⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b>
 </div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 23 feb 09:32</div>
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 23 feb 09:45</div>
 """, unsafe_allow_html=True)
