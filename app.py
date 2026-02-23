@@ -1,4 +1,4 @@
-# v. 23 feb 08:53
+# v. 23 feb 09:12
 import streamlit as st
 import pandas as pd
 import io
@@ -35,26 +35,26 @@ import google.generativeai as genai
 #    2. Título "ASISTENTE RENAL" y Versión inmediatamente
 # debajo (Blindado).
 # #
-#    2. Título principal y pestañas (Tabs).
+#    3. Título principal y pestañas (Tabs).
 # #
-#    3. Registro de paciente y función: TODO EN UNA LÍNEA (Centro,
+#    4. Registro de paciente y función: TODO EN UNA LÍNEA (Centro,
 # Edad, ID Alfa, Res, Fecha + Botón Borrado Registro).
 # #
-#    4. Interfaz Dual (Calculadora y caja de FG (Purple Glow): lógica
+#    5. Interfaz Dual (Calculadora y caja de FG (Purple Glow): lógica
 # Cockcroft-Gault.
 # #
 #       -> REFUERZO: NO SE TOCA LA CALCULADORA, NO SE TOCA EL GLOW
 # MORADO.
 # #
-#    5. Layout Medicamentos: Título y Aviso RGPD (estilo ampliado) en
+#    6. Layout Medicamentos: Título y Aviso RGPD (estilo ampliado) en
 # la misma línea.
 # #
-#    6. Cuadro de listado de medicamentos (TextArea).
+#    7. Cuadro de listado de medicamentos (TextArea).
 # #
-#    7. Barra dual de botones (VALIDAR / RESET TOTAL) y Reset de
+#    8. Barra dual de botones (VALIDAR / RESET TOTAL) y Reset de
 # Registro.
 # #
-#    8. Aviso amarillo de apoyo legal inferior CON EL TEXTO: ⚠️
+#    9. Aviso amarillo de apoyo legal inferior CON EL TEXTO: ⚠️
 # Esta herramienta es de apoyo a la revisión farmacoterapéutica.
 # Verifique siempre con fuentes oficiales.
 # #
@@ -69,103 +69,83 @@ import google.generativeai as genai
 #    3. Actualización de feedback neón en tiempo real (Badge ACTIVO).
 # #
 # #
-# III. BLINDAJE DE SÍNTESIS DINÁMICA (Glow System) -
-# ANTI-ALUCINACIONES:
+# III. BLINDAJE DE SÍNTESIS DINÁMICA (Glow System) - ANTI-ALUCINACIONES:
 # #
-#    - Títulos Permitidos: SOLO "Medicamentos afectados:" o
+#    1. Títulos Permitidos: SOLO "Medicamentos afectados:" o
 # "Fármacos correctamente dosificados".
 # #
-#    - Prohibición Textual: Prohibido usar "SÍNTESIS",
+#    2. Prohibición Textual: Prohibido usar "SÍNTESIS",
 # "DETALLE", "RESUMEN" o similares.
 # #
-#    - RESTRICCIÓN AGRESIVA: Prohibido escribir sobre metabolismo o
+#    3. RESTRICCIÓN AGRESIVA: Prohibido escribir sobre metabolismo o
 # eliminación en este bloque.
 # #
-#    - Regla de Contenido Estricta: Solo se listan medicamentos
+#    4. Regla de Contenido Estricta: Solo se listan medicamentos
 # afectados (⚠️ o⛔).
 # #
-#    - Exclusión: NUNCA listar nombres de fármacos correctamente
+#    5. Exclusión: NUNCA listar nombres de fármacos correctamente
 # dosificados en la síntesis.
 # #
-#    - Formato de Línea: [Icono ⚠️
-# o ⛔] + [Nombre] +
-# [Frase corta]. Sin texto adicional.
+#    6. Formato de Línea: [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta]. 
+# Sin texto adicional.
 # #
-#    - Lógica de Color (Jerarquía de Gravedad):
+#    7. Lógica de Color (Jerarquía de Gravedad):
 # #
-#        1. ROJO (glow-red): Si aparece al menos un icono ⛔
-# (Contraindicado).
+#        7.1. ROJO (glow-red): Si aparece al menos un icono ⛔ (Contraindicado).
 # #
-#        2. NARANJA (glow-orange): Si no hay ⛔
-# pero aparece al menos un icono ⚠️
-# (Ajuste).
+#        7.2. NARANJA (glow-orange): Si no hay ⛔ pero aparece al menos un icono ⚠️ (Ajuste).
 # #
-#        3. VERDE (glow-green): Si no hay iconos ⚠️
-# ni ⛔ (Todo
-# correcto).
+#        7.3. VERDE (glow-green): Si no hay iconos ⚠️ ni ⛔ (Todo correcto).
 # #
 # #
 # IV. BLINDAJE DEL BLOQUE AZUL (blue-detail-container):
 # #
-#    - Prohibición de Fragmentación: Detalle y Nota en el mismo div
-# CSS.
+#    1. Prohibición de Fragmentación: Detalle y Nota en el mismo div CSS.
 # #
-#    - Estilo Fijo: Fondo (#f0f7ff), borde (#bee3f8).
+#    2. Estilo Fijo: Fondo (#f0f7ff), borde (#bee3f8).
 # #
-#    - NOTA IMPORTANTE (4 PUNTOS ESTÁTICOS):
+#    3. NOTA IMPORTANTE (4 PUNTOS ESTÁTICOS):
 # #
-#      1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).
+#      3.1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).
 # #
-#      2. Los ajustes propuestos son orientativos según filtrado
-# glomerular actual.
+#      3.2. Los ajustes propuestos son orientativos según filtrado glomerular actual.
 # #
-#      3. La decisión final corresponde siempre al prescriptor médico.
+#      3.3. La decisión final corresponde siempre al prescriptor médico.
 # #
-#      4. Considere la situación clínica global del paciente antes de
-# modificar dosis.
+#      3.4. Considere la situación clínica global del paciente antes de modificar dosis.
 # #
 # #
-# V. PROTECCIÓN INTEGRAL PESTAÑA 1 (💊
-# VALIDACIÓN):
+# V. PROTECCIÓN INTEGRAL PESTAÑA 1 (💊 VALIDACIÓN):
 # #
-#    - Blindaje Total: Prohibida cualquier modificación en el layout,
+#    1. Blindaje Total: Prohibida cualquier modificación en el layout,
 # orden de columnas o funciones.
 # #
-#    - Componentes Congelados: Registro de paciente (fila única),
+#    2. Componentes Congelados: Registro de paciente (fila única),
 # Calculadora dual (Glow morado), Área de texto y Botonera.
 # #
-#    - Lógica Funcional: El sistema de callbacks y el prompt de IA no
+#    3. Lógica Funcional: El sistema de callbacks y el prompt de IA no
 # admiten cambios de sintaxis.
 # #
 # #
-# VI. BLINDAJE PESTAÑA 2 (📄
-# INFORME - SOIP & IC):
+# VI. BLINDAJE PESTAÑA 2 (📄 INFORME - SOIP & IC):
 # #
-#    - ESTRUCTURA SOIP: 4 cuadros de texto verticales con etiquetas de
-# cabecera discretas.
+#    1. ESTRUCTURA SOIP: 4 cuadros de texto verticales con etiquetas de cabecera discretas.
 # #
-#    - FRASES FIJAS POR DEFECTO:
+#    2. FRASES FIJAS POR DEFECTO:
 # #
-#      * Subjetivo (S): "Revisión farmacoterapéutica según
-# función renal."
+#      2.1. Subjetivo (S): "Revisión farmacoterapéutica según función renal."
 # #
-#      * Objetivo (O): Solo valores > 0. Formato: "Edad: X |
-# Peso: Y | Cr: Z | FG: W".
+#      2.2. Objetivo (O): Solo valores > 0. Formato: "Edad: X | Peso: Y | Cr: Z | FG: W".
 # #
-#      * Interpretación (I): Se anotará automáticamente la síntesis
-# de medicamentos afectados.
+#      2.3. Interpretación (I): Se anotará automáticamente la síntesis de medicamentos afectados.
 # #
-#      * Plan (P): "Se hace interconsulta al MAP para valoración
-# de ajuste posológico y seguimiento de función renal."
+#      2.4. Plan (P): "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
 # #
-#    - ESTRUCTURA INTERCONSULTA (IC): Un cuadro bajo el otro (Layout
-# Vertical).
+#    3. ESTRUCTURA INTERCONSULTA (IC): Un cuadro bajo el otro (Layout Vertical).
 # #
-#    - TEXTO IC OBLIGATORIO: "Solicito valoración médica tras
-# revisión de medicación por función renal." 
+#    4. TEXTO IC OBLIGATORIO: "Solicito valoración médica tras revisión de medicación por función renal." 
 # #
-#      + [Se listará automáticamente lo que aparezca en la sección
-# "I"].
+#      4.1. [Se listará automáticamente lo que aparezca en la sección "I"].
 # #
 # =================================================================
 
@@ -216,7 +196,7 @@ def inject_styles():
     .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; margin-top: 0px; }
     .sub-version { text-align: center; font-size: 0.6rem; color: #bbb; margin-top: -5px; margin-bottom: 20px; font-family: monospace; }
     
-    /* I.4 Glow Morado */
+    /* I.5 Glow Morado */
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
     
     /* III Glow System */
@@ -241,12 +221,12 @@ st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_m
 
 # Título y Versión (I.2)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 23 feb 08:53</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 23 feb 09:12</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
 with tabs[0]:
-    # --- I.3 REGISTRO PACIENTE (FILA ÚNICA) ---
+    # --- I.4 REGISTRO PACIENTE (FILA ÚNICA) ---
     st.markdown("### Registro de Paciente")
     c1, c2, c3, c4, c5, c_del = st.columns([1, 1, 1, 1, 1, 0.4])
     with c1: centro = st.text_input("Centro", placeholder="G/M", key="reg_centro")
@@ -259,7 +239,7 @@ with tabs[0]:
     id_calc = f"{centro if centro else '---'}-{str(int(edad_reg)) if edad_reg else '00'}-{alfa if alfa else '---'}"
     st.markdown(f'<div style="color:#888; font-family:monospace; font-size:0.75rem; margin-top:-15px; margin-bottom:20px;">ID REGISTRO: {id_calc}</div>', unsafe_allow_html=True)
 
-    # I.4 Interfaz Dual
+    # I.5 Interfaz Dual
     col_izq, col_der = st.columns(2, gap="large")
     with col_izq:
         st.markdown("#### 📋 Calculadora")
@@ -288,33 +268,33 @@ with tabs[0]:
     with b2: st.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
 
     if btn_val and txt_meds:
+        placeholder_salida = st.empty()
         with st.spinner("Procesando..."):
             prompt = (f"Analiza FG {valor_fg}: {txt_meds}. III. BLINDAJE: Título 'Medicamentos afectados:'. "
                       f"NO menciones metabolismo ni eliminación. Solo iconos ⚠️/⛔ + Nombre + Frase. "
                       f"Empieza con 'Se detectan medicamentos no ajustados al FG actual ({valor_fg} ml/min)'.")
             resp = llamar_ia_en_cascada(prompt)
             glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
+            
             try:
                 partes = resp.split("A continuación, se detallan los ajustes")
-                sintesis, detalle = partes[0].strip(), "A continuación, se detallan los ajustes" + partes[1]
-                st.markdown(f'<div class="synthesis-box {glow}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
+                sintesis, detalle = partes[0].strip(), "A continuación, se detallan los ajustes" + (partes[1] if len(partes)>1 else "")
                 
-                # Bloque Azul IV (Con los 4 puntos blindados aquí)
-                st.markdown(f"""<div class="blue-detail-container">{detalle.replace("\n", "<br>")}
-                <br><br><span style="color:#2c5282;"><b>NOTA IMPORTANTE:</b></span><br>
-                <b>1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</b><br>
-                <b>2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</b><br>
-                <b>3. La decisión final corresponde siempre al prescriptor médico.</b><br>
-                <b>4. Considere la situación clínica global del paciente antes de modificar dosis.</b></div>""", unsafe_allow_html=True)
+                with placeholder_salida.container():
+                    st.markdown(f'<div class="synthesis-box {glow}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
+                    st.markdown(f"""<div class="blue-detail-container">{detalle.replace("\n", "<br>")}
+                    <br><br><span style="color:#2c5282;"><b>NOTA IMPORTANTE:</b></span><br>
+                    <b>1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</b><br>
+                    <b>2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</b><br>
+                    <b>3. La decisión final corresponde siempre al prescriptor médico.</b><br>
+                    <b>4. Considere la situación clínica global del paciente antes de modificar dosis.</b></div>""", unsafe_allow_html=True)
                 
-                # Sincronización VI
                 st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
                 st.session_state.soip_o = f"Edad: {int(calc_e) if calc_e else 0} | Peso: {calc_p if calc_p else 0} | Cr: {calc_c if calc_c else 0} | FG: {valor_fg}"
                 st.session_state.soip_i = sintesis
                 st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
                 st.session_state.ic_motivo = f"Solicito valoración médica tras revisión de medicación por función renal.\n\nLISTADO DETECTADO:\n{sintesis}"
                 st.session_state.ic_info = detalle
-                st.rerun()
             except: st.error("Error en respuesta.")
 
 with tabs[1]:
@@ -339,5 +319,5 @@ st.markdown("""
 <div class="warning-yellow">
   ⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b>
 </div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 23 feb 08:53</div>
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 23 feb 09:12</div>
 """, unsafe_allow_html=True)
