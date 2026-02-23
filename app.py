@@ -1,4 +1,4 @@
-# v. 23 feb 09:45
+# v. 23 feb 10:20
 import streamlit as st
 import pandas as pd
 import io
@@ -97,6 +97,10 @@ import google.generativeai as genai
 # #
 #        7.3. VERDE (glow-green): Si no hay iconos ⚠️ ni ⛔ (Todo correcto).
 # #
+#    8. REGLA DE FUENTES Y ALCANCE: El análisis debe centrarse ÚNICA Y EXCLUSIVAMENTE
+# en la adecuación del fármaco según el Filtrado Glomerular (FG) del paciente.
+# Se deben priorizar fuentes oficiales (.gov, AEMPS, FDA) y Open Evidence.
+# #
 # #
 # IV. BLINDAJE DEL BLOQUE AZUL (blue-detail-container):
 # #
@@ -151,7 +155,6 @@ import google.generativeai as genai
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
-# Persistencia
 if "active_model" not in st.session_state:
     st.session_state.active_model = "BUSCANDO..."
 for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds"]:
@@ -208,7 +211,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 23 feb 09:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 23 feb 10:20</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -255,18 +258,18 @@ with tabs[0]:
     if btn_val and txt_meds:
         placeholder_salida = st.empty()
         with st.spinner("Procesando..."):
-            prompt = (f"Analiza FG {valor_fg}: {txt_meds}. "
+            # PROMPT ACTUALIZADO SEGÚN PRINCIPIO III.8
+            prompt = (f"Actúa como farmacéutico clínico. Analiza ÚNICA Y EXCLUSIVAMENTE la adecuación según Filtrado Glomerular (FG: {valor_fg}) "
+                      f"para el listado: {txt_meds}. Prioriza fuentes oficiales (.gov, AEMPS, FDA) y Open Evidence. "
                       f"Instrucción Título: Comienza directamente con 'Medicamentos afectados:' o 'Fármacos correctamente dosificados:'. "
-                      f"No uses 'SÍNTESIS', 'III BLINDAJE' ni hables de metabolismo. "
-                      f"Usa iconos ⚠️/⛔ + Nombre + Frase. "
-                      f"Separa el detalle posterior con la frase 'A continuación, se detallan los ajustes:'.")
+                      f"No uses 'SÍNTESIS', 'III BLINDAJE' ni hables de metabolismo. Usa iconos ⚠️/⛔ + Nombre + Frase. "
+                      f"Separa detalle con: 'A continuación, se detallan los ajustes:'.")
             resp = llamar_ia_en_cascada(prompt)
             glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
             
             try:
                 partes = resp.split("A continuación, se detallan los ajustes")
                 sintesis, detalle = partes[0].strip(), "A continuación, se detallan los ajustes" + (partes[1] if len(partes)>1 else "")
-                
                 with placeholder_salida.container():
                     st.markdown(f'<div class="synthesis-box {glow}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
                     st.markdown(f"""<div class="blue-detail-container">{detalle.replace("\n", "<br>")}
@@ -276,13 +279,11 @@ with tabs[0]:
                     <b>3.3. La decisión final corresponde siempre al prescriptor médico.</b><br>
                     <b>3.4. Considere la situación clínica global del paciente antes de modificar dosis.</b></div>""", unsafe_allow_html=True)
                 
-                # Lógica de Filtrado de Ceros para Objetivo (O) - PRINCIPIO VI.2.2
                 obj_parts = []
                 if calc_e and calc_e > 0: obj_parts.append(f"Edad: {int(calc_e)}")
                 if calc_p and calc_p > 0: obj_parts.append(f"Peso: {calc_p}")
                 if calc_c and calc_c > 0: obj_parts.append(f"Cr: {calc_c}")
                 if float(valor_fg) > 0: obj_parts.append(f"FG: {valor_fg}")
-                
                 st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
                 st.session_state.soip_o = " | ".join(obj_parts)
                 st.session_state.soip_i = sintesis
@@ -312,5 +313,5 @@ st.markdown("""
 <div class="warning-yellow">
   ⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b>
 </div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 23 feb 09:45</div>
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 23 feb 10:20</div>
 """, unsafe_allow_html=True)
