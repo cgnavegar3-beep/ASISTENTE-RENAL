@@ -1,4 +1,4 @@
-# v. 26 feb 20:45
+# v. 26 feb 20:55
 import streamlit as st
 import pandas as pd
 import io
@@ -11,7 +11,7 @@ import google.generativeai as genai
 #
 #
 # GEMINI SIEMPRE TENDRA RIGOR, RESPETARA Y VERIFICARA QUE SE CUMPLAN
-# ESTOS PRINCIPIOS ANTES Y DESPUES DE REALIZAR CUALQUIER CAMBIO.
+# ESTOS PRINCIPIOS ANTESE Y DESPUES DE REALIZAR CUALQUIER CAMBIO.
 #
 #
 # 1. NUNCA BORRAR NI MODIFICAR ESTA CLÁUSULA. 
@@ -46,8 +46,8 @@ import google.generativeai as genai
 #    5. Interfaz Dual (Calculadora y caja de FG (Purple Glow): lógica
 # Cockcroft-Gault.
 # #
-#        -> REFUERZO: NO SE TOCA LA CALCULADORA, NO SE TOCA EL GLOW
-# MORADO.
+#        -> REFUERZO: EL NOMBRE "FG-Cockcroft-Gault" DEBE FIGURAR 
+# SIEMPRE EN PEQUEÑO EN LA ESQUINA INFERIOR DERECHA DE LA CALCULADORA.
 # #
 #    6. Layout Medicamentos: Título y Aviso RGPD (estilo ampliado) en
 # la misma línea.
@@ -101,8 +101,6 @@ import google.generativeai as genai
 # #
 #    8. REGLA DE FUENTES Y ALCANCE: El análisis debe centrarse ÚNICA Y EXCLUSIVAMENTE
 # en la adecuación del fármaco según el Filtrado Glomerular (FG) del paciente.
-# Se deben priorizar fuentes oficiales (.gov, AEMPS, FDA) y Open Evidence.
-# Cada línea DEBE terminar con la sigla de la fuente oficial consultada.
 # #
 # #
 # IV. BLINDAJE DEL BLOQUE AZUL (blue-detail-container):
@@ -159,8 +157,8 @@ import google.generativeai as genai
 # #
 #    1. Se protegen los campos FG CKD-EPI y FG MDRD-4 situados bajo el Glow Morado.
 # #
-#    2. El texto del placeholder debe desaparecer al escribir y mostrar la unidad 
-# "mL/min/1,73m²" de forma discreta.
+#    2. El placeholder del campo FG (Ajuste Manual) DEBE ser siempre: 
+# "Entrada Manual FG-Cockcroft-Gault".
 # #
 #    3. Se blinda el botón "GUARDAR CAMBIOS EN EXCEL" centrado en la base de la Pestaña 2.
 # #
@@ -221,7 +219,7 @@ def inject_styles():
     .sub-version { text-align: center; font-size: 0.6rem; color: #bbb; margin-top: -5px; margin-bottom: 20px; font-family: monospace; }
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
     .unit-label { font-size: 0.65rem; color: #888; margin-top: -10px; margin-bottom: 5px; font-family: sans-serif; text-align: center; }
-    .formula-tag { font-size: 0.55rem; color: #666; text-align: right; margin-top: 5px; font-family: monospace; }
+    .formula-tag-corner { font-size: 0.58rem; color: #888; text-align: right; margin-top: 8px; font-family: monospace; font-weight: bold; }
     .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; }
     .glow-green { background-color: #f1f8e9; color: #2e7d32; border-color: #a5d6a7; box-shadow: 0 0 12px #a5d6a7; }
     .glow-orange { background-color: #fff3e0; color: #e65100; border-color: #ffcc80; box-shadow: 0 0 12px #ffcc80; }
@@ -237,7 +235,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 26 feb 20:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 26 feb 20:55</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -258,18 +256,19 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            # Edad vacía con placeholder 0.0 igual que Peso y Creatinina
+            # Edad vacía con placeholder 0.0
             calc_e = st.number_input("Edad (años)", value=None, placeholder="0.0")
             calc_p = st.number_input("Peso (kg)", value=None, placeholder="0.0")
             calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="0.0")
             calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"])
             fg = round(((140 - (calc_e or 0)) * (calc_p or 0)) / (72 * (calc_c or 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e and calc_p and calc_c else 0.0
-            st.markdown('<div class="formula-tag">FG-Cockcroft-Gault</div>', unsafe_allow_html=True)
+            # Nombre de la fórmula en esquina inferior derecha (PRINCIPIO I.5)
+            st.markdown('<div class="formula-tag-corner">FG-Cockcroft-Gault</div>', unsafe_allow_html=True)
 
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
-        # Ajuste manual con label FG y placeholder Entrada Manual
-        fg_m = st.number_input("FG", value=None, placeholder="Entrada Manual", key="fg_manual_val")
+        # Ajuste manual con label FG y placeholder específico (PRINCIPIO VII.2)
+        fg_m = st.number_input("FG", value=None, placeholder="Entrada Manual FG-Cockcroft-Gault", key="fg_manual_strict")
         valor_fg = fg_m if fg_m else fg
         st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (FG-Cockcroft-Gault)</div></div>''', unsafe_allow_html=True)
         st.write("")
@@ -339,4 +338,4 @@ with tabs[1]:
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
 st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 26 feb 20:45</div>""", unsafe_allow_html=True)
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 26 feb 20:55</div>""", unsafe_allow_html=True)
