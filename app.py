@@ -1,4 +1,4 @@
-# v. 26 feb 20:30
+# v. 26 feb 23:15
 import streamlit as st
 import pandas as pd
 import io
@@ -200,12 +200,10 @@ except:
     API_KEY = None
 
 def llamar_ia_en_cascada(prompt):
-    try:
-        disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-    except: disponibles = ["1.5-flash"]
+    disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods] if API_KEY else ["2.5-flash"]
     orden = ['2.5-flash', 'flash-latest', '1.5-pro']
     for mod_name in orden:
-        if any(mod_name in d for d in disponibles):
+        if mod_name in disponibles:
             try:
                 st.session_state.active_model = mod_name.upper()
                 model = genai.GenerativeModel(f'models/gemini-{mod_name}')
@@ -238,7 +236,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 26 feb 20:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 26 feb 23:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -252,7 +250,6 @@ with tabs[0]:
     with c5: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
     with c_del: st.write(""); st.button("🗑️", on_click=reset_registro)
 
-    # ID REGISTRO DINÁMICO (PRINCIPIO I.4 REFORZADO)
     id_calc = f"{centro if centro else '---'}-{str(int(edad_reg)) if edad_reg else '00'}-{alfa if alfa else '---'}"
     st.markdown(f'<div style="color:#888; font-family:monospace; font-size:0.75rem; margin-top:-15px; margin-bottom:20px;">ID REGISTRO: {id_calc}</div>', unsafe_allow_html=True)
 
@@ -338,4 +335,4 @@ with tabs[1]:
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
 st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 26 feb 20:30</div>""", unsafe_allow_html=True)
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 26 feb 23:15</div>""", unsafe_allow_html=True)
