@@ -1,4 +1,4 @@
-# v. 26 feb 20:30
+# v. 26 feb 20:45
 import streamlit as st
 import pandas as pd
 import io
@@ -171,7 +171,6 @@ st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_
 if "active_model" not in st.session_state:
     st.session_state.active_model = "BUSCANDO..."
 
-# Inicialización de estados con textos fijos (Principio VI)
 if "soip_s" not in st.session_state: st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
 if "soip_o" not in st.session_state: st.session_state.soip_o = ""
 if "soip_i" not in st.session_state: st.session_state.soip_i = ""
@@ -187,8 +186,7 @@ def reset_registro():
 def reset_meds():
     st.session_state.main_meds = ""
     st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
-    st.session_state.soip_o = ""
-    st.session_state.soip_i = ""
+    st.session_state.soip_o = ""; st.session_state.soip_i = ""
     st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
     st.session_state.ic_motivo = "Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente."
     st.session_state.ic_info = ""
@@ -223,6 +221,7 @@ def inject_styles():
     .sub-version { text-align: center; font-size: 0.6rem; color: #bbb; margin-top: -5px; margin-bottom: 20px; font-family: monospace; }
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
     .unit-label { font-size: 0.65rem; color: #888; margin-top: -10px; margin-bottom: 5px; font-family: sans-serif; text-align: center; }
+    .formula-tag { font-size: 0.55rem; color: #666; text-align: right; margin-top: 5px; font-family: monospace; }
     .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; }
     .glow-green { background-color: #f1f8e9; color: #2e7d32; border-color: #a5d6a7; box-shadow: 0 0 12px #a5d6a7; }
     .glow-orange { background-color: #fff3e0; color: #e65100; border-color: #ffcc80; box-shadow: 0 0 12px #ffcc80; }
@@ -238,7 +237,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 26 feb 20:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 26 feb 20:45</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -252,7 +251,6 @@ with tabs[0]:
     with c5: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
     with c_del: st.write(""); st.button("🗑️", on_click=reset_registro)
 
-    # ID REGISTRO DINÁMICO (PRINCIPIO I.4 REFORZADO)
     id_calc = f"{centro if centro else '---'}-{str(int(edad_reg)) if edad_reg else '00'}-{alfa if alfa else '---'}"
     st.markdown(f'<div style="color:#888; font-family:monospace; font-size:0.75rem; margin-top:-15px; margin-bottom:20px;">ID REGISTRO: {id_calc}</div>', unsafe_allow_html=True)
 
@@ -260,17 +258,20 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            calc_e = st.number_input("Edad (años)", value=int(edad_reg) if edad_reg else None, step=1)
+            # Edad vacía con placeholder 0.0 igual que Peso y Creatinina
+            calc_e = st.number_input("Edad (años)", value=None, placeholder="0.0")
             calc_p = st.number_input("Peso (kg)", value=None, placeholder="0.0")
             calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="0.0")
             calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"])
             fg = round(((140 - (calc_e or 0)) * (calc_p or 0)) / (72 * (calc_c or 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e and calc_p and calc_c else 0.0
+            st.markdown('<div class="formula-tag">FG-Cockcroft-Gault</div>', unsafe_allow_html=True)
 
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
-        fg_m = st.text_input("Ajuste Manual")
+        # Ajuste manual con label FG y placeholder Entrada Manual
+        fg_m = st.number_input("FG", value=None, placeholder="Entrada Manual", key="fg_manual_val")
         valor_fg = fg_m if fg_m else fg
-        st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
+        st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (FG-Cockcroft-Gault)</div></div>''', unsafe_allow_html=True)
         st.write("")
         l1, l2 = st.columns(2)
         with l1:
@@ -338,4 +339,4 @@ with tabs[1]:
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
 st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 26 feb 20:30</div>""", unsafe_allow_html=True)
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 26 feb 20:45</div>""", unsafe_allow_html=True)
