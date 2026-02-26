@@ -1,4 +1,4 @@
-# v. 26 feb 19:15
+# v. 26 feb 19:30
 import streamlit as st
 import pandas as pd
 import io
@@ -158,18 +158,16 @@ st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_
 # Gestión de estados de sesión
 if "active_model" not in st.session_state:
     st.session_state.active_model = "BUSCANDO..."
-for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds", "fg_ckd", "fg_mdrd"]:
+for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds"]:
     if key not in st.session_state: st.session_state[key] = ""
 
 def reset_registro():
-    st.session_state["reg_centro"] = ""
-    st.session_state["reg_edad"] = None
-    st.session_state["reg_id"] = ""
-    st.session_state["reg_res"] = "No"
+    st.session_state["reg_centro"] = ""; st.session_state["reg_edad"] = None
+    st.session_state["reg_id"] = ""; st.session_state["reg_res"] = "No"
 
 def reset_meds():
     st.session_state.main_meds = ""
-    for k in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "fg_ckd", "fg_mdrd"]:
+    for k in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info"]:
         st.session_state[k] = ""
 
 try:
@@ -199,7 +197,7 @@ def inject_styles():
     .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; margin-top: 20px; }
     .sub-version { text-align: center; font-size: 0.6rem; color: #bbb; margin-top: -5px; margin-bottom: 20px; font-family: monospace; }
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
-    .unit-text { font-size: 0.65rem; color: #888; margin-top: -5px; font-family: sans-serif; }
+    .unit-label { font-size: 0.65rem; color: #888; margin-top: -10px; margin-bottom: 5px; font-family: sans-serif; text-align: center; }
     .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; }
     .glow-green { background-color: #f1f8e9; color: #2e7d32; border-color: #a5d6a7; box-shadow: 0 0 12px #a5d6a7; }
     .glow-orange { background-color: #fff3e0; color: #e65100; border-color: #ffcc80; box-shadow: 0 0 12px #ffcc80; }
@@ -215,7 +213,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 26 feb 19:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 26 feb 19:30</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -246,20 +244,21 @@ with tabs[0]:
         st.markdown("#### 💊 Filtrado Glomerular")
         fg_m = st.text_input("Ajuste Manual")
         valor_fg = fg_m if fg_m else fg
-        # Glow Morado Protegido con Unidades
+        # Glow Morado (Cockcroft-Gault)
         st.markdown(f'''<div class="fg-glow-box">
             <div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div>
             <div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div>
         </div>''', unsafe_allow_html=True)
         
-        # Nuevos campos de Laboratorio debajo del Glow
+        st.write("")
+        # NUEVOS CUADROS DE LAB (CKD y MDRD)
         l1, l2 = st.columns(2)
         with l1:
             val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="FG CKD-EPI", label_visibility="collapsed")
-            if val_ckd: st.markdown(f'<div class="unit-text">{val_ckd} mL/min/1,73m²</div>', unsafe_allow_html=True)
+            if val_ckd: st.markdown(f'<div class="unit-label">{val_ckd} mL/min/1,73m²</div>', unsafe_allow_html=True)
         with l2:
             val_mdrd = st.number_input("FG MDRD-4", value=None, placeholder="FG MDRD-4", label_visibility="collapsed")
-            if val_mdrd: st.markdown(f'<div class="unit-text">{val_mdrd} mL/min/1,73m²</div>', unsafe_allow_html=True)
+            if val_mdrd: st.markdown(f'<div class="unit-label">{val_mdrd} mL/min/1,73m²</div>', unsafe_allow_html=True)
 
     st.write(""); st.markdown("---")
     m_col1, m_col2 = st.columns([0.5, 0.5])
@@ -295,7 +294,6 @@ with tabs[0]:
                     <b>3.3. La decisión final corresponde siempre al prescriptor médico.</b><br>
                     <b>3.4. Considere la situación clínica global del paciente antes de modificar dosis.</b></div>""", unsafe_allow_html=True)
                 
-                # Actualización de SOIP y IC
                 obj_parts = []
                 if calc_e and calc_e > 0: obj_parts.append(f"Edad: {int(calc_e)}")
                 if calc_p and calc_p > 0: obj_parts.append(f"Peso: {calc_p}")
@@ -327,16 +325,16 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">Información Clínica</div>', unsafe_allow_html=True)
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
-    # Botón de Guardado Final
+    # BOTÓN DE GUARDADO EN EXCEL (VISIBLE EN PESTAÑA 2)
     st.write(""); st.write("")
-    bc1, bc2, bc3 = st.columns([0.3, 0.4, 0.3])
-    with bc2:
+    c_save1, c_save2, c_save3 = st.columns([0.3, 0.4, 0.3])
+    with c_save2:
         if st.button("💾 GUARDAR CAMBIOS EN EXCEL", use_container_width=True):
-            st.toast("Preparando envío a Google Sheets...", icon="🔄")
+            st.toast("Enviando datos al registro histórico...", icon="📊")
 
 st.markdown(f"""
 <div class="warning-yellow">
    ⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b>
 </div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 26 feb 19:15</div>
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 26 feb 19:30</div>
 """, unsafe_allow_html=True)
