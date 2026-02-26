@@ -1,4 +1,4 @@
-# v. 26 feb 19:55
+# v. 26 feb 20:00
 import streamlit as st
 import pandas as pd
 import io
@@ -28,7 +28,7 @@ import google.generativeai as genai
 #
 #
 # #
-# I. ESTRUCTURA VISUAL PROTEGADA:
+# I. ESTRUCTURA VISUAL PROTEGIDA:
 # #
 #    1. Cuadros negros superiores (ZONA y ACTIVO).
 # #
@@ -223,7 +223,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 26 feb 19:55</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 26 feb 20:00</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -245,10 +245,11 @@ with tabs[0]:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
             calc_e = st.number_input("Edad (años)", value=int(edad_reg) if edad_reg else None, step=1)
-            calc_p = st.number_input("Peso (kg)", value=0.0)
-            calc_c = st.number_input("Creatinina (mg/dL)", value=0.0)
+            # PESO Y CREATININA CON VALUE=NONE Y PLACEHOLDER=0.0
+            calc_p = st.number_input("Peso (kg)", value=None, placeholder="0.0")
+            calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="0.0")
             calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"])
-            fg = round(((140 - (calc_e or 0)) * (calc_p or 0)) / (72 * (calc_c or 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e and calc_p > 0 and calc_c > 0 else 0.0
+            fg = round(((140 - (calc_e or 0)) * (calc_p or 0)) / (72 * (calc_c or 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e and calc_p and calc_c else 0.0
 
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
@@ -332,5 +333,5 @@ st.markdown(f"""
 <div class="warning-yellow">
    ⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b>
 </div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 26 feb 19:55</div>
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 26 feb 20:00</div>
 """, unsafe_allow_html=True)
