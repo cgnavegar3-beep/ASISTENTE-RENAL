@@ -1,4 +1,4 @@
-# v. 26 feb 19:30
+# v. 26 feb 19:40
 import streamlit as st
 import pandas as pd
 import io
@@ -151,6 +151,16 @@ import google.generativeai as genai
 # #
 #      4.1. [Se listará automáticamente lo que aparezca en la sección "I"].
 # #
+# #
+# VII. BLINDAJE ENTRADA MANUAL LAB Y VOLCADO EXCEL:
+# #
+#    1. Se protegen los campos FG CKD-EPI y FG MDRD-4 situados bajo el Glow Morado.
+# #
+#    2. El texto del placeholder debe desaparecer al escribir y mostrar la unidad 
+# "mL/min/1,73m²" de forma discreta.
+# #
+#    3. Se blinda el botón "GUARDAR CAMBIOS EN EXCEL" centrado en la base de la Pestaña 2.
+# #
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -158,7 +168,7 @@ st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_
 # Gestión de estados de sesión
 if "active_model" not in st.session_state:
     st.session_state.active_model = "BUSCANDO..."
-for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds"]:
+for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds", "fg_ckd", "fg_mdrd"]:
     if key not in st.session_state: st.session_state[key] = ""
 
 def reset_registro():
@@ -167,7 +177,7 @@ def reset_registro():
 
 def reset_meds():
     st.session_state.main_meds = ""
-    for k in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info"]:
+    for k in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "fg_ckd", "fg_mdrd"]:
         st.session_state[k] = ""
 
 try:
@@ -213,7 +223,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 26 feb 19:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 26 feb 19:40</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -244,20 +254,20 @@ with tabs[0]:
         st.markdown("#### 💊 Filtrado Glomerular")
         fg_m = st.text_input("Ajuste Manual")
         valor_fg = fg_m if fg_m else fg
-        # Glow Morado (Cockcroft-Gault)
+        # Glow Morado Protegido
         st.markdown(f'''<div class="fg-glow-box">
             <div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div>
             <div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div>
         </div>''', unsafe_allow_html=True)
         
         st.write("")
-        # NUEVOS CUADROS DE LAB (CKD y MDRD)
+        # VII: ENTRADA MANUAL LAB
         l1, l2 = st.columns(2)
         with l1:
-            val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="FG CKD-EPI", label_visibility="collapsed")
+            val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="FG CKD-EPI", label_visibility="collapsed", key="fg_ckd_input")
             if val_ckd: st.markdown(f'<div class="unit-label">{val_ckd} mL/min/1,73m²</div>', unsafe_allow_html=True)
         with l2:
-            val_mdrd = st.number_input("FG MDRD-4", value=None, placeholder="FG MDRD-4", label_visibility="collapsed")
+            val_mdrd = st.number_input("FG MDRD-4", value=None, placeholder="FG MDRD-4", label_visibility="collapsed", key="fg_mdrd_input")
             if val_mdrd: st.markdown(f'<div class="unit-label">{val_mdrd} mL/min/1,73m²</div>', unsafe_allow_html=True)
 
     st.write(""); st.markdown("---")
@@ -325,16 +335,16 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">Información Clínica</div>', unsafe_allow_html=True)
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
-    # BOTÓN DE GUARDADO EN EXCEL (VISIBLE EN PESTAÑA 2)
+    # VII: BOTÓN DE VOLCADO EXCEL
     st.write(""); st.write("")
     c_save1, c_save2, c_save3 = st.columns([0.3, 0.4, 0.3])
     with c_save2:
         if st.button("💾 GUARDAR CAMBIOS EN EXCEL", use_container_width=True):
-            st.toast("Enviando datos al registro histórico...", icon="📊")
+            st.toast("Conectando con Registro Central...", icon="📊")
 
 st.markdown(f"""
 <div class="warning-yellow">
    ⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b>
 </div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 26 feb 19:30</div>
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 26 feb 19:40</div>
 """, unsafe_allow_html=True)
