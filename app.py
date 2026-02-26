@@ -1,4 +1,4 @@
-# v. 26 feb 19:40
+# v. 26 feb 19:50
 import streamlit as st
 import pandas as pd
 import io
@@ -86,8 +86,7 @@ import google.generativeai as genai
 #    5. Exclusión: NUNCA listar nombres de fármacos correctamente
 # dosificados en la síntesis.
 # #
-#    6. Formato de Línea: [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta]. 
-# Sin texto adicional.
+#    6. Formato de Línea (OBLIGATORIO): [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta] + [Siglas Fuente: AEMPS, FDA, EMA, etc]. 
 # #
 #    7. Lógica de Color (Jerarquía de Gravedad):
 # #
@@ -100,6 +99,7 @@ import google.generativeai as genai
 #    8. REGLA DE FUENTES Y ALCANCE: El análisis debe centrarse ÚNICA Y EXCLUSIVAMENTE
 # en la adecuación del fármaco según el Filtrado Glomerular (FG) del paciente.
 # Se deben priorizar fuentes oficiales (.gov, AEMPS, FDA) y Open Evidence.
+# Cada línea DEBE terminar con la sigla de la fuente oficial consultada.
 # #
 # #
 # IV. BLINDAJE DEL BLOQUE AZUL (blue-detail-container):
@@ -147,7 +147,7 @@ import google.generativeai as genai
 # #
 #    3. ESTRUCTURA INTERCONSULTA (IC): Un cuadro bajo el otro (Layout Vertical).
 # #
-#    4. TEXTO IC OBLIGATORIO: "Solicito valoración médica tras revisión de medicación por función renal." 
+#    4. TEXTO IC OBLIGATORIO: "Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente." 
 # #
 #      4.1. [Se listará automáticamente lo que aparezca en la sección "I"].
 # #
@@ -223,7 +223,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 26 feb 19:40</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 26 feb 19:50</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -275,76 +275,4 @@ with tabs[0]:
     with m_col1: st.markdown("#### 📝 Listado de medicamentos")
     with m_col2: st.markdown('<div style="float:right; background-color:#fff5f5; color:#c53030; padding:8px 16px; border-radius:8px; border:1.5px solid #feb2b2; font-size:0.8rem;">🛡️ RGPD: No datos personales</div>', unsafe_allow_html=True)
     
-    txt_meds = st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds")
-
-    b1, b2 = st.columns([0.85, 0.15])
-    with b1: btn_val = st.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True)
-    with b2: st.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
-
-    if btn_val and txt_meds:
-        placeholder_salida = st.empty()
-        with st.spinner("Procesando..."):
-            prompt = (f"Actúa como farmacéutico clínico. Analiza ÚNICA Y EXCLUSIVAMENTE la adecuación según Filtrado Glomerular (FG: {valor_fg}) "
-                      f"para el listado: {txt_meds}. Prioriza fuentes oficiales (.gov, AEMPS, FDA) y Open Evidence. "
-                      f"Instrucción Título: Comienza directamente con 'Medicamentos afectados:' o 'Fármacos correctamente dosificados:'. "
-                      f"No uses 'SÍNTESIS', 'III BLINDAJE' ni hables de metabolismo. Usa iconos ⚠️/⛔ + Nombre + Frase. "
-                      f"Separa detalle con: 'A continuación, se detallan los ajustes:'.")
-            resp = llamar_ia_en_cascada(prompt)
-            glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
-            
-            try:
-                partes = resp.split("A continuación, se detallan los ajustes")
-                sintesis, detalle = partes[0].strip(), "A continuación, se detallan los ajustes" + (partes[1] if len(partes)>1 else "")
-                with placeholder_salida.container():
-                    st.markdown(f'<div class="synthesis-box {glow}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
-                    st.markdown(f"""<div class="blue-detail-container">{detalle.replace("\n", "<br>")}
-                    <br><br><span style="color:#2c5282;"><b>NOTA IMPORTANTE:</b></span><br>
-                    <b>3.1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</b><br>
-                    <b>3.2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</b><br>
-                    <b>3.3. La decisión final corresponde siempre al prescriptor médico.</b><br>
-                    <b>3.4. Considere la situación clínica global del paciente antes de modificar dosis.</b></div>""", unsafe_allow_html=True)
-                
-                obj_parts = []
-                if calc_e and calc_e > 0: obj_parts.append(f"Edad: {int(calc_e)}")
-                if calc_p and calc_p > 0: obj_parts.append(f"Peso: {calc_p}")
-                if calc_c and calc_c > 0: obj_parts.append(f"Cr: {calc_c}")
-                if float(valor_fg) > 0: obj_parts.append(f"FG: {valor_fg}")
-                
-                st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
-                st.session_state.soip_o = " | ".join(obj_parts)
-                st.session_state.soip_i = sintesis
-                st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
-                st.session_state.ic_motivo = f"Solicito valoración médica tras revisión de medicación por función renal.\n\nLISTADO DETECTADO:\n{sintesis}"
-                st.session_state.ic_info = detalle
-            except: st.error("Error en respuesta.")
-
-with tabs[1]:
-    st.markdown('<div style="text-align:center;"><div class="header-capsule">📄 Nota Evolutiva SOIP</div></div>', unsafe_allow_html=True)
-    st.markdown('<div class="linea-discreta-soip">Subjetivo (S)</div>', unsafe_allow_html=True)
-    st.text_area("s_txt", st.session_state.soip_s, height=70, label_visibility="collapsed")
-    st.markdown('<div class="linea-discreta-soip">Objetivo (O)</div>', unsafe_allow_html=True)
-    st.text_area("o_txt", st.session_state.soip_o, height=70, label_visibility="collapsed")
-    st.markdown('<div class="linea-discreta-soip">Interpretación (I)</div>', unsafe_allow_html=True)
-    st.text_area("i_txt", st.session_state.soip_i, height=120, label_visibility="collapsed")
-    st.markdown('<div class="linea-discreta-soip">Plan (P)</div>', unsafe_allow_html=True)
-    st.text_area("p_txt", st.session_state.soip_p, height=100, label_visibility="collapsed")
-    
-    st.write(""); st.markdown('<div style="text-align:center;"><div class="header-capsule">📨 Solicitud de Interconsulta</div></div>', unsafe_allow_html=True)
-    st.markdown('<div class="linea-discreta-soip">Motivo de la Interconsulta</div>', unsafe_allow_html=True)
-    st.text_area("ic_mot", st.session_state.ic_motivo, height=180, label_visibility="collapsed")
-    st.markdown('<div class="linea-discreta-soip">Información Clínica</div>', unsafe_allow_html=True)
-    st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
-
-    # VII: BOTÓN DE VOLCADO EXCEL
-    st.write(""); st.write("")
-    c_save1, c_save2, c_save3 = st.columns([0.3, 0.4, 0.3])
-    with c_save2:
-        if st.button("💾 GUARDAR CAMBIOS EN EXCEL", use_container_width=True):
-            st.toast("Conectando con Registro Central...", icon="📊")
-
-st.markdown(f"""
-<div class="warning-yellow">
-   ⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b>
-</div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 26 feb 19:40</div>
-""", unsafe_allow_html=True)
+    txt_meds = st.text_area("Listado", height=1
