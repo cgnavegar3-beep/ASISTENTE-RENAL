@@ -1,4 +1,4 @@
-# v. 26 feb 20:05
+# v. 26 feb 20:20
 import streamlit as st
 import pandas as pd
 import io
@@ -165,6 +165,7 @@ import google.generativeai as genai
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
+# Gestión de estados de sesión
 if "active_model" not in st.session_state:
     st.session_state.active_model = "BUSCANDO..."
 for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds"]:
@@ -179,6 +180,7 @@ def reset_meds():
     for k in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info"]:
         st.session_state[k] = ""
 
+# CONFIGURACIÓN IA Y CASCADA (PRINCIPIO II)
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=API_KEY)
@@ -186,16 +188,26 @@ except:
     API_KEY = None
 
 def llamar_ia_en_cascada(prompt):
-    disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods] if API_KEY else ["2.5-flash"]
-    orden = ['2.5-flash', 'flash-latest', '1.5-pro']
-    for mod_name in orden:
-        if mod_name in disponibles:
+    """Implementación de Cascada según Principio II.1"""
+    try:
+        disponibles = [m.name.replace('models/', '').replace('gemini-', '') 
+                      for m in genai.list_models() 
+                      if 'generateContent' in m.supported_generation_methods]
+    except:
+        disponibles = ["1.5-flash"]
+    
+    orden_prioridad = ['2.5-flash', 'flash-latest', '1.5-pro']
+    
+    for mod_name in orden_prioridad:
+        if any(mod_name in d for d in disponibles):
             try:
                 st.session_state.active_model = mod_name.upper()
                 model = genai.GenerativeModel(f'models/gemini-{mod_name}')
-                return model.generate_content(prompt).text
-            except: continue
-    return "⚠️ Error."
+                response = model.generate_content(prompt)
+                return response.text
+            except:
+                continue
+    return "⚠️ Error de conexión con modelos de IA."
 
 def inject_styles():
     st.markdown("""
@@ -222,7 +234,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 26 feb 20:05</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 26 feb 20:20</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -254,11 +266,11 @@ with tabs[0]:
         st.write("")
         l1, l2 = st.columns(2)
         with l1:
-            val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="FG CKD-EPI", label_visibility="collapsed", key="fg_ckd")
-            if val_ckd: st.markdown(f'<div class="unit-label">{val_ckd} mL/min/1,73m²</div>', unsafe_allow_html=True)
+            val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="FG CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
+            if val_ckd is not None: st.markdown(f'<div class="unit-label">{val_ckd} mL/min/1,73m²</div>', unsafe_allow_html=True)
         with l2:
-            val_mdrd = st.number_input("FG MDRD-4", value=None, placeholder="FG MDRD-4", label_visibility="collapsed", key="fg_mdrd")
-            if val_mdrd: st.markdown(f'<div class="unit-label">{val_mdrd} mL/min/1,73m²</div>', unsafe_allow_html=True)
+            val_mdrd = st.number_input("FG MDRD-4", value=None, placeholder="FG MDRD-4", label_visibility="collapsed", key="fgl_mdrd")
+            if val_mdrd is not None: st.markdown(f'<div class="unit-label">{val_mdrd} mL/min/1,73m²</div>', unsafe_allow_html=True)
 
     st.write(""); st.markdown("---")
     m_col1, m_col2 = st.columns([0.5, 0.5])
@@ -274,14 +286,12 @@ with tabs[0]:
     if btn_val and txt_meds:
         placeholder_salida = st.empty()
         with st.spinner("Procesando..."):
-            # PROMPT REFORZADO PARA ICONOS Y SIGLAS
             prompt = (f"Actúa como farmacéutico clínico experto. Analiza la adecuación según FG: {valor_fg} para: {txt_meds}. "
                       f"FORMATO OBLIGATORIO DE LÍNEA: [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta] + (Sigla fuente: AEMPS, FDA o EMA). "
                       f"Si el fármaco es contraindicado usa SIEMPRE el icono ⛔. Si requiere ajuste usa ⚠️. "
                       f"Título síntesis: Comienza directamente con 'Medicamentos afectados:' o 'Fármacos correctamente dosificados:'. "
                       f"Separa detalle con: 'A continuación, se detallan los ajustes:'.")
             resp = llamar_ia_en_cascada(prompt)
-            # Lógica de detección de color por icono
             glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
             
             try:
@@ -316,4 +326,4 @@ with tabs[1]:
     st.text_area("Información Clínica", st.session_state.ic_info, height=250)
 
 st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 26 feb 20:05</div>""", unsafe_allow_html=True)
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 26 feb 20:20</div>""", unsafe_allow_html=True)
