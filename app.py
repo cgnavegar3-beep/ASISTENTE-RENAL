@@ -1,4 +1,4 @@
-# v. 27 feb 07:43
+# v. 27 feb 08:25
 import streamlit as st
 import pandas as pd
 import io
@@ -260,7 +260,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 27 feb 07:43</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 27 feb 08:25</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -268,12 +268,15 @@ with tabs[0]:
     st.markdown("### Registro de Paciente")
     c1, c2, c3, c4, c5, c_del = st.columns([1, 1, 1, 1, 1, 0.4])
     
-    # Callback para sincronización de edad
-    def sync_edad():
+    # Callbacks para sincronización bidireccional
+    def sync_edad_reg():
         st.session_state.calc_e = st.session_state.reg_edad
 
+    def sync_edad_calc():
+        st.session_state.reg_edad = st.session_state.calc_e
+
     with c1: centro = st.text_input("Centro", placeholder="G/M", key="reg_centro")
-    with c2: edad_reg = st.number_input("Edad", min_value=0, max_value=120, value=None, step=1, key="reg_edad", on_change=sync_edad, placeholder="0.0")
+    with c2: edad_reg = st.number_input("Edad", min_value=0, max_value=120, value=None, step=1, key="reg_edad", on_change=sync_edad_reg, placeholder="0.0")
     with c3: alfa = st.text_input("ID Alfanumérico", placeholder="ABC-123", key="reg_id")
     with c4: res = st.selectbox("¿Residencia?", ["No", "Sí"], key="reg_res")
     with c5: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
@@ -286,16 +289,20 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            # Valor sincronizado de reg_edad
-            calc_e = st.number_input("Edad (años)", value=st.session_state.reg_edad if 'reg_edad' in st.session_state and st.session_state.reg_edad else None, step=1, key="calc_e", placeholder="0.0")
+            # Valor sincronizado y callback bidireccional
+            calc_e = st.number_input("Edad (años)", value=st.session_state.reg_edad if 'reg_edad' in st.session_state and st.session_state.reg_edad else None, step=1, key="calc_e", on_change=sync_edad_calc, placeholder="0.0")
             calc_p = st.number_input("Peso (kg)", value=None, placeholder="0.0", key="calc_p")
             calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="0.0", key="calc_c")
             calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], key="calc_s")
+            
+            # Etiqueta de la fórmula abajo a la derecha de la calculadora
+            st.markdown('<div class="formula-label" style="text-align:right;">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
+            
             fg = round(((140 - (calc_e or 0)) * (calc_p or 0)) / (72 * (calc_c or 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e and calc_p and calc_c else 0.0
 
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
-        # Cambio de placeholder específico
+        # Placeholder específico
         fg_m = st.text_input("Ajuste Manual", placeholder="entrada manual valor Fórmula Cockcroft-Gault")
         valor_fg = fg_m if fg_m else fg
         st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
@@ -309,7 +316,8 @@ with tabs[0]:
             val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="FG CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
             if val_ckd is not None: st.markdown(f'<div class="unit-label">{val_ckd} mL/min/1,73m²</div>', unsafe_allow_html=True)
         with l2:
-            val_mdrd = st.number_input("FG MDRD-4", value=None, placeholder="FG MDRD-4", label_visibility="collapsed", key="fgl_mdrd")
+            # Etiqueta actualizada
+            val_mdrd = st.number_input("FG MDRD-4 IDMS", value=None, placeholder="FG MDRD-4 IDMS", label_visibility="collapsed", key="fgl_mdrd")
             if val_mdrd is not None: st.markdown(f'<div class="unit-label">{val_mdrd} mL/min/1,73m²</div>', unsafe_allow_html=True)
 
     st.write(""); st.markdown("---")
@@ -381,4 +389,4 @@ with tabs[1]:
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
 st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 07:43</div>""", unsafe_allow_html=True)
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 08:25</div>""", unsafe_allow_html=True)
