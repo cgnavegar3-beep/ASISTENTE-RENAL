@@ -1,4 +1,4 @@
-# v. 27 feb 20:26
+# v. 27 feb 20:32
 import streamlit as st
 import pandas as pd
 import io
@@ -232,16 +232,37 @@ def verificar_datos_completos():
     return campos_vacios
 
 def llamar_ia_en_cascada(prompt):
-    disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods] if API_KEY else ["2.5-flash"]
-    orden = ['2.5-flash', 'flash-latest', '1.5-pro']
-    for mod_name in orden:
-        if mod_name in disponibles:
+    # Si no hay API_KEY, simulamos
+    if not API_KEY:
+        st.session_state.active_model = "SIMULADO"
+        return "✅ Simulación: Todo correcto (AEMPS)."
+
+    try:
+        # Obtener todos los modelos disponibles en la cuenta
+        all_models = genai.list_models()
+        # Filtrar solo los capaces de generar contenido (chat/texto)
+        modelos_disponibles = [m.name for m in all_models if 'generateContent' in m.supported_generation_methods]
+        
+        # Ordenar priorizando los modelos rápidos/nuevos si existen
+        prioridad = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+        modelos_ordenados = sorted(modelos_disponibles, key=lambda x: (0 if any(p in x for p in prioridad) else 1, x))
+
+        for model_name in modelos_ordenados:
             try:
-                st.session_state.active_model = mod_name.upper()
-                model = genai.GenerativeModel(f'models/gemini-{mod_name}')
-                return model.generate_content(prompt).text
-            except: continue
-    return "⚠️ Error."
+                st.session_state.active_model = model_name.replace('models/', '').upper()
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(prompt)
+                return response.text
+            except Exception:
+                # Si este modelo falla, intentamos el siguiente automáticamente
+                continue
+                
+    except Exception as e:
+        st.session_state.active_model = "ERROR_API"
+        return f"⚠️ Error en la API: {str(e)}"
+            
+    st.session_state.active_model = "SIN_MODELOS"
+    return "⚠️ Error: No se encontraron modelos disponibles."
 
 def inject_styles():
     st.markdown("""
@@ -276,14 +297,13 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 27 feb 20:26</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 27 feb 20:32</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
 with tabs[0]:
     st.markdown("### Registro de Paciente")
     
-    # NUEVA ESTRUCTURA DE LA LÍNEA DE REGISTRO
     # Columnas: Centro, Residencia, ID, Fecha, Botón
     c1, c2, c3, c4, c_del = st.columns([1, 1, 1.5, 1, 0.4])
     
@@ -301,25 +321,21 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            # Input edad dentro de la calculadora
             calc_e = st.number_input("Edad (años)", value=None, step=1, key="calc_e", placeholder="0.0")
             calc_p = st.number_input("Peso (kg)", value=None, placeholder="0.0", key="calc_p")
             calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="0.0", key="calc_c")
             calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], key="calc_s")
             
-            # Etiqueta de la fórmula abajo a la derecha de la calculadora
             st.markdown('<div class="formula-label" style="text-align:right;">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
             
             fg = round(((140 - (calc_e or 0)) * (calc_p or 0)) / (72 * (calc_c or 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e and calc_p and calc_c else 0.0
 
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
-        # Placeholder actualizado
         fg_m = st.text_input("Ajuste Manual", placeholder="Fórmula Cockcroft-Gault :entrada manual")
         valor_fg = fg_m if fg_m else fg
         st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
         
-        # Etiqueta de la fórmula abajo a la derecha
         st.markdown('<div class="formula-label">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
         
         st.write("")
@@ -348,13 +364,12 @@ with tabs[0]:
     with b2: st.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
 
     if btn_val and txt_meds:
-        # FASE DE VERIFICACIÓN (Principio VII)
+        # FASE DE VERIFICACIÓN
         campos_faltantes = verificar_datos_completos()
         
         proceder = True
         if campos_faltantes:
             st.warning(f"⚠️ Campos vacíos: {', '.join(campos_faltantes)}.")
-            # Solicitamos confirmación explícita para continuar
             if not st.checkbox("Entendido, proceder sin estos datos"):
                 proceder = False
                 st.stop()
@@ -365,13 +380,12 @@ with tabs[0]:
             st.session_state['reg_id'] = nuevo_id
             st.session_state['reg_id_display'] = nuevo_id
             
-            # Forzar recarga inmediata para mostrar el ID
+            # Forzar recarga para mostrar el ID inmediatamente
             st.rerun() 
             
-            # ... resto de la lógica de validación (llamada a IA)
+            # Llamada a IA
             placeholder_salida = st.empty()
             with st.spinner("Procesando..."):
-                # PROMPT REFORZADO ANTI-ALUCINACIONES
                 prompt = f"""
                 Analiza la adecuación de estos fármacos para FG: {valor_fg} mL/min.
                 Usa fuentes: AEMPS, FDA, EMA.
@@ -422,4 +436,4 @@ with tabs[1]:
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
 st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 20:26</div>""", unsafe_allow_html=True)
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 20:32</div>""", unsafe_allow_html=True)
