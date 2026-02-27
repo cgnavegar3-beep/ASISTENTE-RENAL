@@ -1,4 +1,4 @@
-# v. 27 feb 19:50
+# v. 27 feb 19:59
 import streamlit as st
 import pandas as pd
 import io
@@ -181,23 +181,16 @@ if "soip_p" not in st.session_state: st.session_state.soip_p = "Se hace intercon
 if "ic_motivo" not in st.session_state: st.session_state.ic_motivo = "Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente."
 if "ic_info" not in st.session_state: st.session_state.ic_info = ""
 if "main_meds" not in st.session_state: st.session_state.main_meds = ""
+if "reg_id_display" not in st.session_state: st.session_state.reg_id_display = "PENDIENTE..."
 
-def generar_id_registro():
-    # Verificar campos obligatorios en session_state para activacion
-    campos = ['reg_centro', 'reg_res', 'calc_e', 'calc_p', 'calc_c', 'calc_s', 'fgl_ckd', 'fgl_mdrd']
-    for campo in campos:
-        if st.session_state.get(campo) in [None, ""]:
-            return "PENDIENTE DATOS..."
-
-    # Generacion automatica segura
-    centro = st.session_state['reg_centro']
+def generar_id_registro_final(centro):
     inicial = centro[0].upper() if centro else "X"
     aleatorio = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
     return f"PAC-{inicial}-{aleatorio}"
 
 def reset_registro():
     st.session_state["reg_centro"] = ""; st.session_state["reg_res"] = "No"
-    st.session_state["reg_id_display"] = "PENDIENTE DATOS..."
+    st.session_state["reg_id_display"] = "PENDIENTE..."
     # Reset sincrónico campos calculadora
     if "calc_e" in st.session_state: st.session_state.calc_e = None
     if "calc_p" in st.session_state: st.session_state.calc_p = None
@@ -283,7 +276,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 27 feb 19:50</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 27 feb 19:59</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -297,12 +290,9 @@ with tabs[0]:
     with c1: centro = st.text_input("Centro", placeholder="G/M", key="reg_centro")
     with c2: res = st.selectbox("¿Residencia?", ["No", "Sí"], key="reg_res")
     
-    # ID Generado automáticamente al completar datos
+    # ID Se muestra al validar
     with c3: 
-        id_valor = generar_id_registro()
-        st.text_input("ID REGISTRO", value=id_valor, disabled=True, key="reg_id_display")
-        # Guardar valor generado para reportes
-        st.session_state["reg_id"] = id_valor 
+        st.text_input("ID REGISTRO", value=st.session_state.reg_id_display, disabled=True, key="reg_id_display_input")
 
     with c4: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
     with c_del: st.write(""); st.button("🗑️", on_click=reset_registro)
@@ -363,12 +353,18 @@ with tabs[0]:
         
         proceder = True
         if campos_faltantes:
-            st.warning(f"⚠️ Campos vacíos: {', '.join(campos_faltantes)}. ¿Desea proceder?")
-            if not st.button("Sí, confirmar proceder"):
+            st.warning(f"⚠️ Campos vacíos: {', '.join(campos_faltantes)}.")
+            # Solicitamos confirmación explícita para continuar
+            if not st.checkbox("Entendido, proceder sin estos datos"):
                 proceder = False
                 st.stop()
         
         if proceder:
+            # GENERAR ID AL VALIDAR
+            nuevo_id = generar_id_registro_final(st.session_state['reg_centro'])
+            st.session_state['reg_id'] = nuevo_id
+            st.session_state['reg_id_display'] = nuevo_id
+            
             placeholder_salida = st.empty()
             with st.spinner("Procesando..."):
                 prompt = (f"Actúa como farmacéutico clínico experto. Analiza la adecuación según FG: {valor_fg} para: {txt_meds}. "
@@ -395,6 +391,7 @@ with tabs[0]:
                     st.session_state.soip_i = sintesis
                     st.session_state.ic_info = detalle
                     st.session_state.ic_motivo = f"Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente.\n\nLISTADO DETECTADO:\n{sintesis}"
+                    st.rerun() # Refrescar para mostrar el ID actualizado
                 except: st.error("Error en respuesta.")
 
 with tabs[1]:
@@ -415,4 +412,4 @@ with tabs[1]:
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
 st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 19:50</div>""", unsafe_allow_html=True)
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 19:59</div>""", unsafe_allow_html=True)
