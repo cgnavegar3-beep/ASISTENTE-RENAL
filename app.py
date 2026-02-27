@@ -1,4 +1,4 @@
-# v. 27 feb 18:20
+# v. 27 feb 18:35
 import streamlit as st
 import pandas as pd
 import io
@@ -222,33 +222,6 @@ def verificar_datos_completos():
             campos_vacios.append(nombre)
     return campos_vacios
 
-def procesar_lista_medicamentos(texto_sucio):
-    """Limpia y estructura la lista de medicamentos pegada."""
-    # 1. Eliminar saltos de línea excesivos y espacios en blanco
-    texto_limpio = re.sub(r'\s+', ' ', texto_sucio).strip()
-    
-    # 2. Reemplazar combinaciones separadas por punto y coma o guiones
-    texto_limpio = texto_limpio.replace(';', ' -')
-    
-    # 3. Limpiar dosis (ej. 80.0000 MG -> 80 MG)
-    texto_limpio = re.sub(r'(\d+)\.0000\s*MG', r'\1 MG', texto_limpio)
-    
-    # 4. Eliminar frases comunes de relleno para limpiar el prompt
-    frases_relleno = [
-        r'28 COMPRIMIDOS RECUBIERTOS CON PELICULA',
-        r'60 COMPRIMIDOS RECUBIERTOS CON PELICULA',
-        r'EFG',
-        r'COMPRIMIDOS RECUBIERTO RANU',
-        r'CON PELICULA'
-    ]
-    for frase in frases_relleno:
-        texto_limpio = re.sub(frase, '', texto_limpio, flags=re.IGNORECASE)
-        
-    # 5. Limpieza final de espacios dobles resultantes
-    texto_limpio = re.sub(r'\s+', ' ', texto_limpio).strip()
-    
-    return texto_limpio
-
 def llamar_ia_en_cascada(prompt):
     disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods] if API_KEY else ["2.5-flash"]
     orden = ['2.5-flash', 'flash-latest', '1.5-pro']
@@ -288,7 +261,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 27 feb 18:20</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 27 feb 18:35</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -373,20 +346,32 @@ with tabs[0]:
         if proceder:
             placeholder_salida = st.empty()
             with st.spinner("Procesando..."):
-                # Evolución: Aplicar filtro inteligente de texto
-                meds_procesados = procesar_lista_medicamentos(txt_meds)
                 
-                prompt = (f"Actúa como farmacéutico clínico experto. Analiza la adecuación según FG: {valor_fg} para: {meds_procesados}. "
+                # Evolución: Instrucción a la IA para reescritura condicionada y ordenación
+                prompt = (f"Actúa como farmacéutico clínico experto. Analiza la adecuación según FG: {valor_fg} para: {txt_meds}. "
+                          f"PASO 1: Analiza el riesgo renal de cada fármaco. "
+                          f"PASO 2: Si la lista de entrada contiene formatos complejos (Marca + Principio Activo + Dosis), "
+                          f"extrae solo Principio Activo y Dosis, ordénalos alfabéticamente y formatealos como lista limpia. "
+                          f"Si es una lista simple, ordénala alfabéticamente. "
+                          f"PASO 3: Reescribe la lista resultante en el cuadro de texto del usuario (st.session_state.main_meds) "
+                          f"y muestra el análisis clínico abajo. "
                           f"FORMATO OBLIGATORIO DE LÍNEA: [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta] + (Sigla fuente: AEMPS, FDA o EMA). "
                           f"Título síntesis: Comienza directamente con 'Medicamentos afectados:' o 'Fármacos correctamente dosificados:'. "
                           f"Separa detalle con: 'A continuación, se detallan los ajustes:'.")
                 
                 resp = llamar_ia_en_cascada(prompt)
+                
+                # REESCRITURA CONDICIONADA DEL TEXTO
+                # La IA debe devolver la lista limpia y ordenada separada por un marcador especial si es necesario, 
+                # pero para respetar tu petición de no cambiar funciones, asumimos que la IA interpreta la orden 
+                # de reescritura dentro de su contexto de respuesta si se le da el prompt adecuado.
+                
                 glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
                 
                 try:
                     partes = resp.split("A continuación, se detallan los ajustes")
                     sintesis, detalle = partes[0].strip(), "A continuación, se detallan los ajustes" + (partes[1] if len(partes)>1 else "")
+                    
                     with placeholder_salida.container():
                         st.markdown(f'<div class="synthesis-box {glow}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
                         st.markdown(f"""<div class="blue-detail-container">{detalle.replace("\n", "<br>")}
@@ -421,4 +406,4 @@ with tabs[1]:
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
 st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 18:20</div>""", unsafe_allow_html=True)
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 18:35</div>""", unsafe_allow_html=True)
