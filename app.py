@@ -1,4 +1,4 @@
-# v. 27 feb 19:59
+# v. 27 feb 20:04
 import streamlit as st
 import pandas as pd
 import io
@@ -264,8 +264,8 @@ def inject_styles():
     
     .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
     
-    /* NUEVO GLOW SUTIL PARA FG MANUALES */
-    .glow-subtle-purple { border: 1.5px solid #9d00ff88; box-shadow: 0 0 5px #9d00ff44; border-radius: 8px; padding: 5px; }
+    /* GLOW SUTIL: LÍNEA MORADA FINA */
+    .glow-subtle-purple { border: 1px solid #9d00ff; border-radius: 4px; padding: 2px; }
     
     /* Ajuste para que el layout de la linea superior quede bien */
     div[data-testid="stHorizontalBlock"] { gap: 1rem; }
@@ -276,7 +276,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 27 feb 19:59</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 27 feb 20:04</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -360,11 +360,15 @@ with tabs[0]:
                 st.stop()
         
         if proceder:
-            # GENERAR ID AL VALIDAR
+            # GENERAR Y ACTUALIZAR ID AL VALIDAR
             nuevo_id = generar_id_registro_final(st.session_state['reg_centro'])
             st.session_state['reg_id'] = nuevo_id
             st.session_state['reg_id_display'] = nuevo_id
             
+            # Forzar recarga inmediata para mostrar el ID
+            st.rerun() 
+            
+            # ... resto de la lógica de validación (llamada a IA)
             placeholder_salida = st.empty()
             with st.spinner("Procesando..."):
                 prompt = (f"Actúa como farmacéutico clínico experto. Analiza la adecuación según FG: {valor_fg} para: {txt_meds}. "
@@ -391,7 +395,6 @@ with tabs[0]:
                     st.session_state.soip_i = sintesis
                     st.session_state.ic_info = detalle
                     st.session_state.ic_motivo = f"Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente.\n\nLISTADO DETECTADO:\n{sintesis}"
-                    st.rerun() # Refrescar para mostrar el ID actualizado
                 except: st.error("Error en respuesta.")
 
 with tabs[1]:
@@ -412,4 +415,4 @@ with tabs[1]:
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
 st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 19:59</div>""", unsafe_allow_html=True)
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 20:04</div>""", unsafe_allow_html=True)
