@@ -1,4 +1,4 @@
-# v. 27 feb 20:04
+# v. 27 feb 20:26
 import streamlit as st
 import pandas as pd
 import io
@@ -276,7 +276,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 27 feb 20:04</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 27 feb 20:26</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -371,10 +371,17 @@ with tabs[0]:
             # ... resto de la lógica de validación (llamada a IA)
             placeholder_salida = st.empty()
             with st.spinner("Procesando..."):
-                prompt = (f"Actúa como farmacéutico clínico experto. Analiza la adecuación según FG: {valor_fg} para: {txt_meds}. "
-                          f"FORMATO OBLIGATORIO DE LÍNEA: [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta] + (Sigla fuente: AEMPS, FDA o EMA). "
-                          f"Título síntesis: Comienza directamente con 'Medicamentos afectados:' o 'Fármacos correctamente dosificados:'. "
-                          f"Separa detalle con: 'A continuación, se detallan los ajustes:'.")
+                # PROMPT REFORZADO ANTI-ALUCINACIONES
+                prompt = f"""
+                Analiza la adecuación de estos fármacos para FG: {valor_fg} mL/min.
+                Usa fuentes: AEMPS, FDA, EMA.
+                REGLAS OBLIGATORIAS:
+                1. FORMATO: [Icono] Nombre - Ajuste - (Fuente).
+                2. SÍNTESIS: Empieza con 'Medicamentos afectados:' o 'Fármacos correctamente dosificados:'.
+                3. PROHIBICIONES: No inventar metabolismo. No usar 'Síntesis', 'Detalle' o 'Resumen'.
+                4. SI NO HAY DATOS: Escribe '[Nombre] - Sin datos claros - (AEMPS)'.
+                Fármacos: {txt_meds}
+                """
                 resp = llamar_ia_en_cascada(prompt)
                 glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
                 
@@ -415,4 +422,4 @@ with tabs[1]:
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
 st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 20:04</div>""", unsafe_allow_html=True)
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 20:26</div>""", unsafe_allow_html=True)
