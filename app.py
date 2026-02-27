@@ -1,4 +1,4 @@
-# v. 26 feb 23:15
+# v. 27 feb 07:23
 import streamlit as st
 import pandas as pd
 import io
@@ -199,6 +199,26 @@ try:
 except:
     API_KEY = None
 
+# Función de verificación de campos vacíos (Principio V)
+def verificar_datos_completos():
+    campos = {
+        "Centro": "reg_centro",
+        "Edad": "reg_edad",
+        "ID Alfa": "reg_id",
+        "Residencia": "reg_res",
+        "Calc. Edad": "calc_e", 
+        "Calc. Peso": "calc_p",
+        "Calc. Creatinina": "calc_c",
+        "Calc. Sexo": "calc_s",
+        "FG CKD-EPI": "fgl_ckd",
+        "FG MDRD-4": "fgl_mdrd"
+    }
+    campos_vacios = []
+    for nombre, key in campos.items():
+        if st.session_state.get(key) is None or st.session_state.get(key) == "":
+            campos_vacios.append(nombre)
+    return campos_vacios
+
 def llamar_ia_en_cascada(prompt):
     disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods] if API_KEY else ["2.5-flash"]
     orden = ['2.5-flash', 'flash-latest', '1.5-pro']
@@ -229,6 +249,10 @@ def inject_styles():
     .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
     .header-capsule { background-color: #e2e8f0; color: #2d3748; padding: 10px 30px; border-radius: 50px; display: inline-block; font-weight: 800; font-size: 0.9rem; margin-bottom: 20px; }
+    
+    /* Estilos para validación de campos (Principio VII) */
+    .input-blue input { background-color: #e6f7ff !important; }
+    .input-gray input { background-color: #f0f0f0 !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -236,7 +260,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 26 feb 23:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 27 feb 07:23</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -257,10 +281,10 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            calc_e = st.number_input("Edad (años)", value=int(edad_reg) if edad_reg else None, step=1)
-            calc_p = st.number_input("Peso (kg)", value=None, placeholder="0.0")
-            calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="0.0")
-            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"])
+            calc_e = st.number_input("Edad (años)", value=int(edad_reg) if edad_reg else None, step=1, key="calc_e")
+            calc_p = st.number_input("Peso (kg)", value=None, placeholder="0.0", key="calc_p")
+            calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="0.0", key="calc_c")
+            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], key="calc_s")
             fg = round(((140 - (calc_e or 0)) * (calc_p or 0)) / (72 * (calc_c or 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e and calc_p and calc_c else 0.0
 
     with col_der:
@@ -289,33 +313,44 @@ with tabs[0]:
     with b2: st.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
 
     if btn_val and txt_meds:
-        placeholder_salida = st.empty()
-        with st.spinner("Procesando..."):
-            prompt = (f"Actúa como farmacéutico clínico experto. Analiza la adecuación según FG: {valor_fg} para: {txt_meds}. "
-                      f"FORMATO OBLIGATORIO DE LÍNEA: [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta] + (Sigla fuente: AEMPS, FDA o EMA). "
-                      f"Título síntesis: Comienza directamente con 'Medicamentos afectados:' o 'Fármacos correctamente dosificados:'. "
-                      f"Separa detalle con: 'A continuación, se detallan los ajustes:'.")
-            resp = llamar_ia_en_cascada(prompt)
-            glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
-            
-            try:
-                partes = resp.split("A continuación, se detallan los ajustes")
-                sintesis, detalle = partes[0].strip(), "A continuación, se detallan los ajustes" + (partes[1] if len(partes)>1 else "")
-                with placeholder_salida.container():
-                    st.markdown(f'<div class="synthesis-box {glow}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
-                    st.markdown(f"""<div class="blue-detail-container">{detalle.replace("\n", "<br>")}
-                    <br><br><span style="color:#2c5282;"><b>NOTA IMPORTANTE:</b></span><br>
-                    <b>3.1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</b><br>
-                    <b>3.2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</b><br>
-                    <b>3.3. La decisión final corresponde siempre al prescriptor médico.</b><br>
-                    <b>3.4. Considere la situación clínica global del paciente antes de modificar dosis.</b></div>""", unsafe_allow_html=True)
+        # FASE DE VERIFICACIÓN (Principio VII)
+        campos_faltantes = verificar_datos_completos()
+        
+        proceder = True
+        if campos_faltantes:
+            st.warning(f"⚠️ Campos vacíos: {', '.join(campos_faltantes)}. ¿Desea proceder?")
+            if not st.button("Sí, confirmar proceder"):
+                proceder = False
+                st.stop()
+        
+        if proceder:
+            placeholder_salida = st.empty()
+            with st.spinner("Procesando..."):
+                prompt = (f"Actúa como farmacéutico clínico experto. Analiza la adecuación según FG: {valor_fg} para: {txt_meds}. "
+                          f"FORMATO OBLIGATORIO DE LÍNEA: [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta] + (Sigla fuente: AEMPS, FDA o EMA). "
+                          f"Título síntesis: Comienza directamente con 'Medicamentos afectados:' o 'Fármacos correctamente dosificados:'. "
+                          f"Separa detalle con: 'A continuación, se detallan los ajustes:'.")
+                resp = llamar_ia_en_cascada(prompt)
+                glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
                 
-                obj_parts = [f"Edad: {int(calc_e)}" if calc_e else "", f"Peso: {calc_p}" if calc_p else "", f"Cr: {calc_c}" if calc_c else "", f"FG: {valor_fg}" if float(valor_fg)>0 else ""]
-                st.session_state.soip_o = " | ".join(filter(None, obj_parts))
-                st.session_state.soip_i = sintesis
-                st.session_state.ic_info = detalle
-                st.session_state.ic_motivo = f"Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente.\n\nLISTADO DETECTADO:\n{sintesis}"
-            except: st.error("Error en respuesta.")
+                try:
+                    partes = resp.split("A continuación, se detallan los ajustes")
+                    sintesis, detalle = partes[0].strip(), "A continuación, se detallan los ajustes" + (partes[1] if len(partes)>1 else "")
+                    with placeholder_salida.container():
+                        st.markdown(f'<div class="synthesis-box {glow}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
+                        st.markdown(f"""<div class="blue-detail-container">{detalle.replace("\n", "<br>")}
+                        <br><br><span style="color:#2c5282;"><b>NOTA IMPORTANTE:</b></span><br>
+                        <b>3.1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</b><br>
+                        <b>3.2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</b><br>
+                        <b>3.3. La decisión final corresponde siempre al prescriptor médico.</b><br>
+                        <b>3.4. Considere la situación clínica global del paciente antes de modificar dosis.</b></div>""", unsafe_allow_html=True)
+                    
+                    obj_parts = [f"Edad: {int(calc_e)}" if calc_e else "", f"Peso: {calc_p}" if calc_p else "", f"Cr: {calc_c}" if calc_c else "", f"FG: {valor_fg}" if float(valor_fg)>0 else ""]
+                    st.session_state.soip_o = " | ".join(filter(None, obj_parts))
+                    st.session_state.soip_i = sintesis
+                    st.session_state.ic_info = detalle
+                    st.session_state.ic_motivo = f"Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente.\n\nLISTADO DETECTADO:\n{sintesis}"
+                except: st.error("Error en respuesta.")
 
 with tabs[1]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📄 Nota Evolutiva SOIP</div></div>', unsafe_allow_html=True)
@@ -335,4 +370,4 @@ with tabs[1]:
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
 st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 26 feb 23:15</div>""", unsafe_allow_html=True)
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 07:23</div>""", unsafe_allow_html=True)
