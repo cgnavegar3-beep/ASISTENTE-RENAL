@@ -1,4 +1,4 @@
-# v. 27 feb 07:23
+# v. 27 feb 07:35
 import streamlit as st
 import pandas as pd
 import io
@@ -23,7 +23,7 @@ import google.generativeai as genai
 #
 #
 # 3. Antes de cualquier evolución técnica, explicar el "qué",
-# "por qué" y "cómo", y esperar aprobación
+# "por qué" y "cómo", and esperar aprobación
 # ("adelante" o "procede").
 #
 #
@@ -199,7 +199,7 @@ try:
 except:
     API_KEY = None
 
-# Función de verificación de campos vacíos (Principio V)
+# Función de verificación de campos vacíos
 def verificar_datos_completos():
     campos = {
         "Centro": "reg_centro",
@@ -215,9 +215,15 @@ def verificar_datos_completos():
     }
     campos_vacios = []
     for nombre, key in campos.items():
-        if st.session_state.get(key) is None or st.session_state.get(key) == "":
+        valor = st.session_state.get(key)
+        if valor is None or valor == "":
             campos_vacios.append(nombre)
     return campos_vacios
+
+# Función para aplicar estilo dinámico (Principio VII)
+def get_input_style(key):
+    valor = st.session_state.get(key)
+    return "input-blue" if valor is None or valor == "" else "input-gray"
 
 def llamar_ia_en_cascada(prompt):
     disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods] if API_KEY else ["2.5-flash"]
@@ -251,8 +257,10 @@ def inject_styles():
     .header-capsule { background-color: #e2e8f0; color: #2d3748; padding: 10px 30px; border-radius: 50px; display: inline-block; font-weight: 800; font-size: 0.9rem; margin-bottom: 20px; }
     
     /* Estilos para validación de campos (Principio VII) */
-    .input-blue input { background-color: #e6f7ff !important; }
-    .input-gray input { background-color: #f0f0f0 !important; }
+    .input-blue div[data-baseweb="input"] { background-color: #e6f7ff !important; }
+    .input-gray div[data-baseweb="input"] { background-color: #f0f0f0 !important; }
+    .input-blue div[data-baseweb="select"] { background-color: #e6f7ff !important; }
+    .input-gray div[data-baseweb="select"] { background-color: #f0f0f0 !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -260,17 +268,30 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 27 feb 07:23</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 27 feb 07:35</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
 with tabs[0]:
     st.markdown("### Registro de Paciente")
     c1, c2, c3, c4, c5, c_del = st.columns([1, 1, 1, 1, 1, 0.4])
-    with c1: centro = st.text_input("Centro", placeholder="G/M", key="reg_centro")
-    with c2: edad_reg = st.number_input("Edad", min_value=0, max_value=120, value=None, step=1, key="reg_edad")
-    with c3: alfa = st.text_input("ID Alfanumérico", placeholder="ABC-123", key="reg_id")
-    with c4: res = st.selectbox("¿Residencia?", ["No", "Sí"], key="reg_res")
+    
+    with c1: 
+        st.markdown(f'<div class="{get_input_style("reg_centro")}">', unsafe_allow_html=True)
+        centro = st.text_input("Centro", placeholder="G/M", key="reg_centro", label_visibility="collapsed")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with c2: 
+        st.markdown(f'<div class="{get_input_style("reg_edad")}">', unsafe_allow_html=True)
+        edad_reg = st.number_input("Edad", min_value=0, max_value=120, value=None, step=1, key="reg_edad", label_visibility="collapsed")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with c3: 
+        st.markdown(f'<div class="{get_input_style("reg_id")}">', unsafe_allow_html=True)
+        alfa = st.text_input("ID Alfanumérico", placeholder="ABC-123", key="reg_id", label_visibility="collapsed")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with c4: 
+        st.markdown(f'<div class="{get_input_style("reg_res")}">', unsafe_allow_html=True)
+        res = st.selectbox("¿Residencia?", ["No", "Sí"], key="reg_res", label_visibility="collapsed")
+        st.markdown('</div>', unsafe_allow_html=True)
     with c5: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
     with c_del: st.write(""); st.button("🗑️", on_click=reset_registro)
 
@@ -281,10 +302,22 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
+            st.markdown(f'<div class="{get_input_style("calc_e")}">', unsafe_allow_html=True)
             calc_e = st.number_input("Edad (años)", value=int(edad_reg) if edad_reg else None, step=1, key="calc_e")
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.markdown(f'<div class="{get_input_style("calc_p")}">', unsafe_allow_html=True)
             calc_p = st.number_input("Peso (kg)", value=None, placeholder="0.0", key="calc_p")
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.markdown(f'<div class="{get_input_style("calc_c")}">', unsafe_allow_html=True)
             calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="0.0", key="calc_c")
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.markdown(f'<div class="{get_input_style("calc_s")}">', unsafe_allow_html=True)
             calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], key="calc_s")
+            st.markdown('</div>', unsafe_allow_html=True)
+            
             fg = round(((140 - (calc_e or 0)) * (calc_p or 0)) / (72 * (calc_c or 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e and calc_p and calc_c else 0.0
 
     with col_der:
@@ -295,10 +328,14 @@ with tabs[0]:
         st.write("")
         l1, l2 = st.columns(2)
         with l1:
+            st.markdown(f'<div class="{get_input_style("fgl_ckd")}">', unsafe_allow_html=True)
             val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="FG CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
+            st.markdown('</div>', unsafe_allow_html=True)
             if val_ckd is not None: st.markdown(f'<div class="unit-label">{val_ckd} mL/min/1,73m²</div>', unsafe_allow_html=True)
         with l2:
+            st.markdown(f'<div class="{get_input_style("fgl_mdrd")}">', unsafe_allow_html=True)
             val_mdrd = st.number_input("FG MDRD-4", value=None, placeholder="FG MDRD-4", label_visibility="collapsed", key="fgl_mdrd")
+            st.markdown('</div>', unsafe_allow_html=True)
             if val_mdrd is not None: st.markdown(f'<div class="unit-label">{val_mdrd} mL/min/1,73m²</div>', unsafe_allow_html=True)
 
     st.write(""); st.markdown("---")
@@ -370,4 +407,4 @@ with tabs[1]:
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
 st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 07:23</div>""", unsafe_allow_html=True)
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 07:35</div>""", unsafe_allow_html=True)
