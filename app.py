@@ -1,4 +1,4 @@
-# v. 27 feb 08:00
+# v. 27 feb 07:43
 import streamlit as st
 import pandas as pd
 import io
@@ -221,10 +221,6 @@ def verificar_datos_completos():
             campos_vacios.append(nombre)
     return campos_vacios
 
-def get_input_style(key):
-    valor = st.session_state.get(key)
-    return "input-blue" if valor is None or valor == "" else "input-gray"
-
 def llamar_ia_en_cascada(prompt):
     disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods] if API_KEY else ["2.5-flash"]
     orden = ['2.5-flash', 'flash-latest', '1.5-pro']
@@ -256,11 +252,6 @@ def inject_styles():
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
     .header-capsule { background-color: #e2e8f0; color: #2d3748; padding: 10px 30px; border-radius: 50px; display: inline-block; font-weight: 800; font-size: 0.9rem; margin-bottom: 20px; }
     
-    /* Estilos para validación de campos (Principio VII) */
-    .input-blue div[data-baseweb="input"] { background-color: #e6f7ff !important; color: #000 !important; }
-    .input-gray div[data-baseweb="input"] { background-color: #f0f0f0 !important; color: #000 !important; }
-    .input-blue div[data-baseweb="select"] { background-color: #e6f7ff !important; color: #000 !important; }
-    .input-gray div[data-baseweb="select"] { background-color: #f0f0f0 !important; color: #000 !important; }
     .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
     </style>
     """, unsafe_allow_html=True)
@@ -269,7 +260,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 27 feb 08:00</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 27 feb 07:43</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -281,22 +272,10 @@ with tabs[0]:
     def sync_edad():
         st.session_state.calc_e = st.session_state.reg_edad
 
-    with c1: 
-        st.markdown(f'<div class="{get_input_style("reg_centro")}">', unsafe_allow_html=True)
-        centro = st.text_input("Centro", placeholder="G/M", key="reg_centro", label_visibility="collapsed")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c2: 
-        st.markdown(f'<div class="{get_input_style("reg_edad")}">', unsafe_allow_html=True)
-        edad_reg = st.number_input("Edad", min_value=0, max_value=120, value=None, step=1, key="reg_edad", label_visibility="collapsed", on_change=sync_edad, placeholder="0.0")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c3: 
-        st.markdown(f'<div class="{get_input_style("reg_id")}">', unsafe_allow_html=True)
-        alfa = st.text_input("ID Alfanumérico", placeholder="ABC-123", key="reg_id", label_visibility="collapsed")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c4: 
-        st.markdown(f'<div class="{get_input_style("reg_res")}">', unsafe_allow_html=True)
-        res = st.selectbox("¿Residencia?", ["No", "Sí"], key="reg_res", label_visibility="collapsed")
-        st.markdown('</div>', unsafe_allow_html=True)
+    with c1: centro = st.text_input("Centro", placeholder="G/M", key="reg_centro")
+    with c2: edad_reg = st.number_input("Edad", min_value=0, max_value=120, value=None, step=1, key="reg_edad", on_change=sync_edad, placeholder="0.0")
+    with c3: alfa = st.text_input("ID Alfanumérico", placeholder="ABC-123", key="reg_id")
+    with c4: res = st.selectbox("¿Residencia?", ["No", "Sí"], key="reg_res")
     with c5: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
     with c_del: st.write(""); st.button("🗑️", on_click=reset_registro)
 
@@ -307,28 +286,17 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            st.markdown(f'<div class="{get_input_style("calc_e")}">', unsafe_allow_html=True)
             # Valor sincronizado de reg_edad
             calc_e = st.number_input("Edad (años)", value=st.session_state.reg_edad if 'reg_edad' in st.session_state and st.session_state.reg_edad else None, step=1, key="calc_e", placeholder="0.0")
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            st.markdown(f'<div class="{get_input_style("calc_p")}">', unsafe_allow_html=True)
             calc_p = st.number_input("Peso (kg)", value=None, placeholder="0.0", key="calc_p")
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            st.markdown(f'<div class="{get_input_style("calc_c")}">', unsafe_allow_html=True)
             calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="0.0", key="calc_c")
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            st.markdown(f'<div class="{get_input_style("calc_s")}">', unsafe_allow_html=True)
             calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], key="calc_s")
-            st.markdown('</div>', unsafe_allow_html=True)
-            
             fg = round(((140 - (calc_e or 0)) * (calc_p or 0)) / (72 * (calc_c or 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e and calc_p and calc_c else 0.0
 
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
-        fg_m = st.text_input("Ajuste Manual", placeholder="entrada manual valor FG Crockoft-Ggggg")
+        # Cambio de placeholder específico
+        fg_m = st.text_input("Ajuste Manual", placeholder="entrada manual valor Fórmula Cockcroft-Gault")
         valor_fg = fg_m if fg_m else fg
         st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
         
@@ -338,14 +306,10 @@ with tabs[0]:
         st.write("")
         l1, l2 = st.columns(2)
         with l1:
-            st.markdown(f'<div class="{get_input_style("fgl_ckd")}">', unsafe_allow_html=True)
             val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="FG CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
-            st.markdown('</div>', unsafe_allow_html=True)
             if val_ckd is not None: st.markdown(f'<div class="unit-label">{val_ckd} mL/min/1,73m²</div>', unsafe_allow_html=True)
         with l2:
-            st.markdown(f'<div class="{get_input_style("fgl_mdrd")}">', unsafe_allow_html=True)
             val_mdrd = st.number_input("FG MDRD-4", value=None, placeholder="FG MDRD-4", label_visibility="collapsed", key="fgl_mdrd")
-            st.markdown('</div>', unsafe_allow_html=True)
             if val_mdrd is not None: st.markdown(f'<div class="unit-label">{val_mdrd} mL/min/1,73m²</div>', unsafe_allow_html=True)
 
     st.write(""); st.markdown("---")
@@ -417,4 +381,4 @@ with tabs[1]:
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
 st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 08:00</div>""", unsafe_allow_html=True)
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 07:43</div>""", unsafe_allow_html=True)
