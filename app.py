@@ -1,4 +1,4 @@
-# v. 27 feb 19:21
+# v. 27 feb 19:50
 import streamlit as st
 import pandas as pd
 import io
@@ -182,16 +182,28 @@ if "ic_motivo" not in st.session_state: st.session_state.ic_motivo = "Se solicit
 if "ic_info" not in st.session_state: st.session_state.ic_info = ""
 if "main_meds" not in st.session_state: st.session_state.main_meds = ""
 
-def generar_id_registro(centro):
+def generar_id_registro():
+    # Verificar campos obligatorios en session_state para activacion
+    campos = ['reg_centro', 'reg_res', 'calc_e', 'calc_p', 'calc_c', 'calc_s', 'fgl_ckd', 'fgl_mdrd']
+    for campo in campos:
+        if st.session_state.get(campo) in [None, ""]:
+            return "PENDIENTE DATOS..."
+
+    # Generacion automatica segura
+    centro = st.session_state['reg_centro']
     inicial = centro[0].upper() if centro else "X"
     aleatorio = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
     return f"PAC-{inicial}-{aleatorio}"
 
 def reset_registro():
-    st.session_state["reg_centro"] = ""; st.session_state["reg_edad"] = None
-    st.session_state["reg_id_display"] = ""; st.session_state["reg_res"] = "No"
-    # Reset sincrónico
+    st.session_state["reg_centro"] = ""; st.session_state["reg_res"] = "No"
+    st.session_state["reg_id_display"] = "PENDIENTE DATOS..."
+    # Reset sincrónico campos calculadora
     if "calc_e" in st.session_state: st.session_state.calc_e = None
+    if "calc_p" in st.session_state: st.session_state.calc_p = None
+    if "calc_c" in st.session_state: st.session_state.calc_c = None
+    if "fgl_ckd" in st.session_state: st.session_state.fgl_ckd = None
+    if "fgl_mdrd" in st.session_state: st.session_state.fgl_mdrd = None
 
 def reset_meds():
     st.session_state.main_meds = ""
@@ -211,8 +223,6 @@ except:
 def verificar_datos_completos():
     campos = {
         "Centro": "reg_centro",
-        "Edad": "reg_edad",
-        "ID REGISTRO": "reg_id_display",
         "Residencia": "reg_res",
         "Calc. Edad": "calc_e", 
         "Calc. Peso": "calc_p",
@@ -260,6 +270,12 @@ def inject_styles():
     .header-capsule { background-color: #e2e8f0; color: #2d3748; padding: 10px 30px; border-radius: 50px; display: inline-block; font-weight: 800; font-size: 0.9rem; margin-bottom: 20px; }
     
     .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
+    
+    /* NUEVO GLOW SUTIL PARA FG MANUALES */
+    .glow-subtle-purple { border: 1.5px solid #9d00ff88; box-shadow: 0 0 5px #9d00ff44; border-radius: 8px; padding: 5px; }
+    
+    /* Ajuste para que el layout de la linea superior quede bien */
+    div[data-testid="stHorizontalBlock"] { gap: 1rem; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -267,41 +283,36 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 27 feb 19:21</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 27 feb 19:50</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
 with tabs[0]:
     st.markdown("### Registro de Paciente")
-    c1, c2, c3, c4, c5, c_del = st.columns([1, 1, 1, 1, 1, 0.4])
     
-    # Callbacks para sincronización bidireccional
-    def sync_edad_reg():
-        st.session_state.calc_e = st.session_state.reg_edad
-
-    def sync_edad_calc():
-        st.session_state.reg_edad = st.session_state.calc_e
-
+    # NUEVA ESTRUCTURA DE LA LÍNEA DE REGISTRO
+    # Columnas: Centro, Residencia, ID, Fecha, Botón
+    c1, c2, c3, c4, c_del = st.columns([1, 1, 1.5, 1, 0.4])
+    
     with c1: centro = st.text_input("Centro", placeholder="G/M", key="reg_centro")
-    with c2: edad_reg = st.number_input("Edad", min_value=0, max_value=120, value=None, step=1, key="reg_edad", on_change=sync_edad_reg, placeholder="0.0")
+    with c2: res = st.selectbox("¿Residencia?", ["No", "Sí"], key="reg_res")
     
-    # NUEVA LOGICA DE ID ALFANUMERICO GENERADO
+    # ID Generado automáticamente al completar datos
     with c3: 
-        id_valor = generar_id_registro(centro) if centro else ""
+        id_valor = generar_id_registro()
         st.text_input("ID REGISTRO", value=id_valor, disabled=True, key="reg_id_display")
-        # Guardar en session_state para uso posterior
+        # Guardar valor generado para reportes
         st.session_state["reg_id"] = id_valor 
 
-    with c4: res = st.selectbox("¿Residencia?", ["No", "Sí"], key="reg_res")
-    with c5: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
+    with c4: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
     with c_del: st.write(""); st.button("🗑️", on_click=reset_registro)
 
     col_izq, col_der = st.columns(2, gap="large")
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            # Valor sincronizado y callback bidireccional
-            calc_e = st.number_input("Edad (años)", value=st.session_state.reg_edad if 'reg_edad' in st.session_state and st.session_state.reg_edad else None, step=1, key="calc_e", on_change=sync_edad_calc, placeholder="0.0")
+            # Input edad dentro de la calculadora
+            calc_e = st.number_input("Edad (años)", value=None, step=1, key="calc_e", placeholder="0.0")
             calc_p = st.number_input("Peso (kg)", value=None, placeholder="0.0", key="calc_p")
             calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="0.0", key="calc_c")
             calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], key="calc_s")
@@ -324,11 +335,15 @@ with tabs[0]:
         st.write("")
         l1, l2 = st.columns(2)
         with l1:
+            st.markdown('<div class="glow-subtle-purple">', unsafe_allow_html=True)
             val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="FG CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
+            st.markdown('</div>', unsafe_allow_html=True)
             if val_ckd is not None: st.markdown(f'<div class="unit-label">{val_ckd} mL/min/1,73m²</div>', unsafe_allow_html=True)
+        
         with l2:
-            # Etiqueta actualizada
+            st.markdown('<div class="glow-subtle-purple">', unsafe_allow_html=True)
             val_mdrd = st.number_input("FG MDRD-4 IDMS", value=None, placeholder="FG MDRD-4 IDMS", label_visibility="collapsed", key="fgl_mdrd")
+            st.markdown('</div>', unsafe_allow_html=True)
             if val_mdrd is not None: st.markdown(f'<div class="unit-label">{val_mdrd} mL/min/1,73m²</div>', unsafe_allow_html=True)
 
     st.write(""); st.markdown("---")
@@ -400,4 +415,4 @@ with tabs[1]:
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
 st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 19:21</div>""", unsafe_allow_html=True)
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 19:50</div>""", unsafe_allow_html=True)
