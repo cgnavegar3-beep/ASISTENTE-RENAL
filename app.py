@@ -1,9 +1,10 @@
-# v. 27 feb 08:25
+# v. 27 feb 18:20
 import streamlit as st
 import pandas as pd
 import io
 from datetime import datetime
 import google.generativeai as genai
+import re
 
 # =================================================================
 #
@@ -46,7 +47,7 @@ import google.generativeai as genai
 #    5. Interfaz Dual (Calculadora y caja de FG (Purple Glow): lógica
 # Cockcroft-Gault.
 # #
-#        -> REFUERZO: NO SE TOCA LA CALCULADORA, NO SE TOCA EL GLOW
+#       -> REFUERZO: NO SE TOCA LA CALCULADORA, NO SE TOCA EL GLOW
 # MORADO.
 # #
 #    6. Layout Medicamentos: Título y Aviso RGPD (estilo ampliado) en
@@ -93,11 +94,11 @@ import google.generativeai as genai
 # #
 #    7. Lógica de Color (Jerarquía de Gravedad):
 # #
-#        7.1. ROJO (glow-red): Si aparece al menos un icono ⛔ (Contraindicado).
+#       7.1. ROJO (glow-red): Si aparece al menos un icono ⛔ (Contraindicado).
 # #
-#        7.2. NARANJA (glow-orange): Si no hay ⛔ pero aparece al menos un icono ⚠️ (Ajuste).
+#       7.2. NARANJA (glow-orange): Si no hay ⛔ pero aparece al menos un icono ⚠️ (Ajuste).
 # #
-#        7.3. VERDE (glow-green): Si no hay iconos ⚠️ ni ⛔ (Todo correcto).
+#       7.3. VERDE (glow-green): Si no hay iconos ⚠️ ni ⛔ (Todo correcto).
 # #
 #    8. REGLA DE FUENTES Y ALCANCE: El análisis debe centrarse ÚNICA Y EXCLUSIVAMENTE
 # en la adecuación del fármaco según el Filtrado Glomerular (FG) del paciente.
@@ -221,6 +222,33 @@ def verificar_datos_completos():
             campos_vacios.append(nombre)
     return campos_vacios
 
+def procesar_lista_medicamentos(texto_sucio):
+    """Limpia y estructura la lista de medicamentos pegada."""
+    # 1. Eliminar saltos de línea excesivos y espacios en blanco
+    texto_limpio = re.sub(r'\s+', ' ', texto_sucio).strip()
+    
+    # 2. Reemplazar combinaciones separadas por punto y coma o guiones
+    texto_limpio = texto_limpio.replace(';', ' -')
+    
+    # 3. Limpiar dosis (ej. 80.0000 MG -> 80 MG)
+    texto_limpio = re.sub(r'(\d+)\.0000\s*MG', r'\1 MG', texto_limpio)
+    
+    # 4. Eliminar frases comunes de relleno para limpiar el prompt
+    frases_relleno = [
+        r'28 COMPRIMIDOS RECUBIERTOS CON PELICULA',
+        r'60 COMPRIMIDOS RECUBIERTOS CON PELICULA',
+        r'EFG',
+        r'COMPRIMIDOS RECUBIERTO RANU',
+        r'CON PELICULA'
+    ]
+    for frase in frases_relleno:
+        texto_limpio = re.sub(frase, '', texto_limpio, flags=re.IGNORECASE)
+        
+    # 5. Limpieza final de espacios dobles resultantes
+    texto_limpio = re.sub(r'\s+', ' ', texto_limpio).strip()
+    
+    return texto_limpio
+
 def llamar_ia_en_cascada(prompt):
     disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods] if API_KEY else ["2.5-flash"]
     orden = ['2.5-flash', 'flash-latest', '1.5-pro']
@@ -260,7 +288,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 27 feb 08:25</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 27 feb 18:20</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -310,7 +338,7 @@ with tabs[0]:
         # Etiqueta de la fórmula abajo a la derecha
         st.markdown('<div class="formula-label">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
         
-        st.write("")
+        st.write(""); st.write("")
         l1, l2 = st.columns(2)
         with l1:
             val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="FG CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
@@ -345,10 +373,14 @@ with tabs[0]:
         if proceder:
             placeholder_salida = st.empty()
             with st.spinner("Procesando..."):
-                prompt = (f"Actúa como farmacéutico clínico experto. Analiza la adecuación según FG: {valor_fg} para: {txt_meds}. "
+                # Evolución: Aplicar filtro inteligente de texto
+                meds_procesados = procesar_lista_medicamentos(txt_meds)
+                
+                prompt = (f"Actúa como farmacéutico clínico experto. Analiza la adecuación según FG: {valor_fg} para: {meds_procesados}. "
                           f"FORMATO OBLIGATORIO DE LÍNEA: [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta] + (Sigla fuente: AEMPS, FDA o EMA). "
                           f"Título síntesis: Comienza directamente con 'Medicamentos afectados:' o 'Fármacos correctamente dosificados:'. "
                           f"Separa detalle con: 'A continuación, se detallan los ajustes:'.")
+                
                 resp = llamar_ia_en_cascada(prompt)
                 glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
                 
@@ -389,4 +421,4 @@ with tabs[1]:
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
 st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 08:25</div>""", unsafe_allow_html=True)
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 18:20</div>""", unsafe_allow_html=True)
