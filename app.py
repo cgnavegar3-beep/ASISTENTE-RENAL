@@ -1,10 +1,11 @@
-# v. 27 feb 18:35
+# v. 27 feb 19:21
 import streamlit as st
 import pandas as pd
 import io
 from datetime import datetime
 import google.generativeai as genai
-import re
+import random
+import string
 
 # =================================================================
 #
@@ -47,7 +48,7 @@ import re
 #    5. Interfaz Dual (Calculadora y caja de FG (Purple Glow): lógica
 # Cockcroft-Gault.
 # #
-#       -> REFUERZO: NO SE TOCA LA CALCULADORA, NO SE TOCA EL GLOW
+#        -> REFUERZO: NO SE TOCA LA CALCULADORA, NO SE TOCA EL GLOW
 # MORADO.
 # #
 #    6. Layout Medicamentos: Título y Aviso RGPD (estilo ampliado) en
@@ -94,11 +95,11 @@ import re
 # #
 #    7. Lógica de Color (Jerarquía de Gravedad):
 # #
-#       7.1. ROJO (glow-red): Si aparece al menos un icono ⛔ (Contraindicado).
+#        7.1. ROJO (glow-red): Si aparece al menos un icono ⛔ (Contraindicado).
 # #
-#       7.2. NARANJA (glow-orange): Si no hay ⛔ pero aparece al menos un icono ⚠️ (Ajuste).
+#        7.2. NARANJA (glow-orange): Si no hay ⛔ pero aparece al menos un icono ⚠️ (Ajuste).
 # #
-#       7.3. VERDE (glow-green): Si no hay iconos ⚠️ ni ⛔ (Todo correcto).
+#        7.3. VERDE (glow-green): Si no hay iconos ⚠️ ni ⛔ (Todo correcto).
 # #
 #    8. REGLA DE FUENTES Y ALCANCE: El análisis debe centrarse ÚNICA Y EXCLUSIVAMENTE
 # en la adecuación del fármaco según el Filtrado Glomerular (FG) del paciente.
@@ -181,9 +182,14 @@ if "ic_motivo" not in st.session_state: st.session_state.ic_motivo = "Se solicit
 if "ic_info" not in st.session_state: st.session_state.ic_info = ""
 if "main_meds" not in st.session_state: st.session_state.main_meds = ""
 
+def generar_id_registro(centro):
+    inicial = centro[0].upper() if centro else "X"
+    aleatorio = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+    return f"PAC-{inicial}-{aleatorio}"
+
 def reset_registro():
     st.session_state["reg_centro"] = ""; st.session_state["reg_edad"] = None
-    st.session_state["reg_id"] = ""; st.session_state["reg_res"] = "No"
+    st.session_state["reg_id_display"] = ""; st.session_state["reg_res"] = "No"
     # Reset sincrónico
     if "calc_e" in st.session_state: st.session_state.calc_e = None
 
@@ -206,7 +212,7 @@ def verificar_datos_completos():
     campos = {
         "Centro": "reg_centro",
         "Edad": "reg_edad",
-        "ID Alfa": "reg_id",
+        "ID REGISTRO": "reg_id_display",
         "Residencia": "reg_res",
         "Calc. Edad": "calc_e", 
         "Calc. Peso": "calc_p",
@@ -261,7 +267,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 27 feb 18:35</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 27 feb 19:21</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -278,13 +284,17 @@ with tabs[0]:
 
     with c1: centro = st.text_input("Centro", placeholder="G/M", key="reg_centro")
     with c2: edad_reg = st.number_input("Edad", min_value=0, max_value=120, value=None, step=1, key="reg_edad", on_change=sync_edad_reg, placeholder="0.0")
-    with c3: alfa = st.text_input("ID Alfanumérico", placeholder="ABC-123", key="reg_id")
+    
+    # NUEVA LOGICA DE ID ALFANUMERICO GENERADO
+    with c3: 
+        id_valor = generar_id_registro(centro) if centro else ""
+        st.text_input("ID REGISTRO", value=id_valor, disabled=True, key="reg_id_display")
+        # Guardar en session_state para uso posterior
+        st.session_state["reg_id"] = id_valor 
+
     with c4: res = st.selectbox("¿Residencia?", ["No", "Sí"], key="reg_res")
     with c5: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
     with c_del: st.write(""); st.button("🗑️", on_click=reset_registro)
-
-    id_calc = f"{centro if centro else '---'}-{str(int(edad_reg)) if edad_reg else '00'}-{alfa if alfa else '---'}"
-    st.markdown(f'<div style="color:#888; font-family:monospace; font-size:0.75rem; margin-top:-15px; margin-bottom:20px;">ID REGISTRO: {id_calc}</div>', unsafe_allow_html=True)
 
     col_izq, col_der = st.columns(2, gap="large")
     with col_izq:
@@ -303,15 +313,15 @@ with tabs[0]:
 
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
-        # Placeholder específico
-        fg_m = st.text_input("Ajuste Manual", placeholder="entrada manual valor Fórmula Cockcroft-Gault")
+        # Placeholder actualizado
+        fg_m = st.text_input("Ajuste Manual", placeholder="Fórmula Cockcroft-Gault :entrada manual")
         valor_fg = fg_m if fg_m else fg
         st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
         
         # Etiqueta de la fórmula abajo a la derecha
         st.markdown('<div class="formula-label">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
         
-        st.write(""); st.write("")
+        st.write("")
         l1, l2 = st.columns(2)
         with l1:
             val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="FG CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
@@ -346,32 +356,16 @@ with tabs[0]:
         if proceder:
             placeholder_salida = st.empty()
             with st.spinner("Procesando..."):
-                
-                # Evolución: Instrucción a la IA para reescritura condicionada y ordenación
                 prompt = (f"Actúa como farmacéutico clínico experto. Analiza la adecuación según FG: {valor_fg} para: {txt_meds}. "
-                          f"PASO 1: Analiza el riesgo renal de cada fármaco. "
-                          f"PASO 2: Si la lista de entrada contiene formatos complejos (Marca + Principio Activo + Dosis), "
-                          f"extrae solo Principio Activo y Dosis, ordénalos alfabéticamente y formatealos como lista limpia. "
-                          f"Si es una lista simple, ordénala alfabéticamente. "
-                          f"PASO 3: Reescribe la lista resultante en el cuadro de texto del usuario (st.session_state.main_meds) "
-                          f"y muestra el análisis clínico abajo. "
                           f"FORMATO OBLIGATORIO DE LÍNEA: [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta] + (Sigla fuente: AEMPS, FDA o EMA). "
                           f"Título síntesis: Comienza directamente con 'Medicamentos afectados:' o 'Fármacos correctamente dosificados:'. "
                           f"Separa detalle con: 'A continuación, se detallan los ajustes:'.")
-                
                 resp = llamar_ia_en_cascada(prompt)
-                
-                # REESCRITURA CONDICIONADA DEL TEXTO
-                # La IA debe devolver la lista limpia y ordenada separada por un marcador especial si es necesario, 
-                # pero para respetar tu petición de no cambiar funciones, asumimos que la IA interpreta la orden 
-                # de reescritura dentro de su contexto de respuesta si se le da el prompt adecuado.
-                
                 glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
                 
                 try:
                     partes = resp.split("A continuación, se detallan los ajustes")
                     sintesis, detalle = partes[0].strip(), "A continuación, se detallan los ajustes" + (partes[1] if len(partes)>1 else "")
-                    
                     with placeholder_salida.container():
                         st.markdown(f'<div class="synthesis-box {glow}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
                         st.markdown(f"""<div class="blue-detail-container">{detalle.replace("\n", "<br>")}
@@ -406,4 +400,4 @@ with tabs[1]:
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
 st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 18:35</div>""", unsafe_allow_html=True)
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 19:21</div>""", unsafe_allow_html=True)
