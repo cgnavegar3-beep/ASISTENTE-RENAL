@@ -1,4 +1,4 @@
-# v. 27 feb 07:35
+# v. 27 feb 08:00
 import streamlit as st
 import pandas as pd
 import io
@@ -101,7 +101,7 @@ import google.generativeai as genai
 # #
 #    8. REGLA DE FUENTES Y ALCANCE: El análisis debe centrarse ÚNICA Y EXCLUSIVAMENTE
 # en la adecuación del fármaco según el Filtrado Glomerular (FG) del paciente.
-# Se deben priorizar fuentes oficiales (.gov, AEMPS, FDA) y Open Evidence.
+# Se deben priorizar fuentes oficiales (.gov, AEMPS, FDA) and Open Evidence.
 # Cada línea DEBE terminar con la sigla de la fuente oficial consultada.
 # #
 # #
@@ -183,6 +183,8 @@ if "main_meds" not in st.session_state: st.session_state.main_meds = ""
 def reset_registro():
     st.session_state["reg_centro"] = ""; st.session_state["reg_edad"] = None
     st.session_state["reg_id"] = ""; st.session_state["reg_res"] = "No"
+    # Reset sincrónico
+    if "calc_e" in st.session_state: st.session_state.calc_e = None
 
 def reset_meds():
     st.session_state.main_meds = ""
@@ -199,7 +201,6 @@ try:
 except:
     API_KEY = None
 
-# Función de verificación de campos vacíos
 def verificar_datos_completos():
     campos = {
         "Centro": "reg_centro",
@@ -220,7 +221,6 @@ def verificar_datos_completos():
             campos_vacios.append(nombre)
     return campos_vacios
 
-# Función para aplicar estilo dinámico (Principio VII)
 def get_input_style(key):
     valor = st.session_state.get(key)
     return "input-blue" if valor is None or valor == "" else "input-gray"
@@ -257,10 +257,11 @@ def inject_styles():
     .header-capsule { background-color: #e2e8f0; color: #2d3748; padding: 10px 30px; border-radius: 50px; display: inline-block; font-weight: 800; font-size: 0.9rem; margin-bottom: 20px; }
     
     /* Estilos para validación de campos (Principio VII) */
-    .input-blue div[data-baseweb="input"] { background-color: #e6f7ff !important; }
-    .input-gray div[data-baseweb="input"] { background-color: #f0f0f0 !important; }
-    .input-blue div[data-baseweb="select"] { background-color: #e6f7ff !important; }
-    .input-gray div[data-baseweb="select"] { background-color: #f0f0f0 !important; }
+    .input-blue div[data-baseweb="input"] { background-color: #e6f7ff !important; color: #000 !important; }
+    .input-gray div[data-baseweb="input"] { background-color: #f0f0f0 !important; color: #000 !important; }
+    .input-blue div[data-baseweb="select"] { background-color: #e6f7ff !important; color: #000 !important; }
+    .input-gray div[data-baseweb="select"] { background-color: #f0f0f0 !important; color: #000 !important; }
+    .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -268,7 +269,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 27 feb 07:35</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 27 feb 08:00</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -276,13 +277,17 @@ with tabs[0]:
     st.markdown("### Registro de Paciente")
     c1, c2, c3, c4, c5, c_del = st.columns([1, 1, 1, 1, 1, 0.4])
     
+    # Callback para sincronización de edad
+    def sync_edad():
+        st.session_state.calc_e = st.session_state.reg_edad
+
     with c1: 
         st.markdown(f'<div class="{get_input_style("reg_centro")}">', unsafe_allow_html=True)
         centro = st.text_input("Centro", placeholder="G/M", key="reg_centro", label_visibility="collapsed")
         st.markdown('</div>', unsafe_allow_html=True)
     with c2: 
         st.markdown(f'<div class="{get_input_style("reg_edad")}">', unsafe_allow_html=True)
-        edad_reg = st.number_input("Edad", min_value=0, max_value=120, value=None, step=1, key="reg_edad", label_visibility="collapsed")
+        edad_reg = st.number_input("Edad", min_value=0, max_value=120, value=None, step=1, key="reg_edad", label_visibility="collapsed", on_change=sync_edad, placeholder="0.0")
         st.markdown('</div>', unsafe_allow_html=True)
     with c3: 
         st.markdown(f'<div class="{get_input_style("reg_id")}">', unsafe_allow_html=True)
@@ -303,7 +308,8 @@ with tabs[0]:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
             st.markdown(f'<div class="{get_input_style("calc_e")}">', unsafe_allow_html=True)
-            calc_e = st.number_input("Edad (años)", value=int(edad_reg) if edad_reg else None, step=1, key="calc_e")
+            # Valor sincronizado de reg_edad
+            calc_e = st.number_input("Edad (años)", value=st.session_state.reg_edad if 'reg_edad' in st.session_state and st.session_state.reg_edad else None, step=1, key="calc_e", placeholder="0.0")
             st.markdown('</div>', unsafe_allow_html=True)
             
             st.markdown(f'<div class="{get_input_style("calc_p")}">', unsafe_allow_html=True)
@@ -322,9 +328,13 @@ with tabs[0]:
 
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
-        fg_m = st.text_input("Ajuste Manual")
+        fg_m = st.text_input("Ajuste Manual", placeholder="entrada manual valor FG Crockoft-Ggggg")
         valor_fg = fg_m if fg_m else fg
         st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
+        
+        # Etiqueta de la fórmula abajo a la derecha
+        st.markdown('<div class="formula-label">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
+        
         st.write("")
         l1, l2 = st.columns(2)
         with l1:
@@ -407,4 +417,4 @@ with tabs[1]:
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
 st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 07:35</div>""", unsafe_allow_html=True)
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 08:00</div>""", unsafe_allow_html=True)
