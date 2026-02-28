@@ -1,4 +1,4 @@
-# v. 28 feb 12:25
+# v. 28 feb 12:40
 import streamlit as st
 import pandas as pd
 import io
@@ -166,7 +166,6 @@ st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_
 if "active_model" not in st.session_state:
     st.session_state.active_model = "BUSCANDO..."
 
-# Inicialización de estados
 for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds", "reg_id"]:
     if key not in st.session_state:
         if key == "soip_s": st.session_state[key] = "Revisión farmacoterapéutica según función renal."
@@ -178,8 +177,9 @@ if "reg_edad" not in st.session_state: st.session_state.reg_edad = None
 
 def reset_registro():
     st.session_state["reg_centro"] = ""; st.session_state["reg_edad"] = None
-    st.session_state["reg_res"] = "No"; st.session_state["reg_id"] = ""
+    st.session_state["reg_res"] = None; st.session_state["reg_id"] = ""
     if "calc_e" in st.session_state: st.session_state.calc_e = None
+    if "calc_s" in st.session_state: st.session_state.calc_s = None
 
 def reset_meds():
     st.session_state.main_meds = ""
@@ -201,7 +201,7 @@ def verificar_datos_completos():
         "Edad (Calc)": "calc_e", "Peso (Calc)": "calc_p", "Creatinina (Calc)": "calc_c",
         "Sexo (Calc)": "calc_s", "FG CKD-EPI": "fgl_ckd", "FG MDRD-4": "fgl_mdrd"
     }
-    vacios = [nombre for nombre, key in campos.items() if st.session_state.get(key) in [None, ""]]
+    vacios = [nombre for nombre, key in campos.items() if st.session_state.get(key) in [None, "", "Seleccionar..."]]
     return vacios
 
 def llamar_ia_en_cascada(prompt):
@@ -243,25 +243,21 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 28 feb 12:25</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 28 feb 12:40</div>', unsafe_allow_html=True)
 
-# CAMBIO DE NOMBRE DE PESTAÑA: DE "EXCEL" A "DATOS"
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
 with tabs[0]:
     st.markdown("### Registro de Paciente")
     c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1.5, 0.4])
-    def generar_id_paciente():
-        centro = st.session_state.get("reg_centro", "")
-        iniciales = "".join([word[0] for word in centro.split()]).upper()[:3]
-        if not iniciales: iniciales = "GEN"
-        codigo = "".join([str(random.randint(0, 9)) for _ in range(5)])
-        return f"PAC-{iniciales}{codigo}"
     def on_centro_change():
         if not st.session_state.reg_centro: st.session_state.reg_id = ""
-        else: st.session_state.reg_id = generar_id_paciente()
+        else:
+            iniciales = "".join([word[0] for word in st.session_state.reg_centro.split()]).upper()[:3]
+            st.session_state.reg_id = f"PAC-{iniciales if iniciales else 'GEN'}{random.randint(10000, 99999)}"
     with c1: st.text_input("Centro", placeholder="G/M", key="reg_centro", on_change=on_centro_change)
-    with c2: st.selectbox("¿Residencia?", ["No", "Sí"], key="reg_res")
+    # MODIFICACIÓN RESIDENCIA: Sin valor por defecto
+    with c2: st.selectbox("¿Residencia?", ["No", "Sí"], index=None, placeholder="¿Resid?", key="reg_res")
     with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
     with c4: st.text_input("ID Registro", key="reg_id")
     with c5: st.write(""); st.button("🗑️", on_click=reset_registro)
@@ -273,9 +269,10 @@ with tabs[0]:
             calc_e = st.number_input("Edad (años)", value=st.session_state.reg_edad, step=1, key="calc_e", on_change=lambda: st.session_state.update({"reg_edad": st.session_state.calc_e}), placeholder="0.0")
             calc_p = st.number_input("Peso (kg)", value=None, placeholder="0.0", key="calc_p")
             calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="0.0", key="calc_c")
-            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], key="calc_s")
+            # MODIFICACIÓN SEXO: Sin valor por defecto
+            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=None, placeholder="Elegir...", key="calc_s")
             st.markdown('<div class="formula-label" style="text-align:right;">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
-            fg = round(((140 - (calc_e or 0)) * (calc_p or 0)) / (72 * (calc_c or 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e and calc_p and calc_c else 0.0
+            fg = round(((140 - (calc_e or 0)) * (calc_p or 0)) / (72 * (calc_c or 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e and calc_p and calc_c and calc_s else 0.0
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
         fg_m = st.text_input("Ajuste Manual", placeholder="Fórmula Cockcroft-Gault: entrada manual")
@@ -331,7 +328,7 @@ with tabs[0]:
                         <b>3.2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</b><br>
                         <b>3.3. La decisión final corresponde siempre al prescriptor médico.</b><br>
                         <b>3.4. Considere la situación clínica global del paciente antes de modificar dosis.</b></div>""", unsafe_allow_html=True)
-                    st.session_state.soip_o = " | ".join(filter(None, [f"Edad: {int(calc_e)}" if calc_e else "", f"Peso: {calc_p}" if calc_p else "", f"Cr: {calc_c}" if calc_c else "", f"FG: {valor_fg}" if float(valor_fg)>0 else ""]))
+                    st.session_state.soip_o = " | ".join(filter(None, [f"Edad: {int(calc_e)}" if calc_e else "", f"Peso: {calc_p}" if calc_p else "", f"Cr: {calc_c}" if calc_c else "", f"FG: {valor_fg}" if float(valor_fg or 0)>0 else ""]))
                     st.session_state.soip_i = sintesis
                     st.session_state.ic_info = detalle
                     st.session_state.ic_motivo = f"Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente.\n\nLISTADO DETECTADO:\n{sintesis}"
@@ -348,8 +345,7 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">Información Clínica</div>', unsafe_allow_html=True)
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
-with tabs[2]: # PESTAÑA RENOMBRADA A DATOS
+with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
-    # Aquí iría el botón de "GUARDAR CAMBIOS EN EXCEL" protegido en el Principio VII.
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 12:25</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 12:40</div>""", unsafe_allow_html=True)
