@@ -1,4 +1,4 @@
-# v. 28 feb 13:30
+# v. 28 feb 13:40
 import streamlit as st
 import pandas as pd
 import io
@@ -249,7 +249,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 28 feb 13:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 28 feb 13:40</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -258,8 +258,8 @@ with tabs[0]:
     c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1.5, 0.4])
     def on_centro_change():
         centro_val = st.session_state.reg_centro.strip()
-        # LÓGICA CORREGIDA: m -> Marin, o -> Grove
-        if centro_val.lower() == "m": st.session_state.reg_centro = "Marin"
+        # LÓGICA CORREGIDA: m -> Marín, o -> Grove
+        if centro_val.lower() == "m": st.session_state.reg_centro = "Marín"
         elif centro_val.lower() == "o": st.session_state.reg_centro = "Grove"
         
         if not st.session_state.reg_centro: st.session_state.reg_id = ""
@@ -268,8 +268,8 @@ with tabs[0]:
             iniciales = "".join([word[0] for word in final_centro.split()]).upper()[:3]
             st.session_state.reg_id = f"PAC-{iniciales if iniciales else 'GEN'}{random.randint(10000, 99999)}"
     
-    # MODIFICACIÓN CENTRO: Placeholder corregido
-    with c1: st.text_input("Centro", placeholder="m (Marin) / o (Grove)", key="reg_centro", on_change=on_centro_change)
+    # MODIFICACIÓN CENTRO: Placeholder corregido "M / G"
+    with c1: st.text_input("Centro", placeholder="M / G", key="reg_centro", on_change=on_centro_change)
     with c2: st.selectbox("¿Residencia?", ["No", "Sí"], index=None, placeholder="¿Resid?", key="reg_res")
     with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
     with c4: st.text_input("ID Registro", key="reg_id")
@@ -360,4 +360,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 13:30</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 13:40</div>""", unsafe_allow_html=True)
