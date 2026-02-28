@@ -1,4 +1,4 @@
-# v. 28 feb 12:50
+# v. 28 feb 13:00
 import streamlit as st
 import pandas as pd
 import io
@@ -176,7 +176,7 @@ for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "mai
 if "reg_edad" not in st.session_state: st.session_state.reg_edad = None
 
 def reset_registro():
-    st.session_state["reg_centro"] = ""; st.session_state["reg_edad"] = None
+    st.session_state["reg_centro"] = None; st.session_state["reg_edad"] = None
     st.session_state["reg_res"] = None; st.session_state["reg_id"] = ""
     if "calc_e" in st.session_state: st.session_state.calc_e = None
     if "calc_s" in st.session_state: st.session_state.calc_s = None
@@ -249,7 +249,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 28 feb 12:50</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 28 feb 13:00</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -259,9 +259,11 @@ with tabs[0]:
     def on_centro_change():
         if not st.session_state.reg_centro: st.session_state.reg_id = ""
         else:
-            iniciales = "".join([word[0] for word in st.session_state.reg_centro.split()]).upper()[:3]
+            centro_val = st.session_state.reg_centro
+            iniciales = "".join([word[0] for word in centro_val.split()]).upper()[:3]
             st.session_state.reg_id = f"PAC-{iniciales if iniciales else 'GEN'}{random.randint(10000, 99999)}"
-    with c1: st.text_input("Centro", placeholder="G/M", key="reg_centro", on_change=on_centro_change)
+    # MODIFICACIÓN CENTRO: Selectbox con opciones sugeridas
+    with c1: st.selectbox("Centro", ["Grove", "Marin"], index=None, placeholder="Seleccionar...", key="reg_centro", on_change=on_centro_change)
     with c2: st.selectbox("¿Residencia?", ["No", "Sí"], index=None, placeholder="¿Resid?", key="reg_res")
     with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
     with c4: st.text_input("ID Registro", key="reg_id")
@@ -352,4 +354,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 12:50</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 13:00</div>""", unsafe_allow_html=True)
