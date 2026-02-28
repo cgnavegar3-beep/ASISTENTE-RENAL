@@ -244,7 +244,7 @@ def llamar_ia_en_cascada(prompt):
         modelos_disponibles = [m.name for m in all_models if 'generateContent' in m.supported_generation_methods]
         
         # Ordenar priorizando los modelos rápidos/nuevos si existen
-        prioridad = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+        prioridad = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
         modelos_ordenados = sorted(modelos_disponibles, key=lambda x: (0 if any(p in x for p in prioridad) else 1, x))
 
         for model_name in modelos_ordenados:
