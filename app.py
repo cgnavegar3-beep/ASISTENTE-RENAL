@@ -1,4 +1,4 @@
-# v. 28 feb 13:00
+# v. 28 feb 13:10
 import streamlit as st
 import pandas as pd
 import io
@@ -166,7 +166,7 @@ st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_
 if "active_model" not in st.session_state:
     st.session_state.active_model = "BUSCANDO..."
 
-for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds", "reg_id"]:
+for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds", "reg_id", "reg_centro"]:
     if key not in st.session_state:
         if key == "soip_s": st.session_state[key] = "Revisión farmacoterapéutica según función renal."
         elif key == "soip_p": st.session_state[key] = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
@@ -176,7 +176,7 @@ for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "mai
 if "reg_edad" not in st.session_state: st.session_state.reg_edad = None
 
 def reset_registro():
-    st.session_state["reg_centro"] = None; st.session_state["reg_edad"] = None
+    st.session_state["reg_centro"] = ""; st.session_state["reg_edad"] = None
     st.session_state["reg_res"] = None; st.session_state["reg_id"] = ""
     if "calc_e" in st.session_state: st.session_state.calc_e = None
     if "calc_s" in st.session_state: st.session_state.calc_s = None
@@ -249,7 +249,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 28 feb 13:00</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 28 feb 13:10</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -257,13 +257,18 @@ with tabs[0]:
     st.markdown("### Registro de Paciente")
     c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1.5, 0.4])
     def on_centro_change():
+        centro_val = st.session_state.reg_centro.strip()
+        if centro_val.upper() == "G": st.session_state.reg_centro = "Grove"
+        elif centro_val.upper() == "M": st.session_state.reg_centro = "Marin"
+        
         if not st.session_state.reg_centro: st.session_state.reg_id = ""
         else:
-            centro_val = st.session_state.reg_centro
-            iniciales = "".join([word[0] for word in centro_val.split()]).upper()[:3]
+            final_centro = st.session_state.reg_centro
+            iniciales = "".join([word[0] for word in final_centro.split()]).upper()[:3]
             st.session_state.reg_id = f"PAC-{iniciales if iniciales else 'GEN'}{random.randint(10000, 99999)}"
-    # MODIFICACIÓN CENTRO: Selectbox con opciones sugeridas
-    with c1: st.selectbox("Centro", ["Grove", "Marin"], index=None, placeholder="Seleccionar...", key="reg_centro", on_change=on_centro_change)
+    
+    # MODIFICACIÓN CENTRO: Text input con lógica de autocompletado
+    with c1: st.text_input("Centro", placeholder="G (Grove) / M (Marin)", key="reg_centro", on_change=on_centro_change)
     with c2: st.selectbox("¿Residencia?", ["No", "Sí"], index=None, placeholder="¿Resid?", key="reg_res")
     with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
     with c4: st.text_input("ID Registro", key="reg_id")
@@ -354,4 +359,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 13:00</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 13:10</div>""", unsafe_allow_html=True)
