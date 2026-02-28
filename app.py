@@ -1,10 +1,11 @@
-# v. 28 feb 08:52
+# v. 28 feb 09:00
 import streamlit as st
 import pandas as pd
 import io
 from datetime import datetime
 import google.generativeai as genai
- 
+import random # Importación necesaria para la lógica de ID
+
 # =================================================================
 # # PRINCIPIOS FUNDAMENTALES:
 # #
@@ -183,10 +184,13 @@ if "main_meds" not in st.session_state:
 # Estados necesarios para el ID dinámico
 if "reg_edad" not in st.session_state:
     st.session_state.reg_edad = None
+# Asegurar que el estado reg_id exista
+if "reg_id" not in st.session_state:
+    st.session_state.reg_id = ""
  
 def reset_registro():
     st.session_state["reg_centro"] = ""; st.session_state["reg_edad"] = None
-    st.session_state["reg_res"] = "No"
+    st.session_state["reg_res"] = "No"; st.session_state["reg_id"] = ""
     # Reset sincrónico
     if "calc_e" in st.session_state: st.session_state.calc_e = None
  
@@ -210,6 +214,7 @@ def verificar_datos_completos():
         "Centro": "reg_centro",
         "Edad": "reg_edad",
         "Residencia": "reg_res",
+        "ID Registro": "reg_id",
         "Calc. Edad": "calc_e",
         "Calc. Peso": "calc_p",
         "Calc. Creatinina": "calc_c",
@@ -265,35 +270,52 @@ st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_htm
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
  
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 28 feb 08:52</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 28 feb 09:00</div>', unsafe_allow_html=True)
  
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
  
 with tabs[0]:
-    # --- Estructura reorganizada y depurada ---
+    # --- Estructura reorganizada y automatizada ---
     st.markdown("### Registro de Paciente")
     # c1: Centro, c2: Residencia, c3: Fecha, c4: ID, c5: Borrado
     c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1.5, 0.4])
     
-    # Callbacks para sincronización bidireccional (edad se mantiene en calculadora)
+    # Lógica para generar el ID aleatorio automático
+    def generar_id_paciente():
+        centro = st.session_state.get("reg_centro", "")
+        # Tomar iniciales del centro o 'GEN' si está vacío
+        iniciales = "".join([word[0] for word in centro.split()]).upper()[:3]
+        if not iniciales: iniciales = "GEN"
+        
+        # Generar número de 5 cifras
+        codigo = "".join([str(random.randint(0, 9)) for _ in range(5)])
+        
+        return f"PAC-{iniciales}-{codigo}"
+
+    # Callback para generar el ID automáticamente al cambiar el centro
+    def on_centro_change():
+        # Solo generamos si está vacío para permitir edición manual
+        if not st.session_state.reg_id:
+            st.session_state.reg_id = generar_id_paciente()
+
+    # Callbacks para sincronización bidireccional
     def sync_edad_reg():
         st.session_state.calc_e = st.session_state.reg_edad
     def sync_edad_calc():
         st.session_state.reg_edad = st.session_state.calc_e
     
-    with c1: centro = st.text_input("Centro", placeholder="G/M", key="reg_centro")
+    with c1: 
+        # Al perder el foco (on_change), se ejecuta la función de generación
+        centro = st.text_input("Centro", placeholder="G/M", key="reg_centro", on_change=on_centro_change)
+        
     with c2: res = st.selectbox("¿Residencia?", ["No", "Sí"], key="reg_res")
     with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
     
     with c4:
-        # ID generado automático mostrado visualmente
-        id_calc_visual = f"{centro if centro else '---'}-{st.session_state.reg_edad if 'reg_edad' in st.session_state and st.session_state.reg_edad else '00'}-AUTO"
-        st.text_input("ID Registro", value=id_calc_visual, disabled=True)
+        # El valor de este input se actualizará automáticamente por el callback
+        st.text_input("ID Registro", key="reg_id")
         
     with c5: st.write(""); st.button("🗑️", on_click=reset_registro)
-    
-    # Lógica de ID para el análisis
-    id_calc = id_calc_visual
     # ------------------------------------------
     
     col_izq, col_der = st.columns(2, gap="large")
@@ -411,4 +433,4 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">Información Clínica</div>', unsafe_allow_html=True)
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
  
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 08:52</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 09:00</div>""", unsafe_allow_html=True)
