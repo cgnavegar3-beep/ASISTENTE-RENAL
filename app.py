@@ -1,4 +1,4 @@
-# v. 28 feb 08:49
+# v. 28 feb 08:52
 import streamlit as st
 import pandas as pd
 import io
@@ -183,12 +183,10 @@ if "main_meds" not in st.session_state:
 # Estados necesarios para el ID dinámico
 if "reg_edad" not in st.session_state:
     st.session_state.reg_edad = None
-if "reg_id" not in st.session_state:
-    st.session_state.reg_id = ""
  
 def reset_registro():
     st.session_state["reg_centro"] = ""; st.session_state["reg_edad"] = None
-    st.session_state["reg_id"] = ""; st.session_state["reg_res"] = "No"
+    st.session_state["reg_res"] = "No"
     # Reset sincrónico
     if "calc_e" in st.session_state: st.session_state.calc_e = None
  
@@ -211,7 +209,6 @@ def verificar_datos_completos():
     campos = {
         "Centro": "reg_centro",
         "Edad": "reg_edad",
-        "ID Alfa": "reg_id",
         "Residencia": "reg_res",
         "Calc. Edad": "calc_e",
         "Calc. Peso": "calc_p",
@@ -268,12 +265,12 @@ st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_htm
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
  
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 28 feb 08:49</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 28 feb 08:52</div>', unsafe_allow_html=True)
  
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
  
 with tabs[0]:
-    # --- Estructura reorganizada ---
+    # --- Estructura reorganizada y depurada ---
     st.markdown("### Registro de Paciente")
     # c1: Centro, c2: Residencia, c3: Fecha, c4: ID, c5: Borrado
     c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1.5, 0.4])
@@ -290,16 +287,13 @@ with tabs[0]:
     
     with c4:
         # ID generado automático mostrado visualmente
-        id_calc_visual = f"{centro if centro else '---'}-{st.session_state.reg_edad if 'reg_edad' in st.session_state and st.session_state.reg_edad else '00'}-{st.session_state.reg_id if 'reg_id' in st.session_state and st.session_state.reg_id else '---'}"
+        id_calc_visual = f"{centro if centro else '---'}-{st.session_state.reg_edad if 'reg_edad' in st.session_state and st.session_state.reg_edad else '00'}-AUTO"
         st.text_input("ID Registro", value=id_calc_visual, disabled=True)
-        # Mantener el input oculto para la lógica pero accesible por key
-        st.text_input("ID Alfanumérico", placeholder="ABC-123", key="reg_id", label_visibility="collapsed")
         
     with c5: st.write(""); st.button("🗑️", on_click=reset_registro)
     
-    # ID real para la lógica
-    id_calc = f"{centro if centro else '---'}-{st.session_state.reg_edad if 'reg_edad' in st.session_state and st.session_state.reg_edad else '00'}-{st.session_state.reg_id if 'reg_id' in st.session_state and st.session_state.reg_id else '---'}"
-    st.markdown(f'<div style="color:#888; font-family:monospace; font-size:0.75rem; margin-top:-15px; margin-bottom:20px;">ID TÉCNICO: {id_calc}</div>', unsafe_allow_html=True)
+    # Lógica de ID para el análisis
+    id_calc = id_calc_visual
     # ------------------------------------------
     
     col_izq, col_der = st.columns(2, gap="large")
@@ -417,4 +411,4 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">Información Clínica</div>', unsafe_allow_html=True)
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
  
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 08:49</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 08:52</div>""", unsafe_allow_html=True)
