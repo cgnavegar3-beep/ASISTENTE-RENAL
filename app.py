@@ -1,4 +1,4 @@
-# v. 28 feb 09:00
+# v. 28 feb 09:05
 import streamlit as st
 import pandas as pd
 import io
@@ -270,7 +270,7 @@ st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_htm
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
  
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 28 feb 09:00</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 28 feb 09:05</div>', unsafe_allow_html=True)
  
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
  
@@ -290,7 +290,8 @@ with tabs[0]:
         # Generar número de 5 cifras
         codigo = "".join([str(random.randint(0, 9)) for _ in range(5)])
         
-        return f"PAC-{iniciales}-{codigo}"
+        # FORMATO ACTUALIZADO: PAC-{iniciales}{codigo} (sin guion entre iniciales y codigo)
+        return f"PAC-{iniciales}{codigo}"
 
     # Callback para generar el ID automáticamente al cambiar el centro
     def on_centro_change():
@@ -433,4 +434,4 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">Información Clínica</div>', unsafe_allow_html=True)
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
  
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 09:00</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 09:05</div>""", unsafe_allow_html=True)
