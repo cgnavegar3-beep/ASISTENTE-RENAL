@@ -1,4 +1,4 @@
-# v. 28 feb 12:40
+# v. 28 feb 12:50
 import streamlit as st
 import pandas as pd
 import io
@@ -219,6 +219,12 @@ def llamar_ia_en_cascada(prompt):
 def inject_styles():
     st.markdown("""
     <style>
+    /* ANIMACIÓN DE PARPADEO PARA AVISOS */
+    @keyframes blinker {
+        50% { opacity: 0; }
+    }
+    .stWarning { animation: blinker 1.5s linear infinite; }
+                
     .block-container { max-width: 100% !important; padding-top: 1rem !important; padding-left: 4% !important; padding-right: 4% !important; }
     .black-badge-zona { background-color: #000000; color: #888; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 10px; left: 15px; z-index: 999999; }
     .black-badge-activo { background-color: #000000; color: #00FF00; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 10px; left: 145px; z-index: 999999; text-shadow: 0 0 5px #00FF00; }
@@ -243,7 +249,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 28 feb 12:40</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 28 feb 12:50</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -256,7 +262,6 @@ with tabs[0]:
             iniciales = "".join([word[0] for word in st.session_state.reg_centro.split()]).upper()[:3]
             st.session_state.reg_id = f"PAC-{iniciales if iniciales else 'GEN'}{random.randint(10000, 99999)}"
     with c1: st.text_input("Centro", placeholder="G/M", key="reg_centro", on_change=on_centro_change)
-    # MODIFICACIÓN RESIDENCIA: Sin valor por defecto
     with c2: st.selectbox("¿Residencia?", ["No", "Sí"], index=None, placeholder="¿Resid?", key="reg_res")
     with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
     with c4: st.text_input("ID Registro", key="reg_id")
@@ -269,7 +274,6 @@ with tabs[0]:
             calc_e = st.number_input("Edad (años)", value=st.session_state.reg_edad, step=1, key="calc_e", on_change=lambda: st.session_state.update({"reg_edad": st.session_state.calc_e}), placeholder="0.0")
             calc_p = st.number_input("Peso (kg)", value=None, placeholder="0.0", key="calc_p")
             calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="0.0", key="calc_c")
-            # MODIFICACIÓN SEXO: Sin valor por defecto
             calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=None, placeholder="Elegir...", key="calc_s")
             st.markdown('<div class="formula-label" style="text-align:right;">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
             fg = round(((140 - (calc_e or 0)) * (calc_p or 0)) / (72 * (calc_c or 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e and calc_p and calc_c and calc_s else 0.0
@@ -348,4 +352,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 12:40</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 12:50</div>""", unsafe_allow_html=True)
