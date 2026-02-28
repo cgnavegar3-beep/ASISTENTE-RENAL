@@ -1,4 +1,4 @@
-# v. 28 feb 13:40
+# v. 28 feb 13:50
 import streamlit as st
 import pandas as pd
 import io
@@ -249,7 +249,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 28 feb 13:40</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 28 feb 13:50</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -258,9 +258,9 @@ with tabs[0]:
     c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1.5, 0.4])
     def on_centro_change():
         centro_val = st.session_state.reg_centro.strip()
-        # LÓGICA CORREGIDA: m -> Marín, o -> Grove
+        # LÓGICA CORREGIDA: m/M -> Marín, o/O -> O Grove
         if centro_val.lower() == "m": st.session_state.reg_centro = "Marín"
-        elif centro_val.lower() == "o": st.session_state.reg_centro = "Grove"
+        elif centro_val.lower() == "o": st.session_state.reg_centro = "O Grove"
         
         if not st.session_state.reg_centro: st.session_state.reg_id = ""
         else:
@@ -360,4 +360,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 13:40</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 13:50</div>""", unsafe_allow_html=True)
