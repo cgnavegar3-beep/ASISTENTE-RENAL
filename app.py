@@ -244,7 +244,8 @@ def inject_styles():
      .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
      .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
      .header-capsule { background-color: #e2e8f0; color: #2d3748; padding: 10px 30px; border-radius: 50px; display: inline-block; font-weight: 800; font-size: 0.9rem; margin-bottom: 20px; }
-          .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
+     .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
+     .fg-border-box { border: 1px solid #9d00ff; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
      </style>
      """, unsafe_allow_html=True)
 inject_styles()
@@ -305,12 +306,18 @@ with tabs[0]:
          st.write("")
          l1, l2 = st.columns(2)
          with l1:
-             val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="FG CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
-             if val_ckd is not None: st.markdown(f'<div class="unit-label">{val_ckd} mL/min/1,73m²</div>', unsafe_allow_html=True)
+             with st.container(border=False):
+                 st.markdown('<div class="fg-border-box">', unsafe_allow_html=False)
+                 val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="FG CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
+                 if val_ckd is not None: st.markdown(f'<div class="unit-label">{val_ckd} mL/min/1,73m²</div>', unsafe_allow_html=True)
+                 st.markdown('</div>', unsafe_allow_html=False)
          with l2:
-             # Etiqueta actualizada
-             val_mdrd = st.number_input("FG MDRD-4 IDMS", value=None, placeholder="FG MDRD-4 IDMS", label_visibility="collapsed", key="fgl_mdrd")
-             if val_mdrd is not None: st.markdown(f'<div class="unit-label">{val_mdrd} mL/min/1,73m²</div>', unsafe_allow_html=True)
+             with st.container(border=False):
+                 st.markdown('<div class="fg-border-box">', unsafe_allow_html=False)
+                 # Etiqueta actualizada
+                 val_mdrd = st.number_input("FG MDRD-4 IDMS", value=None, placeholder="FG MDRD-4 IDMS", label_visibility="collapsed", key="fgl_mdrd")
+                 if val_mdrd is not None: st.markdown(f'<div class="unit-label">{val_mdrd} mL/min/1,73m²</div>', unsafe_allow_html=True)
+                 st.markdown('</div>', unsafe_allow_html=False)
      
      st.write(""); st.markdown("---")
      m_col1, m_col2 = st.columns([0.5, 0.5])
