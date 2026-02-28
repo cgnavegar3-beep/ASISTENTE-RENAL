@@ -1,4 +1,4 @@
-# v. 28 feb 08:02
+# v. 27 feb 08:25
 import streamlit as st
 import pandas as pd
 import io
@@ -54,7 +54,6 @@ import google.generativeai as genai
 #    9. Aviso amarillo de apoyo legal inferior CON EL TEXTO: ⚠️
 # Esta herramienta es de apoyo a la revisión farmacoterapéutica.
 # Verifique siempre con fuentes oficiales.
-# #
 # #
 # # II. FUNCIONALIDADES CRÍTICAS PROTEGIDAS:
 # #
@@ -245,14 +244,7 @@ def inject_styles():
      .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
      .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
      .header-capsule { background-color: #e2e8f0; color: #2d3748; padding: 10px 30px; border-radius: 50px; display: inline-block; font-weight: 800; font-size: 0.9rem; margin-bottom: 20px; }
-     .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
-     
-     /* Borde morado para el contenedor de inputs de FG */
-     div[data-testid="stVerticalBlock"] > div:has(div[data-testid="stNumberInput"]) {
-         border: 2px solid #9d00ff !important;
-         border-radius: 10px;
-         padding: 10px;
-     }
+          .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
      </style>
      """, unsafe_allow_html=True)
 inject_styles()
@@ -261,7 +253,7 @@ st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_htm
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 28 feb 08:02</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 27 feb 08:25</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -294,22 +286,22 @@ with tabs[0]:
              calc_p = st.number_input("Peso (kg)", value=None, placeholder="0.0", key="calc_p")
              calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="0.0", key="calc_c")
              calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], key="calc_s")
-                                
+                         
              # Etiqueta de la fórmula abajo a la derecha de la calculadora
              st.markdown('<div class="formula-label" style="text-align:right;">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
-                                
+                         
              fg = round(((140 - (calc_e or 0)) * (calc_p or 0)) / (72 * (calc_c or 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e and calc_p and calc_c else 0.0
      
      with col_der:
          st.markdown("#### 💊 Filtrado Glomerular")
-         # Placeholder revertido
-         fg_m = st.text_input("Ajuste Manual", placeholder="entrada manual valor Fórmula Cockcroft-Gault")
+         # Placeholder específico modificado
+         fg_m = st.text_input("Ajuste Manual", placeholder="Fórmula Cockcroft-Gault: entrada manual")
          valor_fg = fg_m if fg_m else fg
          st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
-                                
+                         
          # Etiqueta de la fórmula abajo a la derecha
          st.markdown('<div class="formula-label">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
-                                   
+                 
          st.write("")
          l1, l2 = st.columns(2)
          with l1:
@@ -351,7 +343,7 @@ with tabs[0]:
                            f"Separa detalle con: 'A continuación, se detallan los ajustes:'.")
                  resp = llamar_ia_en_cascada(prompt)
                  glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
-                                     
+                         
                  try:
                      partes = resp.split("A continuación, se detallan los ajustes")
                      sintesis, detalle = partes[0].strip(), "A continuación, se detallan los ajustes" + (partes[1] if len(partes)>1 else "")
@@ -364,7 +356,7 @@ with tabs[0]:
                          <b>3.2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</b><br>
                          <b>3.3. La decisión final corresponde siempre al prescriptor médico.</b><br>
                          <b>3.4. Considere la situación clínica global del paciente antes de modificar dosis.</b></div>""", unsafe_allow_html=True)
-                                     
+                         
                      obj_parts = [f"Edad: {int(calc_e)}" if calc_e else "", f"Peso: {calc_p}" if calc_p else "", f"Cr: {calc_c}" if calc_c else "", f"FG: {valor_fg}" if float(valor_fg)>0 else ""]
                      st.session_state.soip_o = " | ".join(filter(None, obj_parts))
                      st.session_state.soip_i = sintesis
@@ -389,4 +381,4 @@ with tabs[1]:
      st.markdown('<div class="linea-discreta-soip">Información Clínica</div>', unsafe_allow_html=True)
      st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 08:02</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 08:25</div>""", unsafe_allow_html=True)
