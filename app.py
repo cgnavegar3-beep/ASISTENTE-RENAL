@@ -1,4 +1,4 @@
-# v. 23 feb 10:20
+# v. 26 feb 23:15
 import streamlit as st
 import pandas as pd
 import io
@@ -11,7 +11,7 @@ import google.generativeai as genai
 #
 #
 # GEMINI SIEMPRE TENDRA RIGOR, RESPETARA Y VERIFICARA QUE SE CUMPLAN
-# ESTOS PRINCIPIOS AMTES Y DESPUES DE REALIZAR CUALQUIER CAMBIO.
+# ESTOS PRINCIPIOS ANTES Y DESPUES DE REALIZAR CUALQUIER CAMBIO.
 #
 #
 # 1. NUNCA BORRAR NI MODIFICAR ESTA CLÁUSULA. 
@@ -28,7 +28,7 @@ import google.generativeai as genai
 #
 #
 # #
-# I. ESTRUCTURA VISUAL PROTEGIDA:
+# I. ESTRUCTURA VISUAL PROTEGADA:
 # #
 #    1. Cuadros negros superiores (ZONA y ACTIVO).
 # #
@@ -40,10 +40,13 @@ import google.generativeai as genai
 #    4. Registro de paciente y función: TODO EN UNA LÍNEA (Centro,
 # Edad, ID Alfa, Res, Fecha + Botón Borrado Registro).
 # #
+#    -> REFUERZO: DEBAJO DE LA LÍNEA DE REGISTRO DEBE APARECER SIEMPRE 
+# EL "ID REGISTRO" DINÁMICO (CENTRO-EDAD-ALFA).
+# #
 #    5. Interfaz Dual (Calculadora y caja de FG (Purple Glow): lógica
 # Cockcroft-Gault.
 # #
-#       -> REFUERZO: NO SE TOCA LA CALCULADORA, NO SE TOCA EL GLOW
+#        -> REFUERZO: NO SE TOCA LA CALCULADORA, NO SE TOCA EL GLOW
 # MORADO.
 # #
 #    6. Layout Medicamentos: Título y Aviso RGPD (estilo ampliado) en
@@ -86,8 +89,7 @@ import google.generativeai as genai
 #    5. Exclusión: NUNCA listar nombres de fármacos correctamente
 # dosificados en la síntesis.
 # #
-#    6. Formato de Línea: [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta]. 
-# Sin texto adicional.
+#    6. Formato de Línea (OBLIGATORIO): [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta] + [Siglas Fuente: AEMPS, FDA, EMA, etc]. 
 # #
 #    7. Lógica de Color (Jerarquía de Gravedad):
 # #
@@ -100,6 +102,7 @@ import google.generativeai as genai
 #    8. REGLA DE FUENTES Y ALCANCE: El análisis debe centrarse ÚNICA Y EXCLUSIVAMENTE
 # en la adecuación del fármaco según el Filtrado Glomerular (FG) del paciente.
 # Se deben priorizar fuentes oficiales (.gov, AEMPS, FDA) y Open Evidence.
+# Cada línea DEBE terminar con la sigla de la fuente oficial consultada.
 # #
 # #
 # IV. BLINDAJE DEL BLOQUE AZUL (blue-detail-container):
@@ -147,9 +150,19 @@ import google.generativeai as genai
 # #
 #    3. ESTRUCTURA INTERCONSULTA (IC): Un cuadro bajo el otro (Layout Vertical).
 # #
-#    4. TEXTO IC OBLIGATORIO: "Solicito valoración médica tras revisión de medicación por función renal." 
+#    4. TEXTO IC OBLIGATORIO: "Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente." 
 # #
 #      4.1. [Se listará automáticamente lo que aparezca en la sección "I"].
+# #
+# #
+# VII. BLINDAJE ENTRADA MANUAL LAB Y VOLCADO EXCEL:
+# #
+#    1. Se protegen los campos FG CKD-EPI y FG MDRD-4 situados bajo el Glow Morado.
+# #
+#    2. El texto del placeholder debe desaparecer al escribir y mostrar la unidad 
+# "mL/min/1,73m²" de forma discreta.
+# #
+#    3. Se blinda el botón "GUARDAR CAMBIOS EN EXCEL" centrado en la base de la Pestaña 2.
 # #
 # =================================================================
 
@@ -157,8 +170,15 @@ st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_
 
 if "active_model" not in st.session_state:
     st.session_state.active_model = "BUSCANDO..."
-for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds"]:
-    if key not in st.session_state: st.session_state[key] = ""
+
+# Inicialización de estados con textos fijos (Principio VI)
+if "soip_s" not in st.session_state: st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
+if "soip_o" not in st.session_state: st.session_state.soip_o = ""
+if "soip_i" not in st.session_state: st.session_state.soip_i = ""
+if "soip_p" not in st.session_state: st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
+if "ic_motivo" not in st.session_state: st.session_state.ic_motivo = "Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente."
+if "ic_info" not in st.session_state: st.session_state.ic_info = ""
+if "main_meds" not in st.session_state: st.session_state.main_meds = ""
 
 def reset_registro():
     st.session_state["reg_centro"] = ""; st.session_state["reg_edad"] = None
@@ -166,8 +186,12 @@ def reset_registro():
 
 def reset_meds():
     st.session_state.main_meds = ""
-    for k in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info"]:
-        st.session_state[k] = ""
+    st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
+    st.session_state.soip_o = ""
+    st.session_state.soip_i = ""
+    st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
+    st.session_state.ic_motivo = "Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente."
+    st.session_state.ic_info = ""
 
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
@@ -196,6 +220,7 @@ def inject_styles():
     .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; margin-top: 20px; }
     .sub-version { text-align: center; font-size: 0.6rem; color: #bbb; margin-top: -5px; margin-bottom: 20px; font-family: monospace; }
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
+    .unit-label { font-size: 0.65rem; color: #888; margin-top: -10px; margin-bottom: 5px; font-family: sans-serif; text-align: center; }
     .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; }
     .glow-green { background-color: #f1f8e9; color: #2e7d32; border-color: #a5d6a7; box-shadow: 0 0 12px #a5d6a7; }
     .glow-orange { background-color: #fff3e0; color: #e65100; border-color: #ffcc80; box-shadow: 0 0 12px #ffcc80; }
@@ -211,7 +236,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 23 feb 10:20</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 26 feb 23:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
 
@@ -233,16 +258,24 @@ with tabs[0]:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
             calc_e = st.number_input("Edad (años)", value=int(edad_reg) if edad_reg else None, step=1)
-            calc_p = st.number_input("Peso (kg)", value=0.0)
-            calc_c = st.number_input("Creatinina (mg/dL)", value=0.0)
+            calc_p = st.number_input("Peso (kg)", value=None, placeholder="0.0")
+            calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="0.0")
             calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"])
-            fg = round(((140 - (calc_e or 0)) * (calc_p or 0)) / (72 * (calc_c or 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e and calc_p > 0 and calc_c > 0 else 0.0
+            fg = round(((140 - (calc_e or 0)) * (calc_p or 0)) / (72 * (calc_c or 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e and calc_p and calc_c else 0.0
 
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
         fg_m = st.text_input("Ajuste Manual")
         valor_fg = fg_m if fg_m else fg
-        st.markdown(f'<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 1rem; color: #9d00ff;">mL/min</div></div>', unsafe_allow_html=True)
+        st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
+        st.write("")
+        l1, l2 = st.columns(2)
+        with l1:
+            val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="FG CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
+            if val_ckd is not None: st.markdown(f'<div class="unit-label">{val_ckd} mL/min/1,73m²</div>', unsafe_allow_html=True)
+        with l2:
+            val_mdrd = st.number_input("FG MDRD-4", value=None, placeholder="FG MDRD-4", label_visibility="collapsed", key="fgl_mdrd")
+            if val_mdrd is not None: st.markdown(f'<div class="unit-label">{val_mdrd} mL/min/1,73m²</div>', unsafe_allow_html=True)
 
     st.write(""); st.markdown("---")
     m_col1, m_col2 = st.columns([0.5, 0.5])
@@ -258,11 +291,9 @@ with tabs[0]:
     if btn_val and txt_meds:
         placeholder_salida = st.empty()
         with st.spinner("Procesando..."):
-            # PROMPT ACTUALIZADO SEGÚN PRINCIPIO III.8
-            prompt = (f"Actúa como farmacéutico clínico. Analiza ÚNICA Y EXCLUSIVAMENTE la adecuación según Filtrado Glomerular (FG: {valor_fg}) "
-                      f"para el listado: {txt_meds}. Prioriza fuentes oficiales (.gov, AEMPS, FDA) y Open Evidence. "
-                      f"Instrucción Título: Comienza directamente con 'Medicamentos afectados:' o 'Fármacos correctamente dosificados:'. "
-                      f"No uses 'SÍNTESIS', 'III BLINDAJE' ni hables de metabolismo. Usa iconos ⚠️/⛔ + Nombre + Frase. "
+            prompt = (f"Actúa como farmacéutico clínico experto. Analiza la adecuación según FG: {valor_fg} para: {txt_meds}. "
+                      f"FORMATO OBLIGATORIO DE LÍNEA: [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta] + (Sigla fuente: AEMPS, FDA o EMA). "
+                      f"Título síntesis: Comienza directamente con 'Medicamentos afectados:' o 'Fármacos correctamente dosificados:'. "
                       f"Separa detalle con: 'A continuación, se detallan los ajustes:'.")
             resp = llamar_ia_en_cascada(prompt)
             glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
@@ -279,17 +310,11 @@ with tabs[0]:
                     <b>3.3. La decisión final corresponde siempre al prescriptor médico.</b><br>
                     <b>3.4. Considere la situación clínica global del paciente antes de modificar dosis.</b></div>""", unsafe_allow_html=True)
                 
-                obj_parts = []
-                if calc_e and calc_e > 0: obj_parts.append(f"Edad: {int(calc_e)}")
-                if calc_p and calc_p > 0: obj_parts.append(f"Peso: {calc_p}")
-                if calc_c and calc_c > 0: obj_parts.append(f"Cr: {calc_c}")
-                if float(valor_fg) > 0: obj_parts.append(f"FG: {valor_fg}")
-                st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
-                st.session_state.soip_o = " | ".join(obj_parts)
+                obj_parts = [f"Edad: {int(calc_e)}" if calc_e else "", f"Peso: {calc_p}" if calc_p else "", f"Cr: {calc_c}" if calc_c else "", f"FG: {valor_fg}" if float(valor_fg)>0 else ""]
+                st.session_state.soip_o = " | ".join(filter(None, obj_parts))
                 st.session_state.soip_i = sintesis
-                st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
-                st.session_state.ic_motivo = f"Solicito valoración médica tras revisión de medicación por función renal.\n\nLISTADO DETECTADO:\n{sintesis}"
                 st.session_state.ic_info = detalle
+                st.session_state.ic_motivo = f"Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente.\n\nLISTADO DETECTADO:\n{sintesis}"
             except: st.error("Error en respuesta.")
 
 with tabs[1]:
@@ -309,9 +334,5 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">Información Clínica</div>', unsafe_allow_html=True)
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
-st.markdown("""
-<div class="warning-yellow">
-  ⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b>
-</div>
-<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 23 feb 10:20</div>
-""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div>
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 26 feb 23:15</div>""", unsafe_allow_html=True)
