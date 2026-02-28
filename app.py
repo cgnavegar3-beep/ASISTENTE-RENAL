@@ -1,4 +1,4 @@
-# v. 28 feb 13:50
+# v. 28 feb 13:55
 import streamlit as st
 import pandas as pd
 import io
@@ -224,6 +224,7 @@ def inject_styles():
         50% { opacity: 0; }
     }
     .stWarning { animation: blinker 1.5s linear infinite; }
+    .blink-text { animation: blinker 1s linear infinite; }
                 
     .block-container { max-width: 100% !important; padding-top: 1rem !important; padding-left: 4% !important; padding-right: 4% !important; }
     .black-badge-zona { background-color: #000000; color: #888; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 10px; left: 15px; z-index: 999999; }
@@ -249,7 +250,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 28 feb 13:50</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 28 feb 13:55</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -258,7 +259,6 @@ with tabs[0]:
     c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1.5, 0.4])
     def on_centro_change():
         centro_val = st.session_state.reg_centro.strip()
-        # LÓGICA CORREGIDA: m/M -> Marín, o/O -> O Grove
         if centro_val.lower() == "m": st.session_state.reg_centro = "Marín"
         elif centro_val.lower() == "o": st.session_state.reg_centro = "O Grove"
         
@@ -268,7 +268,6 @@ with tabs[0]:
             iniciales = "".join([word[0] for word in final_centro.split()]).upper()[:3]
             st.session_state.reg_id = f"PAC-{iniciales if iniciales else 'GEN'}{random.randint(10000, 99999)}"
     
-    # MODIFICACIÓN CENTRO: Placeholder corregido "M / G"
     with c1: st.text_input("Centro", placeholder="M / G", key="reg_centro", on_change=on_centro_change)
     with c2: st.selectbox("¿Residencia?", ["No", "Sí"], index=None, placeholder="¿Resid?", key="reg_res")
     with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
@@ -316,7 +315,8 @@ with tabs[0]:
     if btn_val:
         faltantes = verificar_datos_completos()
         if faltantes:
-            st.warning(f"⚠️ Nota: Faltan datos en el registro ({', '.join(faltantes)}). Se procede con validación de consulta rápida.")
+            # AVISO CORREGIDO: Texto destelleante
+            st.warning(f'<span class="blink-text">⚠️ Nota: Faltan datos en el registro ({", ".join(faltantes)}). Se procede con validación de consulta rápida.</span>', unsafe_allow_html=True)
         
         if not txt_meds:
             st.error("Por favor, introduce al menos un medicamento.")
@@ -360,4 +360,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 13:50</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 13:55</div>""", unsafe_allow_html=True)
