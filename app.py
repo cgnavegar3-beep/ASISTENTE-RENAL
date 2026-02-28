@@ -1,4 +1,4 @@
-# v. 28 feb 11:47
+# v. 28 feb 11:51
 import streamlit as st
 import pandas as pd
 import io
@@ -270,7 +270,7 @@ st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_htm
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
  
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 28 feb 11:47</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 28 feb 11:51</div>', unsafe_allow_html=True)
  
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
  
@@ -300,8 +300,8 @@ with tabs[0]:
         if not centro:
             # Si el centro está vacío, borramos el ID
             st.session_state.reg_id = ""
-        elif not st.session_state.reg_id:
-            # Solo generamos si está vacío para permitir edición manual
+        else:
+            # Si el centro tiene texto, regeneramos el ID (incluso si ya existía uno)
             st.session_state.reg_id = generar_id_paciente()
 
     # Callbacks para sincronización bidireccional
@@ -439,4 +439,4 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">Información Clínica</div>', unsafe_allow_html=True)
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
  
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 11:47</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 11:51</div>""", unsafe_allow_html=True)
