@@ -1,4 +1,4 @@
-# v. 28 feb 12:20
+# v. 28 feb 12:25
 import streamlit as st
 import pandas as pd
 import io
@@ -10,7 +10,7 @@ import random
 # # PRINCIPIOS FUNDAMENTALES:
 # #
 # # GEMINI SIEMPRE TENDRA RIGOR, RESPETARA Y VERIFICARA QUE SE CUMPLAN
-# # ESTOS PRINCIPIOS AMTES Y DESPUES DE REALIZAR CUALQUIER CAMBIO.
+# # ESTOS PRINCIPIOS ANTES Y DESPUES DE REALIZAR CUALQUIER CAMBIO.
 # #
 # # 1. NUNCA BORRAR NI MODIFICAR ESTA CLÁUSULA. 
 # #
@@ -166,7 +166,7 @@ st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_
 if "active_model" not in st.session_state:
     st.session_state.active_model = "BUSCANDO..."
 
-# Inicialización de estados persistentes
+# Inicialización de estados
 for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds", "reg_id"]:
     if key not in st.session_state:
         if key == "soip_s": st.session_state[key] = "Revisión farmacoterapéutica según función renal."
@@ -243,9 +243,10 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 28 feb 12:20</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 28 feb 12:25</div>', unsafe_allow_html=True)
 
-tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
+# CAMBIO DE NOMBRE DE PESTAÑA: DE "EXCEL" A "DATOS"
+tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
 with tabs[0]:
     st.markdown("### Registro de Paciente")
@@ -305,15 +306,12 @@ with tabs[0]:
 
     if btn_val:
         faltantes = verificar_datos_completos()
-        # 1. Mostrar Aviso si faltan datos (No bloqueante)
         if faltantes:
             st.warning(f"⚠️ Nota: Faltan datos en el registro ({', '.join(faltantes)}). Se procede con validación de consulta rápida.")
         
-        # 2. Verificar que haya al menos medicamentos
         if not txt_meds:
             st.error("Por favor, introduce al menos un medicamento.")
         else:
-            # 3. Llamar a la IA directamente
             placeholder_salida = st.empty()
             with st.spinner("Procesando análisis clínico..."):
                 prompt = (f"Actúa como farmacéutico clínico experto. Analiza la adecuación según FG: {valor_fg} para: {txt_meds}. "
@@ -350,4 +348,8 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">Información Clínica</div>', unsafe_allow_html=True)
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 12:20</div>""", unsafe_allow_html=True)
+with tabs[2]: # PESTAÑA RENOMBRADA A DATOS
+    st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
+    # Aquí iría el botón de "GUARDAR CAMBIOS EN EXCEL" protegido en el Principio VII.
+
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 12:25</div>""", unsafe_allow_html=True)
