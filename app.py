@@ -1,4 +1,4 @@
-# v. 27 feb 08:35
+# v. 28 feb 08:48
 import streamlit as st
 import pandas as pd
 import io
@@ -32,10 +32,10 @@ import google.generativeai as genai
 #    3. Título principal y pestañas (Tabs).
 # #
 #    4. Registro de paciente y función: TODO EN UNA LÍNEA (Centro,
-# Edad, ID Alfa, Res, Fecha + Botón Borrado Registro).
+# Residencia, Fecha, ID Automatizado, Botón Borrado Registro).
 # #
 #    -> REFUERZO: DEBAJO DE LA LÍNEA DE REGISTRO DEBE APARECER SIEMPRE 
-# EL "ID REGISTRO" DINÁMICO (CENTRO-EDAD-ALFA).
+# EL "ID TÉCNICO" DINÁMICO (CENTRO-EDAD-ALFA).
 # #
 #    5. Interfaz Dual (Calculadora y caja de FG (Purple Glow): lógica
 # Cockcroft-Gault.
@@ -180,6 +180,11 @@ if "ic_info" not in st.session_state:
     st.session_state.ic_info = ""
 if "main_meds" not in st.session_state:
     st.session_state.main_meds = ""
+# Estados necesarios para el ID dinámico
+if "reg_edad" not in st.session_state:
+    st.session_state.reg_edad = None
+if "reg_id" not in st.session_state:
+    st.session_state.reg_id = ""
  
 def reset_registro():
     st.session_state["reg_centro"] = ""; st.session_state["reg_edad"] = None
@@ -263,29 +268,39 @@ st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_htm
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
  
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 27 feb 08:35</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 28 feb 08:48</div>', unsafe_allow_html=True)
  
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
  
 with tabs[0]:
+    # --- Estructura reorganizada ---
     st.markdown("### Registro de Paciente")
-    c1, c2, c3, c4, c5, c_del = st.columns([1, 1, 1, 1, 1, 0.4])
-        
-    # Callbacks para sincronización bidireccional
+    # c1: Centro, c2: Residencia, c3: Fecha, c4: ID, c5: Borrado
+    c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1.5, 0.4])
+    
+    # Callbacks para sincronización bidireccional (edad se mantiene en calculadora)
     def sync_edad_reg():
         st.session_state.calc_e = st.session_state.reg_edad
     def sync_edad_calc():
         st.session_state.reg_edad = st.session_state.calc_e
     
     with c1: centro = st.text_input("Centro", placeholder="G/M", key="reg_centro")
-    with c2: edad_reg = st.number_input("Edad", min_value=0, max_value=120, value=None, step=1, key="reg_edad", on_change=sync_edad_reg, placeholder="0.0")
-    with c3: alfa = st.text_input("ID Alfanumérico", placeholder="ABC-123", key="reg_id")
-    with c4: res = st.selectbox("¿Residencia?", ["No", "Sí"], key="reg_res")
-    with c5: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
-    with c_del: st.write(""); st.button("🗑️", on_click=reset_registro)
+    with c2: res = st.selectbox("¿Residencia?", ["No", "Sí"], key="reg_res")
+    with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
     
-    id_calc = f"{centro if centro else '---'}-{str(int(edad_reg)) if edad_reg else '00'}-{alfa if alfa else '---'}"
-    st.markdown(f'<div style="color:#888; font-family:monospace; font-size:0.75rem; margin-top:-15px; margin-bottom:20px;">ID REGISTRO: {id_calc}</div>', unsafe_allow_html=True)
+    with c4:
+        # ID generado automático mostrado visualmente
+        id_calc_visual = f"{centro if centro else '---'}-{st.session_state.reg_edad if 'reg_edad' in st.session_state and st.session_state.reg_edad else '00'}-{st.session_state.reg_id if 'reg_id' in st.session_state and st.session_state.reg_id else '---'}"
+        st.text_input("ID Registro", value=id_calc_visual, disabled=True)
+        # Mantener el input oculto para la lógica pero accesible por key
+        st.text_input("ID Alfanumérico", placeholder="ABC-123", key="reg_id", label_visibility="collapsed")
+        
+    with c5: st.write(""); st.button("🗑️", on_click=reset_registro)
+    
+    # ID real para la lógica
+    id_calc = f"{centro if centro else '---'}-{st.session_state.reg_edad if 'reg_edad' in st.session_state and st.session_state.reg_edad else '00'}-{st.session_state.reg_id if 'reg_id' in st.session_state and st.session_state.reg_id else '---'}"
+    st.markdown(f'<div style="color:#888; font-family:monospace; font-size:0.75rem; margin-top:-15px; margin-bottom:20px;">ID TÉCNICO: {id_calc}</div>', unsafe_allow_html=True)
+    # ------------------------------------------
     
     col_izq, col_der = st.columns(2, gap="large")
     with col_izq:
@@ -393,12 +408,4 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">Interpretación (I)</div>', unsafe_allow_html=True)
     st.text_area("i_txt", st.session_state.soip_i, height=120, label_visibility="collapsed")
     st.markdown('<div class="linea-discreta-soip">Plan (P)</div>', unsafe_allow_html=True)
-    st.text_area("p_txt", st.session_state.soip_p, height=100, label_visibility="collapsed")
-        
-    st.write(""); st.markdown('<div style="text-align:center;"><div class="header-capsule">📨 Solicitud de Interconsulta</div></div>', unsafe_allow_html=True)
-    st.markdown('<div class="linea-discreta-soip">Motivo de la Interconsulta</div>', unsafe_allow_html=True)
-    st.text_area("ic_mot", st.session_state.ic_motivo, height=180, label_visibility="collapsed")
-    st.markdown('<div class="linea-discreta-soip">Información Clínica</div>', unsafe_allow_html=True)
-    st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
- 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 08:35</div>""", unsafe_allow_html=True)
+    st.text_area("p_txt",
