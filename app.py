@@ -1,4 +1,4 @@
-# v. 27 feb 08:32
+# v. 27 feb 08:35
 import streamlit as st
 import pandas as pd
 import io
@@ -263,7 +263,7 @@ st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_htm
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
  
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 27 feb 08:32</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 27 feb 08:35</div>', unsafe_allow_html=True)
  
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 EXCEL", "📈 GRÁFICOS"])
  
@@ -315,15 +315,21 @@ with tabs[0]:
         st.write("")
         l1, l2 = st.columns(2)
         with l1:
-            st.markdown('<div class="fg-special-border">', unsafe_allow_html=True) # Abrir contenedor morado
+            # Abrir contenedor con borde
+            st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
             val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="FG CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
-            st.markdown('</div>', unsafe_allow_html=True) # Cerrar contenedor morado
+            # Cerrar contenedor con borde
+            st.markdown('</div>', unsafe_allow_html=True)
+            # Etiqueta de unidad debajo
             if val_ckd is not None: st.markdown(f'<div class="unit-label">{val_ckd} mL/min/1,73m²</div>', unsafe_allow_html=True)
+            
         with l2:
-            st.markdown('<div class="fg-special-border">', unsafe_allow_html=True) # Abrir contenedor morado
-            # Etiqueta actualizada
+            # Abrir contenedor con borde
+            st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
             val_mdrd = st.number_input("FG MDRD-4 IDMS", value=None, placeholder="FG MDRD-4 IDMS", label_visibility="collapsed", key="fgl_mdrd")
-            st.markdown('</div>', unsafe_allow_html=True) # Cerrar contenedor morado
+            # Cerrar contenedor con borde
+            st.markdown('</div>', unsafe_allow_html=True)
+            # Etiqueta de unidad debajo
             if val_mdrd is not None: st.markdown(f'<div class="unit-label">{val_mdrd} mL/min/1,73m²</div>', unsafe_allow_html=True)
     
     st.write(""); st.markdown("---")
@@ -395,4 +401,4 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">Información Clínica</div>', unsafe_allow_html=True)
     st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
  
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 08:32</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 27 feb 08:35</div>""", unsafe_allow_html=True)
