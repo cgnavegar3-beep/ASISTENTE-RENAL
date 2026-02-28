@@ -314,7 +314,6 @@ with tabs[0]:
     if btn_val:
         faltantes = verificar_datos_completos()
         if faltantes:
-            # CORRECCIÓN: st.markdown con estilos CSS en lugar de st.warning con unsafe_allow_html
             st.markdown(f'<div style="background-color: #fff3cd; color: #856404; padding: 1rem; border-radius: 0.5rem; border: 1px solid #ffeeba; margin-bottom: 1rem;"><span class="blink-text">⚠️ Nota: Faltan datos en el registro ({", ".join(faltantes)}). Se procede con validación de consulta rápida.</span></div>', unsafe_allow_html=True)
         
         if not txt_meds:
@@ -322,10 +321,13 @@ with tabs[0]:
         else:
             placeholder_salida = st.empty()
             with st.spinner("Procesando análisis clínico..."):
-                prompt = (f"Actúa como farmacéutico clínico experto. Analiza la adecuación según FG: {valor_fg} para: {txt_meds}. "
+                # PROMPT ACTUALIZADO PARA PROCESAMIENTO INTELIGENTE
+                prompt = (f"Actúa como farmacéutico clínico experto. Primero, analiza el siguiente texto desordenado e identifica los medicamentos individuales: {txt_meds}. "
+                          f"Estructúralos en una lista clara. A continuación, analiza la adecuación de dichos medicamentos según el FG: {valor_fg}. "
                           f"FORMATO OBLIGATORIO DE LÍNEA: [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta] + (Sigla fuente: AEMPS, FDA o EMA). "
                           f"Título síntesis: Comienza directamente con 'Medicamentos afectados:' o 'Fármacos correctamente dosificados:'. "
                           f"Separa detalle con: 'A continuación, se detallan los ajustes:'.")
+                
                 resp = llamar_ia_en_cascada(prompt)
                 glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
                 try:
