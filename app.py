@@ -1,4 +1,4 @@
-# v. 28 feb 13:55
+# v. 28 feb 14:05
 import streamlit as st
 import pandas as pd
 import io
@@ -223,7 +223,6 @@ def inject_styles():
     @keyframes blinker {
         50% { opacity: 0; }
     }
-    .stWarning { animation: blinker 1.5s linear infinite; }
     .blink-text { animation: blinker 1s linear infinite; }
                 
     .block-container { max-width: 100% !important; padding-top: 1rem !important; padding-left: 4% !important; padding-right: 4% !important; }
@@ -250,7 +249,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 28 feb 13:55</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 28 feb 14:05</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -315,8 +314,8 @@ with tabs[0]:
     if btn_val:
         faltantes = verificar_datos_completos()
         if faltantes:
-            # AVISO CORREGIDO: Texto destelleante
-            st.warning(f'<span class="blink-text">⚠️ Nota: Faltan datos en el registro ({", ".join(faltantes)}). Se procede con validación de consulta rápida.</span>', unsafe_allow_html=True)
+            # CORRECCIÓN: st.markdown con estilos CSS en lugar de st.warning con unsafe_allow_html
+            st.markdown(f'<div style="background-color: #fff3cd; color: #856404; padding: 1rem; border-radius: 0.5rem; border: 1px solid #ffeeba; margin-bottom: 1rem;"><span class="blink-text">⚠️ Nota: Faltan datos en el registro ({", ".join(faltantes)}). Se procede con validación de consulta rápida.</span></div>', unsafe_allow_html=True)
         
         if not txt_meds:
             st.error("Por favor, introduce al menos un medicamento.")
@@ -360,4 +359,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 13:55</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 14:05</div>""", unsafe_allow_html=True)
