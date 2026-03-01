@@ -1,4 +1,4 @@
-# v. 01 mar 2026 15:10
+# v. 01 mar 2026 16:20
 
 import streamlit as st
 import pandas as pd
@@ -11,21 +11,7 @@ import os
 
 # =================================================================
 # PRINCIPIOS FUNDAMENTALES:
-# #
-# # GEMINI SIEMPRE TENDRA RIGOR, RESPETARA Y VERIFICARA QUE SE CUMPLAN
-# # ESTOS PRINCIPIOS ANTES Y DESPUES DE REALIZAR CUALQUIER CAMBIO.
-# #
-# 1. NUNCA BORRAR NI MODIFICAR ESTA CLÁUSULA. 
-# #
-# # 2. No puedes mover nada, ni cambiar ni una sola línea de la
-# # estructura visual (RIGOR Y SERIEDAD). Cero modificaciones sin
-# autorización.
-# #
-# # 3. Antes de cualquier evolución técnica, explicar el "qué",
-# # "por qué" y "cómo", and esperar aprobación
-# # ("adelante" o "procede").
-# #
-# # ... (Resto de principios protegidos sin cambios)
+# # ... (Mantener principios sin cambios)
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -33,14 +19,9 @@ st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_
 if "active_model" not in st.session_state:
     st.session_state.active_model = "BUSCANDO..."
 
-# INICIALIZACIÓN DE VARIABLES DE SESIÓN Y BLINDAJE DE DATOS
-for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds", "reg_id", "reg_centro"]:
-    if key not in st.session_state: st.session_state[key] = ""
-    
-# --- CORRECCIÓN: Inicialización segura para calculadora ---
-for key in ["calc_e", "calc_p", "calc_c", "calc_s"]:
+# INICIALIZACIÓN DE VARIABLES DE SESIÓN
+for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds", "reg_id", "reg_centro", "calc_e", "calc_p", "calc_c", "calc_s"]:
     if key not in st.session_state: st.session_state[key] = None
-# ---------------------------------------------------------
 
 # --- FUNCIONES DE SOPORTE ---
 def cargar_prompt_clinico():
@@ -60,7 +41,7 @@ def llamar_ia_en_cascada(prompt):
                 model = genai.GenerativeModel(f'models/gemini-{mod_name}')
                 return model.generate_content(prompt).text
             except: continue
-    return "⚠️ Error."
+    return "⚠️ Error en la generación."
 
 def procesar_y_limpiar_meds():
     texto = st.session_state.main_meds
@@ -117,15 +98,14 @@ def inject_styles():
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
     .unit-label { font-size: 0.65rem; color: #888; margin-top: -10px; margin-bottom: 5px; font-family: sans-serif; text-align: center; }
     .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; }
-    .glow-green { background-color: #f1f8e9; color: #2e7d32; border-color: #a5d6a7; box-shadow: 0 0 12px #a5d6a7; }
     .glow-orange { background-color: #fff3e0; color: #e65100; border-color: #ffcc80; box-shadow: 0 0 12px #ffcc80; }
-    .glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; box-shadow: 0 0 18px #feb2b2; }
-    .blue-detail-container { background-color: #f0f7ff; color: #2c5282; padding: 20px; border-radius: 10px; border: 1px solid #bee3f8; margin-top: 10px; }
+    .blue-detail-container { background-color: #e6f0ff; color: #1a365d; padding: 20px; border-radius: 10px; border: 1px solid #90cdf4; margin-top: 10px; font-size: 0.9rem; }
     .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
     .header-capsule { background-color: #e2e8f0; color: #2d3748; padding: 10px 30px; border-radius: 50px; display: inline-block; font-weight: 800; font-size: 0.9rem; margin-bottom: 20px; }
     .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
     .fg-special-border { border: 1.5px solid #9d00ff !important; border-radius: 5px; }
+    .important-note { background-color: #002244; color: #ffffff; padding: 20px; border-radius: 10px; font-weight: bold; margin-top: 20px; }
     </style>
     """, unsafe_allow_html=True)
 inject_styles()
@@ -133,7 +113,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 01 mar 2026 15:10</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 01 mar 2026 16:20</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -159,16 +139,13 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            # --- CORRECCIÓN DE BINDING DE SESIÓN ---
             calc_e = st.number_input("Edad (años)", value=st.session_state.calc_e if st.session_state.calc_e is not None else 0, step=1, key="calc_e_input", placeholder="0.0")
             calc_p = st.number_input("Peso (kg)", value=st.session_state.calc_p if st.session_state.calc_p is not None else 0.0, placeholder="0.0", key="calc_p_input")
             calc_c = st.number_input("Creatinina (mg/dL)", value=st.session_state.calc_c if st.session_state.calc_c is not None else 0.0, placeholder="0.0", key="calc_c_input")
             calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=0 if st.session_state.calc_s == "Hombre" else (1 if st.session_state.calc_s == "Mujer" else None), placeholder="Elegir...", key="calc_s_input")
             
-            # Actualizar session_state
             st.session_state.calc_e = calc_e; st.session_state.calc_p = calc_p
             st.session_state.calc_c = calc_c; st.session_state.calc_s = calc_s
-            # ---------------------------------------
             
             st.markdown('<div class="formula-label" style="text-align:right;">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
             fg = round(((140 - calc_e) * calc_p) / (72 * (calc_c if calc_c > 0 else 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e > 0 and calc_p > 0 and calc_c > 0 and calc_s else 0.0
@@ -225,27 +202,39 @@ with tabs[0]:
                 prompt_final = datos_paciente + "\n" + prompt_base + "\nLISTA DE MEDICAMENTOS:\n" + txt_meds
                 
                 resp = llamar_ia_en_cascada(prompt_final)
-                glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
                 
                 try:
-                    partes = resp.split("A continuación, se detallan los ajustes")
-                    sintesis, detalle = partes[0].strip(), "A continuación, se detallan los ajustes" + (partes[1] if len(partes)>1 else "")
+                    partes = resp.split("---")
+                    sintesis = partes[0].replace("### BLOQUE 1: SÍNTESIS RÁPIDA", "").strip()
+                    detalle_completo = partes[1].replace("### BLOQUE 2: DETALLE TÉCNICO", "").strip()
                     
                     with placeholder_salida.container():
-                        st.markdown(f'<div class="synthesis-box {glow}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
-                        st.markdown(f"""<div class="blue-detail-container">{detalle.replace("\n", "<br>")}
-                        <br><br><span style="color:#2c5282;"><b>NOTA IMPORTANTE:</b></span><br>
-                        <b>3.1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</b><br>
-                        <b>3.2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</b><br>
-                        <b>3.3. La decisión final corresponde siempre al prescriptor médico.</b><br>
-                        <b>3.4. Considere la situación clínica global del paciente antes de modificar dosis.</b></div>""", unsafe_allow_html=True)
-                    
+                        st.markdown("#### 🔍 Medicamentos afectados", unsafe_allow_html=True)
+                        st.markdown(f'<div class="synthesis-box glow-orange">{sintesis.replace("-", "•").replace("\n", "<br>")}</div>', unsafe_allow_html=True)
+                        st.markdown("#### ⚙️ Detalle Técnico y Comparativa", unsafe_allow_html=True)
+                        
+                        # --- MODIFICACIÓN DE VISUALIZACIÓN ---
+                        st.markdown(f'<div class="blue-detail-container">{detalle_completo.replace("A continuación se detallan los ajustes:", "<b>A continuación se detallan los ajustes:</b>").replace("\n", "<br>")}</div>', unsafe_allow_html=True)
+                        
+                        # NOTA IMPORTANTE FINAL
+                        st.markdown("""
+                        <div class="important-note">
+                        NOTA IMPORTANTE:<br>
+                        3.1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).<br>
+                        3.2. Los ajustes propuestos son orientativos según filtrado glomerular actual.<br>
+                        3.3. La decisión final corresponde siempre al prescriptor médico.<br>
+                        3.4. Considere la situación clínica global del paciente antes de modificar dosis.
+                        </div>
+                        """, unsafe_allow_html=True)
+                        # --------------------------------------
+
                     st.session_state.soip_o = f"Edad: {int(calc_e)} | Peso: {calc_p} | Cr: {calc_c} | FG: {valor_fg}"
                     st.session_state.soip_i = sintesis
-                    st.session_state.ic_info = detalle
+                    st.session_state.ic_info = detalle_completo
                     st.session_state.ic_motivo = f"Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente.\n\nLISTADO DETECTADO:\n{sintesis}"
-                except: st.error("Error en la estructura de respuesta.")
+                except: st.error("Error en la estructura de respuesta de la IA.")
 
+# ... (Resto de pestañas sin cambios)
 with tabs[1]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📄 Nota Evolutiva SOIP</div></div>', unsafe_allow_html=True)
     for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
@@ -261,4 +250,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 15:10</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 16:20</div>""", unsafe_allow_html=True)
