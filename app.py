@@ -1,4 +1,4 @@
-# v. 01 mar 2026 18:05
+# v. 01 mar 2026 18:35
 
 import streamlit as st
 import pandas as pd
@@ -105,7 +105,9 @@ def inject_styles():
     .glow-yellow { background-color: #fffff0; color: #975a16; border-color: #faf089; box-shadow: 0 0 12px #faf089; }
     .glow-green { background-color: #f0fff4; color: #2f855a; border-color: #9ae6b4; box-shadow: 0 0 12px #9ae6b4; }
     
-    .blue-detail-container { background-color: #e6f2ff; color: #1a365d; padding: 20px; border-radius: 10px; border: 1px solid #90cdf4; margin-top: 10px; font-size: 0.9rem; }
+    /* Contenedores nuevos */
+    .table-container { background-color: white; padding: 10px; border-radius: 10px; border: 1px solid #ddd; margin-bottom: 15px; overflow-x: auto; }
+    .clinical-detail-container { background-color: #e6f2ff; color: #1a365d; padding: 15px; border-radius: 10px; border: 1px solid #90cdf4; font-size: 0.9rem; }
     
     .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
@@ -119,7 +121,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 01 mar 2026 18:05</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 01 mar 2026 18:35</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -217,45 +219,33 @@ with tabs[0]:
                 resp = llamar_ia_en_cascada(prompt_final)
                 
                 try:
-                    # PARSING DE BLOQUES (Separación ---)
-                    partes = resp.split("---")
+                    # PARSING DE 3 BLOQUES (Separación |||)
+                    partes = resp.split("|||")
                     sintesis = partes[0].strip()
-                    detalle_completo = partes[1].strip()
+                    tabla_html = partes[1].strip()
+                    detalle_completo = partes[2].strip()
                     
-                    # --- APLICAR LÓGICA GLOW CORREGIDA (Jerarquía) ---
-                    # 1. ROJO: Si aparece al menos un icono ⛔ (Contraindicado).
-                    if "⛔" in sintesis:
-                        glow = "glow-red"
-                    # 2. NARANJA: Si no hay ⛔ pero aparece icono doble ⚠️ ⚠️ (Ajuste).
-                    elif "⚠️⚠️" in sintesis:
-                        glow = "glow-orange"
-                    # 3. AMARILLO: Si no hay ⛔ ni icono doble ⚠️ ⚠️ pero aparece al menos un ⚠️.
-                    elif "⚠️" in sintesis:
-                        glow = "glow-yellow"
-                    # 4. VERDE: Si no hay iconos ⚠️ ni doble ⚠️ ⚠️ ni ⛔ (Todo correcto).
-                    else:
-                        glow = "glow-green"
+                    # --- APLICAR LÓGICA GLOW ---
+                    if "⛔" in sintesis: glow = "glow-red"
+                    elif "⚠️⚠️⚠️" in sintesis: glow = "glow-orange"
+                    elif "⚠️⚠️" in sintesis: glow = "glow-yellow" # Ajuste leve
+                    else: glow = "glow-green"
                     
                     
 
                     with placeholder_salida.container():
-                        # Bloque 1: Título y Síntesis directa (con Glow actualizado)
-                        st.markdown(
-                            f'<div class="synthesis-box {glow}">{sintesis}</div>',
-                            unsafe_allow_html=True
-                        )
-                        
-                        # Separador visual
+                        # 1. Contenedor Síntesis con Glow
+                        st.markdown(f'<div class="synthesis-box {glow}">{sintesis}</div>', unsafe_allow_html=True)
                         st.markdown("---")
                         
-                        # Bloque 2: Detalle Técnico (dentro del contenedor azul)
-                        st.markdown(
-                            f'<div class="blue-detail-container">{detalle_completo}</div>',
-                            unsafe_allow_html=True
-                        )
+                        # 2. Contenedor Tabla Comparativa
+                        st.markdown(f'<div class="table-container">{tabla_html}</div>', unsafe_allow_html=True)
+                        
+                        # 3. Contenedor Detalle Clínico
+                        st.markdown(f'<div class="clinical-detail-container">{detalle_completo}</div>', unsafe_allow_html=True)
                         
                 except Exception as e:
-                    st.error(f"Error en la estructura AFR-V10: {e}")
+                    st.error(f"Error en la estructura AFR-V10 (asegurar |||): {e}")
 
 # ... (Resto de pestañas sin cambios)
 with tabs[1]:
@@ -273,4 +263,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 18:05</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 18:35</div>""", unsafe_allow_html=True)
