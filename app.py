@@ -1,4 +1,4 @@
-# v. 01 mar 2026 20:00
+# v. 01 mar 2026 20:30
 
 import streamlit as st
 import pandas as pd
@@ -112,9 +112,23 @@ def inject_styles():
     .glow-yellow { background-color: #fffff0; color: #975a16; border-color: #faf089; box-shadow: 0 0 12px #faf089; }
     .glow-green { background-color: #f0fff4; color: #2f855a; border-color: #9ae6b4; box-shadow: 0 0 12px #9ae6b4; }
     
-    /* Contenedores nuevos */
-    .table-container { background-color: white; padding: 10px; border-radius: 10px; border: 1px solid #ddd; margin-bottom: 15px; overflow-x: auto; }
-    .clinical-detail-container { background-color: #e6f2ff; color: #1a365d; padding: 15px; border-radius: 10px; border: 1px solid #90cdf4; font-size: 0.9rem; }
+    /* Contenedores nuevos - MODIFICADO FONDO AZUL */
+    .table-container { 
+        background-color: #e6f2ff; /* Azul igual al bloque 3 */
+        padding: 10px; 
+        border-radius: 10px; 
+        border: 1px solid #90cdf4; /* Borde azul claro */
+        margin-bottom: 15px; 
+        overflow-x: auto; 
+    }
+    .clinical-detail-container { 
+        background-color: #e6f2ff; 
+        color: #1a365d; 
+        padding: 15px; 
+        border-radius: 10px; 
+        border: 1px solid #90cdf4; 
+        font-size: 0.9rem; 
+    }
     
     .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
@@ -129,7 +143,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 01 mar 2026 20:00</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 01 mar 2026 20:30</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -156,9 +170,10 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            calc_e = st.number_input("Edad (años)", value=st.session_state.calc_e if st.session_state.calc_e is not None else 0, step=1, key="calc_e_input", placeholder="0.0")
-            calc_p = st.number_input("Peso (kg)", value=st.session_state.calc_p if st.session_state.calc_p is not None else 0.0, placeholder="0.0", key="calc_p_input")
-            calc_c = st.number_input("Creatinina (mg/dL)", value=st.session_state.calc_c if st.session_state.calc_c is not None else 0.0, placeholder="0.0", key="calc_c_input")
+            # AÑADIDO PLACEHOLDER EN CAMPOS DE CALCULADORA
+            calc_e = st.number_input("Edad (años)", value=st.session_state.calc_e if st.session_state.calc_e is not None else 0, step=1, key="calc_e_input", placeholder="Ej: 65")
+            calc_p = st.number_input("Peso (kg)", value=st.session_state.calc_p if st.session_state.calc_p is not None else 0.0, placeholder="Ej: 70.5", key="calc_p_input")
+            calc_c = st.number_input("Creatinina (mg/dL)", value=st.session_state.calc_c if st.session_state.calc_c is not None else 0.0, placeholder="Ej: 1.2", key="calc_c_input")
             calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=0 if st.session_state.calc_s == "Hombre" else (1 if st.session_state.calc_s == "Mujer" else None), placeholder="Elegir...", key="calc_s_input")
             
             st.session_state.calc_e = calc_e; st.session_state.calc_p = calc_p
@@ -169,19 +184,19 @@ with tabs[0]:
 
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
-        fg_m = st.text_input("Ajuste Manual", placeholder="Fórmula Cockcroft-Gault: entrada manual")
+        fg_m = st.text_input("Ajuste Manual", placeholder="Ingrese valor si aplica")
         valor_fg = fg_m if fg_m else fg
         st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
         st.markdown('<div class="formula-label">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
         st.write(""); l1, l2 = st.columns(2)
         with l1:
             st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
-            val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="FG CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
+            val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="Valor", label_visibility="collapsed", key="fgl_ckd")
             st.markdown('</div>', unsafe_allow_html=True)
             if val_ckd is not None: st.markdown(f'<div class="unit-label">{val_ckd} mL/min/1,73m²</div>', unsafe_allow_html=True)
         with l2:
             st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
-            val_mdrd = st.number_input("FG MDRD-4 IDMS", value=None, placeholder="FG MDRD-4 IDMS", label_visibility="collapsed", key="fgl_mdrd")
+            val_mdrd = st.number_input("FG MDRD-4 IDMS", value=None, placeholder="Valor", label_visibility="collapsed", key="fgl_mdrd")
             st.markdown('</div>', unsafe_allow_html=True)
             if val_mdrd is not None: st.markdown(f'<div class="unit-label">{val_mdrd} mL/min/1,73m²</div>', unsafe_allow_html=True)
 
@@ -263,7 +278,7 @@ with tabs[0]:
                         st.markdown(f'<div class="synthesis-box {glow}">{sintesis}</div>', unsafe_allow_html=True)
                         st.markdown("---")
                         
-                        # 2. Contenedor Tabla Comparativa (Forzar estructura HTML)
+                        # 2. Contenedor Tabla Comparativa (Fondo Azul)
                         st.markdown(f'<div class="table-container">{tabla_html}</div>', unsafe_allow_html=True)
                         
                         # 3. Contenedor Detalle Clínico + Nota Importante
@@ -289,4 +304,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 20:00</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 20:30</div>""", unsafe_allow_html=True)
