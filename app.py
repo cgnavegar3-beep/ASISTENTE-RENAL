@@ -1,4 +1,4 @@
-# v. 28 feb 14:05
+# v. 01 mar 06:55
 import streamlit as st
 import pandas as pd
 import io
@@ -167,7 +167,7 @@ st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_
 if "active_model" not in st.session_state:
     st.session_state.active_model = "BUSCANDO..."
  
-# INICIALIZACIÓN DE VARIABLES DE SESIÓN (Redundancia reg_edad eliminada)
+# INICIALIZACIÓN DE VARIABLES DE SESIÓN
 for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds", "reg_id", "reg_centro"]:
     if key not in st.session_state:
         if key == "soip_s": st.session_state[key] = "Revisión farmacoterapéutica según función renal."
@@ -250,7 +250,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 28 feb 14:05</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 01 mar 06:55</div>', unsafe_allow_html=True)
  
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
  
@@ -299,19 +299,29 @@ with tabs[0]:
         st.write(""); l1, l2 = st.columns(2)
         
         # --- Lógica de cálculo automático ---
+        calc_ckd = None
         calc_mdrd = None
+        
         if calc_e and calc_c and calc_s:
             # Cálculo MDRD-4 aproximado (fórmula estándar para IDMS)
-            # CKD-EPI omitido por requerir raza (no disponible en input)
             calc_mdrd = round(175 * (calc_c ** -1.154) * (calc_e ** -0.203) * (0.742 if calc_s == "Mujer" else 1.0), 1)
+            
+            # Cálculo CKD-EPI aproximado (sin factor de raza)
+            kappa = 0.7 if calc_s == "Mujer" else 0.9
+            alpha = -0.329 if calc_s == "Mujer" else -0.411
+            min_ratio = min(calc_c / kappa, 1)
+            max_ratio = max(calc_c / kappa, 1)
+            calc_ckd = round(141 * (min_ratio ** alpha) * (max_ratio ** -1.209) * (0.993 ** calc_e) * (1.018 if calc_s == "Mujer" else 1.0), 1)
 
         with l1:
             st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
-            val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="FG CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
+            # Se usa el valor calculado en el value predeterminado
+            val_ckd = st.number_input("FG CKD-EPI", value=calc_ckd, placeholder="FG CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
             st.markdown('</div>', unsafe_allow_html=True)
             if val_ckd is not None: st.markdown(f'<div class="unit-label">{val_ckd} mL/min/1,73m²</div>', unsafe_allow_html=True)
         with l2:
             st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
+            # Se usa el valor calculado en el value predeterminado
             val_mdrd = st.number_input("FG MDRD-4 IDMS", value=calc_mdrd, placeholder="FG MDRD-4 IDMS", label_visibility="collapsed", key="fgl_mdrd")
             st.markdown('</div>', unsafe_allow_html=True)
             if val_mdrd is not None: st.markdown(f'<div class="unit-label">{val_mdrd} mL/min/1,73m²</div>', unsafe_allow_html=True)
@@ -377,4 +387,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
  
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 14:05</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 06:55</div>""", unsafe_allow_html=True)
