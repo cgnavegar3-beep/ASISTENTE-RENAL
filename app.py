@@ -1,4 +1,4 @@
-# v. 01 mar 2026 18:52
+# v. 01 mar 2026 20:00
 
 import streamlit as st
 import pandas as pd
@@ -33,14 +33,7 @@ except:
     API_KEY = None
     st.sidebar.error("API Key no encontrada. Revisa los secretos de Streamlit.")
 
-# --- FUNCIONES DE SOPORTE (DEFINIDAS PRIMERO) ---
-def cargar_prompt_clinico():
-    try:
-        with open(os.path.join("prompts", "categorizador.txt"), "r", encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError:
-        return "Error: No se encontró el archivo de prompt."
-
+# --- FUNCIONES DE SOPORTE ---
 def llamar_ia_en_cascada(prompt):
     if not API_KEY: return "⚠️ Error: API Key no configurada."
     
@@ -52,10 +45,16 @@ def llamar_ia_en_cascada(prompt):
             try:
                 st.session_state.active_model = mod_name.upper()
                 model = genai.GenerativeModel(f'models/gemini-{mod_name}')
-                # Temperatura baja para estructuras estrictas
                 return model.generate_content(prompt, generation_config={"temperature": 0.1}).text
             except: continue
     return "⚠️ Error en la generación."
+
+def cargar_prompt_clinico():
+    try:
+        with open(os.path.join("prompts", "categorizador.txt"), "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return "Error: No se encontró el archivo de prompt."
 
 def procesar_y_limpiar_meds():
     texto = st.session_state.main_meds
@@ -130,12 +129,12 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 01 mar 2026 18:52</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 01 mar 2026 20:00</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
 with tabs[0]:
-    # ... [MANTENER UI DE PACIENTE Y CALCULADORA] ...
+    # ... [UI de Registro y Calculadora igual] ...
     st.markdown("### Registro de Paciente")
     c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1.5, 0.4])
     def on_centro_change():
@@ -229,16 +228,15 @@ with tabs[0]:
                 resp = llamar_ia_en_cascada(prompt_final)
                 
                 try:
-                    # --- PARSING ROBUSTO DE 3 BLOQUES ---
+                    # --- PARSING ROBUSTO SUGERIDO ---
                     resp_limpia = resp.strip()
-                    partes = resp_limpia.split("|||")
+                    partes = [p.strip() for p in resp_limpia.split("|||") if p.strip()]
                     
-                    if len(partes) < 3:
-                        raise ValueError("Estructura de bloques incorrecta o incompleta.")
-                        
-                    sintesis = partes[0].strip()
-                    tabla_html = partes[1].strip()
-                    detalle_completo = partes[2].strip()
+                    # Forzar tres bloques para evitar errores de renderizado
+                    while len(partes) < 3:
+                        partes.append("")
+                    
+                    sintesis, tabla_html, detalle_completo = partes[:3]
                     
                     # --- APLICAR LÓGICA GLOW ---
                     if "⛔" in sintesis: glow = "glow-red"
@@ -265,7 +263,7 @@ with tabs[0]:
                         st.markdown(f'<div class="synthesis-box {glow}">{sintesis}</div>', unsafe_allow_html=True)
                         st.markdown("---")
                         
-                        # 2. Contenedor Tabla Comparativa (Forzar HTML seguro)
+                        # 2. Contenedor Tabla Comparativa (Forzar estructura HTML)
                         st.markdown(f'<div class="table-container">{tabla_html}</div>', unsafe_allow_html=True)
                         
                         # 3. Contenedor Detalle Clínico + Nota Importante
@@ -291,4 +289,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 18:52</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 20:00</div>""", unsafe_allow_html=True)
