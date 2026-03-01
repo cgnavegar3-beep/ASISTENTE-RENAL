@@ -9,7 +9,7 @@ NO extrapolar.
 
 Cockcroft-Gault es la referencia principal.
 
-CATEGORIZACIÓN OBLIGATORIA (para todos los bloques y tabla comparativa):ICONO-CATEGORIA-
+CATEGORIZACIÓN OBLIGATORIA (para todos los bloques y tabla comparativa):ICONO-CATEGORIA-RIESGO-NIVEL DE RIESGO-CONDICION
 
 ⛔ Contraindicado | Riesgo: crítico| Nivel de riesgo: 4 | Condición objetiva: Uso prohibido o contraindicado por debajo de un FG específico
 Palabras clave: avoid use, contraindicado, contraindicated, CrCl < X contraindicated, discontinue if renal function < X, do not administer, do not use, must not be used, no administrar, no debe utilizarse, no usar, prohibido, severe renal impairment contraindicated, should not be used, use is contraindicated
