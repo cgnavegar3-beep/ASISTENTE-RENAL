@@ -74,8 +74,12 @@ def procesar_y_limpiar_meds():
         st.session_state.main_meds = llamar_ia_en_cascada(prompt)
 
 def reset_registro():
+    # Se inicializan los campos numéricos como float (0.0) para permitir decimales
     for key in ["reg_centro", "reg_res", "reg_id", "fgl_ckd", "fgl_mdrd"]: st.session_state[key] = ""
-    for key in ["calc_e", "calc_p", "calc_c", "calc_s"]: st.session_state[key] = None
+    st.session_state["calc_e"] = 0.0  # Edad como flotante
+    st.session_state["calc_p"] = 0.0  # Peso como flotante
+    st.session_state["calc_c"] = 0.0  # Creatinina como flotante
+    st.session_state["calc_s"] = None # Sexo permanece sin valor por defecto
 
 def reset_meds():
     st.session_state.main_meds = ""
@@ -129,4 +133,4 @@ tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICO
 
 with tabs[0]:
     st.markdown("### Registro de Paciente")
-    c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1
+    c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1])
