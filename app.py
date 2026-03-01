@@ -1,4 +1,4 @@
-# v. 01 mar 08:55
+# v. 01 mar 08:45
 import streamlit as st
 import pandas as pd
 import io
@@ -168,48 +168,38 @@ if "active_model" not in st.session_state:
     st.session_state.active_model = "BUSCANDO..."
 
 # INICIALIZACIÓN DE VARIABLES DE SESIÓN
-for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds", "reg_id", "reg_centro", "analisis_final", "api_error"]:
+for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds", "reg_id", "reg_centro"]:
     if key not in st.session_state:
         if key == "soip_s": st.session_state[key] = "Revisión farmacoterapéutica según función renal."
         elif key == "soip_p": st.session_state[key] = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
         elif key == "ic_motivo": st.session_state[key] = "Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente."
         else: st.session_state[key] = ""
 
-# --- FUNCION DE PROCESAMIENTO Y VALIDACIÓN FUSIONADA ---
-def procesar_y_validar_meds():
+# --- FUNCION DE PROCESAMIENTO HÍBRIDO (RegEx + IA) ---
+def procesar_y_limpiar_meds():
     texto = st.session_state.main_meds
-    valor_fg = st.session_state.get("fg_final", 0)
-    st.session_state.api_error = "" # Reset error
-    
-    if texto and valor_fg:
-        with st.spinner("Procesando y analizando medicamentos..."):
-            prompt = f"""
-            Actúa como farmacéutico clínico experto.
-            
-            PASO 1: Reescribe el siguiente listado de medicamentos siguiendo estas reglas estrictas:
-            1. Estructura cada línea como: [Principio Activo] + [Dosis] + (Marca Comercial).
-            2. Si no identificas la marca, omite el paréntesis.
-            3. Limpia los números: usa formato decimal simple, elimina ceros innecesarios (ej. 5.000 -> 5).
-            4. Coloca cada medicamento en una línea independiente.
-            
-            PASO 2: Analiza la adecuación del listado resultante según el FG: {valor_fg} mL/min.
-            
-            FORMATO OBLIGATORIO DE SALIDA PARA EL PASO 2:
-            - Título: Comienza directamente con 'Medicamentos afectados:' o 'Fármacos correctamente dosificados:'.
-            - Líneas de análisis: [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta] + (Sigla fuente: AEMPS, FDA o EMA).
-            - Separa detalle con: 'A continuación, se detallan los ajustes:'.
-            
-            Texto a procesar:
-            {texto}
-            """
-            
-            resultado = llamar_ia_en_cascada(prompt)
-            
-            if "⚠️ Error de API" not in resultado:
-                st.session_state.main_meds = resultado.split("A continuación, se detallan los ajustes")[0].replace("Medicamentos afectados:", "").replace("Fármacos correctamente dosificados:", "").strip()
-                st.session_state.analisis_final = resultado
-            else:
-                st.session_state.api_error = resultado
+    if texto:
+        # 1. Limpieza inicial rápida con RegEx
+        texto_limpio = re.sub(r"\s*-\s*|;\s*", "\n", texto)
+        texto_limpio = re.sub(r"\n+", "\n", texto_limpio).strip()
+        
+        # 2. Prompt IA modificado para incluir Principio Activo, Dosis y Marca
+        prompt = f"""
+        Actúa como farmacéutico clínico. Reescribe el siguiente listado de medicamentos siguiendo estas reglas estrictas:
+        1. Estructura cada línea como: [Principio Activo] + [Dosis] + (Marca Comercial).
+        2. Si no identificas la marca, omite el paréntesis.
+        3. Coloca cada medicamento en una línea independiente.
+        4. Mantén exactamente el mismo texto original si no es necesario reestructurar, sin añadir ni inventar información.
+        5. No agregues numeración ni explicaciones.
+        Texto a procesar:
+        {texto_limpio}
+        """
+        
+        # 3. Llamada a la IA (en cascada)
+        resultado = llamar_ia_en_cascada(prompt)
+        
+        # 4. Actualiza el mismo cuadro
+        st.session_state.main_meds = resultado
 # ----------------------------------------------------
 
 def reset_registro():
@@ -225,8 +215,6 @@ def reset_meds():
     st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
     st.session_state.ic_motivo = "Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente."
     st.session_state.ic_info = ""
-    st.session_state.analisis_final = ""
-    st.session_state.api_error = ""
 
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
@@ -238,7 +226,7 @@ def verificar_datos_completos():
     campos = {
         "Centro": "reg_centro", "Residencia": "reg_res", "ID Registro": "reg_id",
         "Edad (Calc)": "calc_e", "Peso (Calc)": "calc_p", "Creatinina (Calc)": "calc_c",
-        "Sexo (Calc)": "calc_s"
+        "Sexo (Calc)": "calc_s", "FG CKD-EPI": "fgl_ckd", "FG MDRD-4": "fgl_mdrd"
     }
     vacios = [nombre for nombre, key in campos.items() if st.session_state.get(key) in [None, "", "Seleccionar..."]]
     return vacios
@@ -246,25 +234,24 @@ def verificar_datos_completos():
 def llamar_ia_en_cascada(prompt):
     disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods] if API_KEY else ["2.5-flash"]
     orden = ['2.5-flash', 'flash-latest', '1.5-pro']
-    
     for mod_name in orden:
         if mod_name in disponibles:
             try:
                 st.session_state.active_model = mod_name.upper()
                 model = genai.GenerativeModel(f'models/gemini-{mod_name}')
                 return model.generate_content(prompt).text
-            except Exception as e:
-                # Capturamos el error detallado
-                error_msg = str(e)
-                if "429" in error_msg:
-                    st.session_state.active_model = "LÍMITE CUOTA"
-                    return "⚠️ Error de API: Límite de cuota alcanzado (Tokens/minuto). Espera un minuto."
-                continue
-    return "⚠️ Error de API: Todos los modelos fallaron."
+            except: continue
+    return "⚠️ Error."
 
 def inject_styles():
     st.markdown("""
     <style>
+    /* ANIMACIÓN DE PARPADEO PARA AVISOS */
+    @keyframes blinker {
+        50% { opacity: 0; }
+    }
+    .blink-text { animation: blinker 1s linear infinite; }
+                
     .block-container { max-width: 100% !important; padding-top: 1rem !important; padding-left: 4% !important; padding-right: 4% !important; }
     .black-badge-zona { background-color: #000000; color: #888; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 10px; left: 15px; z-index: 999999; }
     .black-badge-activo { background-color: #000000; color: #00FF00; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 10px; left: 145px; z-index: 999999; text-shadow: 0 0 5px #00FF00; }
@@ -289,7 +276,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 01 mar 08:55</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 01 mar 08:45</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -323,12 +310,10 @@ with tabs[0]:
             calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=None, placeholder="Elegir...", key="calc_s")
             st.markdown('<div class="formula-label" style="text-align:right;">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
             fg = round(((140 - (calc_e or 0)) * (calc_p or 0)) / (72 * (calc_c or 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e and calc_p and calc_c and calc_s else 0.0
-            st.session_state.fg_final = fg
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
         fg_m = st.text_input("Ajuste Manual", placeholder="Fórmula Cockcroft-Gault: entrada manual")
         valor_fg = fg_m if fg_m else fg
-        st.session_state.fg_final = valor_fg
         st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
         st.markdown('<div class="formula-label">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
         st.write(""); l1, l2 = st.columns(2)
@@ -350,39 +335,46 @@ with tabs[0]:
     
     txt_meds = st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds")
     
-    st.button("🚀 PROCESAR Y VALIDAR", on_click=procesar_y_validar_meds)
+    st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
     
     b1, b2 = st.columns([0.85, 0.15])
+    btn_val = b1.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True)
     b2.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
 
-    # MOSTRAR ERROR DE API SI EXISTE
-    if st.session_state.api_error:
-        st.error(st.session_state.api_error)
-        st.session_state.api_error = "" # Limpiar error tras mostrarlo
-
-    # MOSTRAR RESULTADOS
-    if st.session_state.analisis_final:
-        resp = st.session_state.analisis_final
-        glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
+    if btn_val:
+        faltantes = verificar_datos_completos()
+        if faltantes:
+            st.markdown(f'<div style="background-color: #fff3cd; color: #856404; padding: 1rem; border-radius: 0.5rem; border: 1px solid #ffeeba; margin-bottom: 1rem;"><span class="blink-text">⚠️ Nota: Faltan datos en el registro ({", ".join(faltantes)}). Se procede con validación de consulta rápida.</span></div>', unsafe_allow_html=True)
         
-        try:
-            partes = resp.split("A continuación, se detallan los ajustes")
-            sintesis, detalle = partes[0].strip(), "A continuación, se detallan los ajustes" + (partes[1] if len(partes)>1 else "")
-            
-            st.markdown(f'<div class="synthesis-box {glow}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
-            st.markdown(f"""<div class="blue-detail-container">{detalle.replace("\n", "<br>")}
-            <br><br><span style="color:#2c5282;"><b>NOTA IMPORTANTE:</b></span><br>
-            <b>3.1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</b><br>
-            <b>3.2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</b><br>
-            <b>3.3. La decisión final corresponde siempre al prescriptor médico.</b><br>
-            <b>3.4. Considere la situación clínica global del paciente antes de modificar dosis.</b></div>""", unsafe_allow_html=True)
-            
-            st.session_state.soip_o = " | ".join(filter(None, [f"Edad: {int(calc_e)}" if calc_e else "", f"Peso: {calc_p}" if calc_p else "", f"Cr: {calc_c}" if calc_c else "", f"FG: {valor_fg}" if float(valor_fg or 0)>0 else ""]))
-            st.session_state.soip_i = sintesis
-            st.session_state.ic_info = detalle
-            st.session_state.ic_motivo = f"Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente.\n\nLISTADO DETECTADO:\n{sintesis}"
-        except:
-            st.error("Error en la estructura de respuesta de la IA.")
+        if not txt_meds:
+            st.error("Por favor, introduce al menos un medicamento.")
+        else:
+            placeholder_salida = st.empty()
+            with st.spinner("Procesando análisis clínico..."):
+                prompt_analisis = (f"Actúa como farmacéutico clínico experto. Analiza la adecuación de los siguientes medicamentos según el FG: {valor_fg}. "
+                                   f"Listado: {txt_meds}. "
+                                   f"FORMATO OBLIGATORIO DE LÍNEA: [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta] + (Sigla fuente: AEMPS, FDA o EMA). "
+                                   f"Título síntesis: Comienza directamente con 'Medicamentos afectados:' o 'Fármacos correctamente dosificados:'. "
+                                   f"Separa detalle con: 'A continuación, se detallan los ajustes:'.")
+                
+                resp = llamar_ia_en_cascada(prompt_analisis)
+                glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
+                try:
+                    partes = resp.split("A continuación, se detallan los ajustes")
+                    sintesis, detalle = partes[0].strip(), "A continuación, se detallan los ajustes" + (partes[1] if len(partes)>1 else "")
+                    with placeholder_salida.container():
+                        st.markdown(f'<div class="synthesis-box {glow}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
+                        st.markdown(f"""<div class="blue-detail-container">{detalle.replace("\n", "<br>")}
+                        <br><br><span style="color:#2c5282;"><b>NOTA IMPORTANTE:</b></span><br>
+                        <b>3.1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</b><br>
+                        <b>3.2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</b><br>
+                        <b>3.3. La decisión final corresponde siempre al prescriptor médico.</b><br>
+                        <b>3.4. Considere la situación clínica global del paciente antes de modificar dosis.</b></div>""", unsafe_allow_html=True)
+                    st.session_state.soip_o = " | ".join(filter(None, [f"Edad: {int(calc_e)}" if calc_e else "", f"Peso: {calc_p}" if calc_p else "", f"Cr: {calc_c}" if calc_c else "", f"FG: {valor_fg}" if float(valor_fg or 0)>0 else ""]))
+                    st.session_state.soip_i = sintesis
+                    st.session_state.ic_info = detalle
+                    st.session_state.ic_motivo = f"Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente.\n\nLISTADO DETECTADO:\n{sintesis}"
+                except: st.error("Error en la estructura de respuesta.")
 
 with tabs[1]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📄 Nota Evolutiva SOIP</div></div>', unsafe_allow_html=True)
@@ -398,4 +390,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 08:55</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 08:45</div>""", unsafe_allow_html=True)
