@@ -1,4 +1,4 @@
-# v. 01 mar 2026 20:35
+# v. 01 mar 2026 20:40
 
 import streamlit as st
 import pandas as pd
@@ -112,7 +112,7 @@ def inject_styles():
     .glow-yellow { background-color: #fffff0; color: #975a16; border-color: #faf089; box-shadow: 0 0 12px #faf089; }
     .glow-green { background-color: #f0fff4; color: #2f855a; border-color: #9ae6b4; box-shadow: 0 0 12px #9ae6b4; }
     
-    /* Contenedores nuevos - MODIFICADO FONDO AZUL */
+    /* Contenedores nuevos - FONDO AZUL */
     .table-container { 
         background-color: #e6f2ff; /* Azul igual al bloque 3 */
         padding: 10px; 
@@ -143,7 +143,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 01 mar 2026 20:35</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 01 mar 2026 20:40</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -170,7 +170,7 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            # AÑADIDO PLACEHOLDER Y VALUE POR DEFECTO PARA PLACEHOLDER
+            # PLACEHOLDERS ACTUALIZADOS
             calc_e = st.number_input("Edad (años)", value=None, step=1, key="calc_e_input", placeholder="Ej: 65")
             calc_p = st.number_input("Peso (kg)", value=None, placeholder="Ej: 70.5", key="calc_p_input")
             calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="Ej: 1.2", key="calc_c_input")
@@ -180,7 +180,6 @@ with tabs[0]:
             st.session_state.calc_c = calc_c; st.session_state.calc_s = calc_s
             
             st.markdown('<div class="formula-label" style="text-align:right;">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
-            # Manejo de None para evitar errores en la calculadora
             if calc_e is not None and calc_p is not None and calc_c is not None and calc_s is not None:
                 fg = round(((140 - calc_e) * calc_p) / (72 * (calc_c if calc_c > 0 else 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1)
             else:
@@ -188,19 +187,20 @@ with tabs[0]:
 
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
-        fg_m = st.text_input("Ajuste Manual", placeholder="Ingrese valor si aplica")
+        # PLACEHOLDERS ACTUALIZADOS CON TEXTO ESPECÍFICO
+        fg_m = st.text_input("Ajuste Manual", placeholder="Fórmula Cockcroft-Gault: entrada manual")
         valor_fg = fg_m if fg_m else fg
         st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
         st.markdown('<div class="formula-label">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
         st.write(""); l1, l2 = st.columns(2)
         with l1:
             st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
-            val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="Valor", label_visibility="collapsed", key="fgl_ckd")
+            val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="CKD", label_visibility="collapsed", key="fgl_ckd")
             st.markdown('</div>', unsafe_allow_html=True)
             if val_ckd is not None: st.markdown(f'<div class="unit-label">{val_ckd} mL/min/1,73m²</div>', unsafe_allow_html=True)
         with l2:
             st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
-            val_mdrd = st.number_input("FG MDRD-4 IDMS", value=None, placeholder="Valor", label_visibility="collapsed", key="fgl_mdrd")
+            val_mdrd = st.number_input("FG MDRD-4 IDMS", value=None, placeholder="MDRD-4", label_visibility="collapsed", key="fgl_mdrd")
             st.markdown('</div>', unsafe_allow_html=True)
             if val_mdrd is not None: st.markdown(f'<div class="unit-label">{val_mdrd} mL/min/1,73m²</div>', unsafe_allow_html=True)
 
@@ -308,4 +308,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 20:35</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 20:40</div>""", unsafe_allow_html=True)
