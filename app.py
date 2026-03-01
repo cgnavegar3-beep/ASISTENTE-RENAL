@@ -1,11 +1,11 @@
-# v. 01 mar 08:35
+# v. 01 mar 08:40
 import streamlit as st
 import pandas as pd
 import io
 from datetime import datetime
 import google.generativeai as genai
 import random
-import re # Importación añadida para limpieza híbrida
+import re
 
 # =================================================================
 # # PRINCIPIOS FUNDAMENTALES:
@@ -275,7 +275,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 01 mar 08:35</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 01 mar 08:40</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -303,7 +303,6 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            # calc_e gestiona el estado automáticamente al interactuar
             calc_e = st.number_input("Edad (años)", value=st.session_state.get("reg_edad", None), step=1, key="calc_e", placeholder="0.0")
             calc_p = st.number_input("Peso (kg)", value=None, placeholder="0.0", key="calc_p")
             calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="0.0", key="calc_c")
@@ -333,8 +332,11 @@ with tabs[0]:
     with m_col1: st.markdown("#### 📝 Listado de medicamentos")
     with m_col2: st.markdown('<div style="float:right; background-color:#fff5f5; color:#c53030; padding:8px 16px; border-radius:8px; border:1.5px solid #feb2b2; font-size:0.8rem;">🛡️ RGPD: No datos personales</div>', unsafe_allow_html=True)
     
-    # Text_area actualizado con callback híbrido on_change
-    txt_meds = st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds", on_change=procesar_y_limpiar_meds)
+    # Text_area SIN on_change para mayor estabilidad
+    txt_meds = st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds")
+    
+    # NUEVO BOTÓN PARA PROCESAR
+    st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
     
     b1, b2 = st.columns([0.85, 0.15])
     btn_val = b1.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True)
@@ -350,7 +352,7 @@ with tabs[0]:
         else:
             placeholder_salida = st.empty()
             with st.spinner("Procesando análisis clínico..."):
-                # Análisis clínico con el texto ya limpio y estructurado por on_change
+                # Análisis clínico con el texto ya procesado por el botón
                 prompt_analisis = (f"Actúa como farmacéutico clínico experto. Analiza la adecuación de los siguientes medicamentos según el FG: {valor_fg}. "
                                    f"Listado: {txt_meds}. "
                                    f"FORMATO OBLIGATORIO DE LÍNEA: [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta] + (Sigla fuente: AEMPS, FDA o EMA). "
@@ -390,4 +392,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 08:35</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 08:40</div>""", unsafe_allow_html=True)
