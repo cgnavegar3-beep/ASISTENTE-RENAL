@@ -1,4 +1,4 @@
-# v. 01 mar 2026 21:15
+# v. 01 mar 2026 21:25
 
 import streamlit as st
 import pandas as pd
@@ -67,7 +67,7 @@ def procesar_y_limpiar_meds():
         Actúa como farmacéutico clínico. Reescribe el siguiente listado de medicamentos siguiendo estas reglas estrictas:
         1. Estructura cada línea como: [Principio Activo] + [Dosis] + (Marca Comercial).
         2. Si no identificas la marca, omite el paréntesis.
-        3. Coloca cada medicamento en una línea independiente.
+        3. Coloca cada medicamento en una línea independiente (UNA LÍNEA POR FÁRMACO).
         4. No agregues numeración ni explicaciones.
         Texto a procesar:
         {texto_limpio}
@@ -146,7 +146,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 01 mar 2026 21:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 01 mar 2026 21:25</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -196,7 +196,6 @@ with tabs[0]:
         st.write(""); l1, l2 = st.columns(2)
         with l1:
             st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
-            # PLACEHOLDER ACTUALIZADO
             val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
             st.markdown('</div>', unsafe_allow_html=True)
             if val_ckd is not None: st.markdown(f'<div class="unit-label">{val_ckd} mL/min/1,73m²</div>', unsafe_allow_html=True)
@@ -276,7 +275,7 @@ with tabs[0]:
                     </div>
                     """
                     
-                    
+                    # 
 
                     # --- RENDERIZADO EN CONTENEDORES ---
                     with placeholder_salida.container():
@@ -291,26 +290,33 @@ with tabs[0]:
                         st.markdown(f'<div class="clinical-detail-container">{detalle_completo}{nota_importante}</div>', unsafe_allow_html=True)
                         
                     # --- AUTO-RELLENADO SOIP/INTERCONSULTA (RESTAURACIÓN) ---
-                    # 1. Preparar datos para el SOIP O (Objetivo) con los valores numéricos
+                    # Corregido SOIP S
+                    st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
+                    
+                    # 1. Corregido SOIP O: Solo datos numéricos
                     datos_calc = []
                     if calc_e: datos_calc.append(f"Edad: {calc_e} años")
                     if calc_p: datos_calc.append(f"Peso: {calc_p} kg")
-                    if calc_c: datos_calc.append(f"Cr: {calc_c} mg/dL")
+                    if calc_c: datos_calc.append(f"Creatinina: {calc_c} mg/dL")
                     if valor_fg: datos_calc.append(f"FG (C-G): {valor_fg} mL/min")
                     
-                    st.session_state.soip_o = "Datos del paciente:\n" + "\n".join(datos_calc)
+                    st.session_state.soip_o = "\n".join(datos_calc)
                     
-                    # 2. Rellenar Interpretación (I) con síntesis técnica (Bloque 1)
+                    # 2. Corregido SOIP I: Volcar Texto del Cuadro Dinámico (Síntesis)
                     st.session_state.soip_i = sintesis
                     
-                    # 3. Rellenar Solicitud Interconsulta
+                    # 3. Corregido SOIP P: Fijo + Síntesis
+                    st.session_state.soip_p = f"Se hace interconsulta al MAP para valoración de ajuste posológico.\n\nSugerencia: {sintesis}"
+                    
+                    # 4. Corregido IC Motivo: Texto fijo + síntesis
+                    st.session_state.ic_motivo = f"Se solicita valoración médica tras revisión de adecuación del tratamiento. {sintesis}"
+                    
+                    # 5. Corregido IC Info: Información Clínica pestaña 1 (Detalle Completo)
                     st.session_state.ic_info = (
-                        f"ID: {st.session_state.reg_id}\n"
+                        f"ID Registro: {st.session_state.reg_id}\n"
                         f"FG (C-G): {valor_fg} mL/min\n"
                         "---------------------------\n"
-                        f"{sintesis}\n"
-                        "---------------------------\n"
-                        f"{detalle_completo}"
+                        f"Detalle Técnico:\n{detalle_completo}"
                     )
                         
                 except Exception as e:
@@ -333,4 +339,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 21:15</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 21:25</div>""", unsafe_allow_html=True)
