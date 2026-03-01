@@ -1,4 +1,4 @@
-# v. 01 mar 2026 17:30
+# v. 01 mar 2026 18:05
 
 import streamlit as st
 import pandas as pd
@@ -97,7 +97,16 @@ def inject_styles():
     .sub-version { text-align: center; font-size: 0.6rem; color: #bbb; margin-top: -5px; margin-bottom: 20px; font-family: monospace; }
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
     .unit-label { font-size: 0.65rem; color: #888; margin-top: -10px; margin-bottom: 5px; font-family: sans-serif; text-align: center; }
-    .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; background-color: #fff3e0; color: #e65100; border-color: #ffcc80; box-shadow: 0 0 12px #ffcc80; }
+    
+    /* ESTILOS CLÍNICOS */
+    .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; }
+    .glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; box-shadow: 0 0 12px #feb2b2; }
+    .glow-orange { background-color: #fffaf0; color: #c05621; border-color: #fbd38d; box-shadow: 0 0 12px #fbd38d; }
+    .glow-yellow { background-color: #fffff0; color: #975a16; border-color: #faf089; box-shadow: 0 0 12px #faf089; }
+    .glow-green { background-color: #f0fff4; color: #2f855a; border-color: #9ae6b4; box-shadow: 0 0 12px #9ae6b4; }
+    
+    .blue-detail-container { background-color: #e6f2ff; color: #1a365d; padding: 20px; border-radius: 10px; border: 1px solid #90cdf4; margin-top: 10px; font-size: 0.9rem; }
+    
     .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
     .header-capsule { background-color: #e2e8f0; color: #2d3748; padding: 10px 30px; border-radius: 50px; display: inline-block; font-weight: 800; font-size: 0.9rem; margin-bottom: 20px; }
@@ -110,7 +119,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 01 mar 2026 17:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 01 mar 2026 18:05</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -186,37 +195,67 @@ with tabs[0]:
             st.error("Por favor, introduce al menos un medicamento.")
         else:
             placeholder_salida = st.empty()
-            with st.spinner("Procesando análisis clínico..."):
-                prompt_base = cargar_prompt_clinico()
-                datos_paciente = f"""
-                DATOS DEL PACIENTE PARA LA AUDITORÍA:
-                - FG Calculado (Cockcroft-Gault): {valor_fg} mL/min
-                - Edad: {calc_e} años
-                - Peso: {calc_p} kg
-                - Creatinina: {calc_c} mg/dL
-                - Sexo: {calc_s}
-                """
-                prompt_final = datos_paciente + "\n" + prompt_base + "\nLISTA DE MEDICAMENTOS:\n" + txt_meds
+            with st.spinner("Procesando análisis clínico con AFR-V10..."):
                 
+                # CARGAR EL PROMPT DEFINITIVO (AFR-V10)
+                prompt_base = cargar_prompt_clinico()
+                
+                # CONECTAR DATOS DE LA UI AL PROMPT
+                prompt_final = f"""
+                {prompt_base}
+                
+                DATOS DEL PACIENTE:
+                - FG Cockcroft-Gault: {valor_fg} mL/min
+                - FG CKD-EPI: {val_ckd} mL/min/1,73m²
+                - FG MDRD-4: {val_mdrd} mL/min/1,73m²
+                
+                MEDICAMENTOS A ANALIZAR:
+                {txt_meds}
+                """
+                
+                # LLAMAR A LA IA
                 resp = llamar_ia_en_cascada(prompt_final)
                 
                 try:
-                    # Separación estricta por el divisor ---
+                    # PARSING DE BLOQUES (Separación ---)
                     partes = resp.split("---")
-                    sintesis = partes[0].replace("### BLOQUE 1: SÍNTESIS RÁPIDA", "").strip()
-                    detalle_completo = partes[1].replace("### BLOQUE 2: INFORMACIÓN CLÍNICA", "").strip()
+                    sintesis = partes[0].strip()
+                    detalle_completo = partes[1].strip()
                     
+                    # --- APLICAR LÓGICA GLOW CORREGIDA (Jerarquía) ---
+                    # 1. ROJO: Si aparece al menos un icono ⛔ (Contraindicado).
+                    if "⛔" in sintesis:
+                        glow = "glow-red"
+                    # 2. NARANJA: Si no hay ⛔ pero aparece icono doble ⚠️ ⚠️ (Ajuste).
+                    elif "⚠️⚠️" in sintesis:
+                        glow = "glow-orange"
+                    # 3. AMARILLO: Si no hay ⛔ ni icono doble ⚠️ ⚠️ pero aparece al menos un ⚠️.
+                    elif "⚠️" in sintesis:
+                        glow = "glow-yellow"
+                    # 4. VERDE: Si no hay iconos ⚠️ ni doble ⚠️ ⚠️ ni ⛔ (Todo correcto).
+                    else:
+                        glow = "glow-green"
+                    
+                    
+
                     with placeholder_salida.container():
-                        # Bloque 1: Síntesis Rápida
-                        st.markdown(sintesis, unsafe_allow_html=True)
+                        # Bloque 1: Título y Síntesis directa (con Glow actualizado)
+                        st.markdown(
+                            f'<div class="synthesis-box {glow}">{sintesis}</div>',
+                            unsafe_allow_html=True
+                        )
                         
                         # Separador visual
                         st.markdown("---")
                         
-                        # Bloque 2: Detalle Técnico (renderizado como HTML)
-                        st.markdown(detalle_completo, unsafe_allow_html=True)
+                        # Bloque 2: Detalle Técnico (dentro del contenedor azul)
+                        st.markdown(
+                            f'<div class="blue-detail-container">{detalle_completo}</div>',
+                            unsafe_allow_html=True
+                        )
                         
-                except: st.error("Error en la estructura de respuesta de la IA. Por favor, asegúrate de que el prompt genere los dos bloques separados por '---'.")
+                except Exception as e:
+                    st.error(f"Error en la estructura AFR-V10: {e}")
 
 # ... (Resto de pestañas sin cambios)
 with tabs[1]:
@@ -234,4 +273,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 17:30</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 18:05</div>""", unsafe_allow_html=True)
