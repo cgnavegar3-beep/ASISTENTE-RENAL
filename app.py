@@ -7,6 +7,7 @@ from datetime import datetime
 import google.generativeai as genai
 import random
 import re
+import os # Paso 2: Importar la librería necesaria
 
 # =================================================================
 # PRINCIPIOS FUNDAMENTALES:
@@ -72,8 +73,7 @@ import re
 #    1. Títulos Permitidos: SOLO "Medicamentos afectados:" o
 # "Fármacos correctamente dosificados".
 # #
-#    2. Prohibición Textual: Prohibido usar "SÍNTESIS",
-# "DETALLE", "RESUMEN" o similares.
+#    2. Prohibición Textual: Prohibido usar "SÍNTESIS", "DETALLE", "RESUMEN" o similares.
 # #
 #    3. RESTRICCIÓN AGRESIVA: Prohibido escribir sobre metabolismo o
 # eliminación en este bloque.
@@ -175,6 +175,14 @@ for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "mai
         elif key == "soip_p": st.session_state[key] = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
         elif key == "ic_motivo": st.session_state[key] = "Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente."
         else: st.session_state[key] = ""
+
+# Paso 2: Función para cargar el prompt desde el archivo en la carpeta prompts/
+def cargar_prompt_clinico():
+    try:
+        with open(os.path.join("prompts", "categorizador.txt"), "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return "Error: No se encontró el archivo de prompt."
 
 # --- FUNCION DE PROCESAMIENTO HÍBRIDO (RegEx + IA) ---
 def procesar_y_limpiar_meds():
