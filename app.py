@@ -1,4 +1,4 @@
-# v. 01 mar 2026 19:15
+# v. 01 mar 2026 19:25
 
 import streamlit as st
 import pandas as pd
@@ -19,14 +19,36 @@ import os
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
-if "active_model" not in st.session_state:
-    st.session_state.active_model = "BUSCANDO..."
-
-# INICIALIZACIÓN DE VARIABLES DE SESIÓN
-for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds", "reg_id", "reg_centro", "calc_e", "calc_p", "calc_c", "calc_s"]:
+# --- INICIALIZACIÓN DE VARIABLES DE SESIÓN (SOLUCIÓN AL NAMEERROR) ---
+if "active_model" not in st.session_state: st.session_state.active_model = "BUSCANDO..."
+if "main_meds" not in st.session_state: st.session_state.main_meds = ""
+for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "reg_id", "reg_centro", "calc_e", "calc_p", "calc_c", "calc_s"]:
     if key not in st.session_state: st.session_state[key] = None
 
+# --- CONFIGURACIÓN DE IA ---
+try:
+    API_KEY = st.secrets["GEMINI_API_KEY"]
+    genai.configure(api_key=API_KEY)
+except:
+    API_KEY = None
+    st.sidebar.error("API Key no encontrada. Revisa los secretos de Streamlit.")
+
 # --- FUNCIONES DE SOPORTE ---
+def llamar_ia_en_cascada(prompt):
+    if not API_KEY: return "⚠️ Error: API Key no configurada."
+    
+    disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+    orden = ['2.5-flash', 'flash-latest', '1.5-pro']
+    
+    for mod_name in orden:
+        if mod_name in disponibles:
+            try:
+                st.session_state.active_model = mod_name.upper()
+                model = genai.GenerativeModel(f'models/gemini-{mod_name}')
+                return model.generate_content(prompt, generation_config={"temperature": 0.1}).text
+            except: continue
+    return "⚠️ Error en la generación."
+
 def cargar_prompt_clinico():
     try:
         with open(os.path.join("prompts", "categorizador.txt"), "r", encoding="utf-8") as f:
@@ -34,26 +56,27 @@ def cargar_prompt_clinico():
     except FileNotFoundError:
         return "Error: No se encontró el archivo de prompt."
 
-def llamar_ia_en_cascada(prompt):
-    disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods] if API_KEY else ["2.5-flash"]
-    orden = ['2.5-flash', 'flash-latest', '1.5-pro']
-    for mod_name in orden:
-        if mod_name in disponibles:
-            try:
-                st.session_state.active_model = mod_name.upper()
-                model = genai.GenerativeModel(f'models/gemini-{mod_name}')
-                # Usamos temperatura baja para mayor precisión y estructura
-                return model.generate_content(prompt, generation_config={"temperature": 0.1}).text
-            except: continue
-    return "⚠️ Error en la generación."
+# --- FUNCIÓN CORREGIDA ---
+def procesar_y_limpiar_meds():
+    texto = st.session_state.main_meds
+    if texto:
+        # Limpieza básica de texto
+        texto_limpio = re.sub(r"\s*-\s*|;\s*", "\n", texto)
+        texto_limpio = re.sub(r"\n+", "\n", texto_limpio).strip()
+        
+        prompt = f"""
+        Actúa como farmacéutico clínico. Reescribe el siguiente listado de medicamentos siguiendo estas reglas estrictas:
+        1. Estructura cada línea como: [Principio Activo] + [Dosis] + (Marca Comercial).
+        2. Si no identificas la marca, omite el paréntesis.
+        3. Coloca cada medicamento en una línea independiente.
+        4. No agregues numeración ni explicaciones.
+        Texto a procesar:
+        {texto_limpio}
+        """
+        # Se llama a la función corregida
+        st.session_state.main_meds = llamar_ia_en_cascada(prompt)
 
-# ... [MANTENER FUNCIONES DE PROCESAR MEDICAMENTOS, RESET, ETC.] ...
-
-try:
-    API_KEY = st.secrets["GEMINI_API_KEY"]
-    genai.configure(api_key=API_KEY)
-except:
-    API_KEY = None
+# ... [MANTENER FUNCIONES DE RESET Y VERIFICACIÓN IGUALES] ...
 
 # --- UI STYLE ---
 def inject_styles():
@@ -93,7 +116,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 01 mar 2026 19:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 01 mar 2026 19:25</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -111,7 +134,7 @@ with tabs[0]:
     if btn_val:
         # ... [CHECKEO DE DATOS COMPLETOS] ...
         
-        if not txt_meds:
+        if not st.session_state.main_meds:
             st.error("Por favor, introduce al menos un medicamento.")
         else:
             placeholder_salida = st.empty()
@@ -130,7 +153,7 @@ with tabs[0]:
                 - FG MDRD-4: {val_mdrd} mL/min/1,73m²
                 
                 MEDICAMENTOS A ANALIZAR:
-                {txt_meds}
+                {st.session_state.main_meds}
                 """
                 
                 # LLAMAR A LA IA
@@ -138,7 +161,6 @@ with tabs[0]:
                 
                 try:
                     # --- PARSING ROBUSTO DE 3 BLOQUES ---
-                    # Eliminamos espacios en blanco extremos y saltos de línea innecesarios
                     resp_limpia = resp.strip()
                     partes = resp_limpia.split("|||")
                     
@@ -166,13 +188,15 @@ with tabs[0]:
                     </div>
                     """
                     
+                    
+
                     # --- RENDERIZADO EN CONTENEDORES ---
                     with placeholder_salida.container():
                         # 1. Contenedor Síntesis con Glow
                         st.markdown(f'<div class="synthesis-box {glow}">{sintesis}</div>', unsafe_allow_html=True)
                         st.markdown("---")
                         
-                        # 2. Contenedor Tabla Comparativa (Forzar HTML seguro)
+                        # 2. Contenedor Tabla Comparativa
                         st.markdown(f'<div class="table-container">{tabla_html}</div>', unsafe_allow_html=True)
                         
                         # 3. Contenedor Detalle Clínico + Nota Importante
@@ -180,7 +204,6 @@ with tabs[0]:
                         
                 except Exception as e:
                     st.error(f"Error técnico en AFR-V10: {e}")
-                    # Mostramos la respuesta para depurar si falla
                     st.code(resp)
 
 # ... [MANTENER EL RESTO DE TABS Y ESTILOS IGUAL] ...
