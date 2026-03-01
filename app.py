@@ -1,4 +1,4 @@
-# v. 01 mar 06:55
+# v. 01 mar 07:05
 import streamlit as st
 import pandas as pd
 import io
@@ -168,18 +168,18 @@ if "active_model" not in st.session_state:
     st.session_state.active_model = "BUSCANDO..."
  
 # INICIALIZACIÓN DE VARIABLES DE SESIÓN
-for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds", "reg_id", "reg_centro"]:
+for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds", "reg_id", "reg_centro", "reg_edad"]:
     if key not in st.session_state:
         if key == "soip_s": st.session_state[key] = "Revisión farmacoterapéutica según función renal."
         elif key == "soip_p": st.session_state[key] = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
         elif key == "ic_motivo": st.session_state[key] = "Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente."
-        else: st.session_state[key] = ""
+        else: st.session_state[key] = None
  
 def reset_registro():
     st.session_state["reg_centro"] = ""; st.session_state["reg_edad"] = None
     st.session_state["reg_res"] = None; st.session_state["reg_id"] = ""
-    if "calc_e" in st.session_state: st.session_state.calc_e = None
-    if "calc_s" in st.session_state: st.session_state.calc_s = None
+    st.session_state["calc_e"] = None; st.session_state["calc_p"] = None
+    st.session_state["calc_c"] = None; st.session_state["calc_s"] = None
  
 def reset_meds():
     st.session_state.main_meds = ""
@@ -199,7 +199,7 @@ def verificar_datos_completos():
     campos = {
         "Centro": "reg_centro", "Residencia": "reg_res", "ID Registro": "reg_id",
         "Edad (Calc)": "calc_e", "Peso (Calc)": "calc_p", "Creatinina (Calc)": "calc_c",
-        "Sexo (Calc)": "calc_s", "FG CKD-EPI": "fgl_ckd", "FG MDRD-4": "fgl_mdrd"
+        "Sexo (Calc)": "calc_s"
     }
     vacios = [nombre for nombre, key in campos.items() if st.session_state.get(key) in [None, "", "Seleccionar..."]]
     return vacios
@@ -250,7 +250,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 01 mar 06:55</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 01 mar 07:05</div>', unsafe_allow_html=True)
  
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
  
@@ -283,12 +283,17 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            calc_e = st.number_input("Edad (años)", value=st.session_state.get("reg_edad", None), step=1, key="calc_e", placeholder="0.0")
-            calc_p = st.number_input("Peso (kg)", value=None, placeholder="0.0", key="calc_p")
-            calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="0.0", key="calc_c")
+            calc_e = st.number_input("Edad (años)", value=st.session_state.get("calc_e", None), step=1, key="calc_e", placeholder="0.0")
+            calc_p = st.number_input("Peso (kg)", value=st.session_state.get("calc_p", None), placeholder="0.0", key="calc_p")
+            calc_c = st.number_input("Creatinina (mg/dL)", value=st.session_state.get("calc_c", None), placeholder="0.0", key="calc_c")
             calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=None, placeholder="Elegir...", key="calc_s")
             st.markdown('<div class="formula-label" style="text-align:right;">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
-            fg = round(((140 - (calc_e or 0)) * (calc_p or 0)) / (72 * (calc_c or 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e and calc_p and calc_c and calc_s else 0.0
+            
+            # Cálculo Cockcroft-Gault
+            if calc_e and calc_p and calc_c and calc_s:
+                fg = round(((140 - calc_e) * calc_p) / (72 * calc_c) * (0.85 if calc_s == "Mujer" else 1.0), 1)
+            else:
+                fg = 0.0
             
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
@@ -387,4 +392,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
  
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 06:55</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 07:05</div>""", unsafe_allow_html=True)
