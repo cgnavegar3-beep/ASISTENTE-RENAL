@@ -1,4 +1,4 @@
-# v. 01 mar 09:05
+# v. 01 mar 09:15
 import streamlit as st
 import pandas as pd
 import io
@@ -222,6 +222,13 @@ def llamar_ia_en_cascada(prompt):
                 continue
     return "⚠️ Error de API: Todos los modelos fallaron."
 
+# --- FUNCION DE LIMPIEZA NÚMERICA POR PYTHON ---
+def limpiar_decimales_dosis(texto):
+    # Regex para buscar números con decimales seguidos de mg, g, etc.
+    # Busca por ejemplo "80.0000" y lo cambia a "80"
+    return re.sub(r'(\d+)\.0+(\s*[a-zA-Z]+)', r'\1\2', texto)
+# ------------------------------------------------
+
 def inject_styles():
     st.markdown("""
     <style>
@@ -254,7 +261,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 01 mar 09:05</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 01 mar 09:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -313,7 +320,7 @@ with tabs[0]:
     
     txt_meds = st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds")
     
-    # --- FUSIÓN DE BOTONES: ELIMINADO "Procesar", AHORA "Validar" HACE AMBOS ---
+    # --- BOTON DE VALIDACION UNIFICADO ---
     b1, b2 = st.columns([0.85, 0.15])
     btn_val = b1.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True)
     b2.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
@@ -328,28 +335,19 @@ with tabs[0]:
         else:
             placeholder_salida = st.empty()
             with st.spinner("Procesando y analizando medicamentos..."):
-                # PROMPT COMBINADO: Estructura + Limpieza Ceros + Analiza
-                prompt_combinado = f"""
-                Actúa como farmacéutico clínico experto.
-
-                PASO 1: Reescribe el siguiente listado de medicamentos siguiendo estas reglas estrictas:
-                1. Estructura cada línea como: [Principio Activo] + [Dosis] + (Marca Comercial).
-                2. Si no identificas la marca, omite el paréntesis.
-                3. LIMPIA LOS NÚMEROS: usa formato decimal simple, elimina ceros innecesarios (ej. 80.0000 -> 80).
-                4. Coloca cada medicamento en una línea independiente.
+                # 1. LIMPIEZA DE DECIMALES POR PYTHON (RegEx)
+                texto_limpio = limpiar_decimales_dosis(txt_meds)
                 
-                PASO 2: Analiza la adecuación del listado resultante según el FG: {valor_fg}.
-                
-                FORMATO OBLIGATORIO DE SALIDA:
-                - Título síntesis: Comienza directamente con 'Medicamentos afectados:' o 'Fármacos correctamente dosificados:'.
-                - Líneas de análisis: [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta] + (Sigla fuente: AEMPS, FDA o EMA).
-                - Separa detalle con: 'A continuación, se detallan los ajustes:'.
-
-                Texto a procesar:
-                {txt_meds}
+                # 2. PROMPT DE ANÁLISIS A LA IA
+                prompt_analisis = f"""
+                Actúa como farmacéutico clínico experto. Analiza la adecuación de los siguientes medicamentos según el FG: {valor_fg}. 
+                Listado: {texto_limpio}. 
+                FORMATO OBLIGATORIO DE LÍNEA: [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta] + (Sigla fuente: AEMPS, FDA o EMA). 
+                Título síntesis: Comienza directamente con 'Medicamentos afectados:' o 'Fármacos correctamente dosificados:'. 
+                Separa detalle con: 'A continuación, se detallan los ajustes:'.
                 """
                 
-                resp = llamar_ia_en_cascada(prompt_combinado)
+                resp = llamar_ia_en_cascada(prompt_analisis)
                 
                 if "⚠️ Error de API" not in resp:
                     glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
@@ -357,7 +355,7 @@ with tabs[0]:
                         partes = resp.split("A continuación, se detallan los ajustes")
                         sintesis, detalle = partes[0].strip(), "A continuación, se detallan los ajustes" + (partes[1] if len(partes)>1 else "")
                         
-                        # --- ACTUALIZAR CUADRO DE TEXTO CON MEDICAMENTOS ESTRUCTURADOS Y LIMPIOS ---
+                        # --- ACTUALIZAR CUADRO DE TEXTO ---
                         st.session_state.main_meds = sintesis.replace("Medicamentos afectados:", "").replace("Fármacos correctamente dosificados:", "").strip()
                         
                         with placeholder_salida.container():
@@ -391,4 +389,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 09:05</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 09:15</div>""", unsafe_allow_html=True)
