@@ -1,4 +1,4 @@
-# v. 28 feb 14:05
+# v. 01 mar 08:22
 import streamlit as st
 import pandas as pd
 import io
@@ -166,7 +166,7 @@ st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_
 if "active_model" not in st.session_state:
     st.session_state.active_model = "BUSCANDO..."
 
-# INICIALIZACIÓN DE VARIABLES DE SESIÓN (Redundancia reg_edad eliminada)
+# INICIALIZACIÓN DE VARIABLES DE SESIÓN
 for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds", "reg_id", "reg_centro"]:
     if key not in st.session_state:
         if key == "soip_s": st.session_state[key] = "Revisión farmacoterapéutica según función renal."
@@ -248,118 +248,4 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 28 feb 14:05</div>', unsafe_allow_html=True)
-
-tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
-
-with tabs[0]:
-    st.markdown("### Registro de Paciente")
-    c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1.5, 0.4])
-    def on_centro_change():
-        centro_val = st.session_state.reg_centro.strip()
-        if centro_val.lower() == "m": st.session_state.reg_centro = "Marín"
-        elif centro_val.lower() == "o": st.session_state.reg_centro = "O Grove"
-        
-        if not st.session_state.reg_centro: st.session_state.reg_id = ""
-        else:
-            final_centro = st.session_state.reg_centro
-            iniciales = "".join([word[0] for word in final_centro.split()]).upper()[:3]
-            st.session_state.reg_id = f"PAC-{iniciales if iniciales else 'GEN'}{random.randint(10000, 99999)}"
-    
-    with c1: st.text_input("Centro", placeholder="M / G", key="reg_centro", on_change=on_centro_change)
-    # Placeholder actualizado a "Sí / No"
-    with c2: st.selectbox("¿Residencia?", ["No", "Sí"], index=None, placeholder="Sí / No", key="reg_res")
-    with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
-    with c4: st.text_input("ID Registro", key="reg_id")
-    with c5: st.write(""); st.button("🗑️", on_click=reset_registro)
-    
-    col_izq, col_der = st.columns(2, gap="large")
-    with col_izq:
-        st.markdown("#### 📋 Calculadora")
-        with st.container(border=True):
-            # calc_e gestiona el estado automáticamente
-            calc_e = st.number_input("Edad (años)", value=st.session_state.get("reg_edad", None), step=1, key="calc_e", placeholder="0.0")
-            calc_p = st.number_input("Peso (kg)", value=None, placeholder="0.0", key="calc_p")
-            calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="0.0", key="calc_c")
-            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=None, placeholder="Elegir...", key="calc_s")
-            st.markdown('<div class="formula-label" style="text-align:right;">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
-            fg = round(((140 - (calc_e or 0)) * (calc_p or 0)) / (72 * (calc_c or 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e and calc_p and calc_c and calc_s else 0.0
-    with col_der:
-        st.markdown("#### 💊 Filtrado Glomerular")
-        fg_m = st.text_input("Ajuste Manual", placeholder="Fórmula Cockcroft-Gault: entrada manual")
-        valor_fg = fg_m if fg_m else fg
-        st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
-        st.markdown('<div class="formula-label">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
-        st.write(""); l1, l2 = st.columns(2)
-        with l1:
-            st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
-            val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="FG CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
-            st.markdown('</div>', unsafe_allow_html=True)
-            if val_ckd is not None: st.markdown(f'<div class="unit-label">{val_ckd} mL/min/1,73m²</div>', unsafe_allow_html=True)
-        with l2:
-            st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
-            val_mdrd = st.number_input("FG MDRD-4 IDMS", value=None, placeholder="FG MDRD-4 IDMS", label_visibility="collapsed", key="fgl_mdrd")
-            st.markdown('</div>', unsafe_allow_html=True)
-            if val_mdrd is not None: st.markdown(f'<div class="unit-label">{val_mdrd} mL/min/1,73m²</div>', unsafe_allow_html=True)
-    
-    st.write(""); st.markdown("---")
-    m_col1, m_col2 = st.columns([0.5, 0.5])
-    with m_col1: st.markdown("#### 📝 Listado de medicamentos")
-    with m_col2: st.markdown('<div style="float:right; background-color:#fff5f5; color:#c53030; padding:8px 16px; border-radius:8px; border:1.5px solid #feb2b2; font-size:0.8rem;">🛡️ RGPD: No datos personales</div>', unsafe_allow_html=True)
-    txt_meds = st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds")
-    
-    b1, b2 = st.columns([0.85, 0.15])
-    btn_val = b1.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True)
-    b2.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
-
-    if btn_val:
-        faltantes = verificar_datos_completos()
-        if faltantes:
-            st.markdown(f'<div style="background-color: #fff3cd; color: #856404; padding: 1rem; border-radius: 0.5rem; border: 1px solid #ffeeba; margin-bottom: 1rem;"><span class="blink-text">⚠️ Nota: Faltan datos en el registro ({", ".join(faltantes)}). Se procede con validación de consulta rápida.</span></div>', unsafe_allow_html=True)
-        
-        if not txt_meds:
-            st.error("Por favor, introduce al menos un medicamento.")
-        else:
-            placeholder_salida = st.empty()
-            with st.spinner("Procesando análisis clínico..."):
-                # PROMPT ACTUALIZADO PARA PROCESAMIENTO INTELIGENTE
-                prompt = (f"Actúa como farmacéutico clínico experto. Primero, analiza el siguiente texto desordenado e identifica los medicamentos individuales: {txt_meds}. "
-                          f"Estructúralos en una lista clara. A continuación, analiza la adecuación de dichos medicamentos según el FG: {valor_fg}. "
-                          f"FORMATO OBLIGATORIO DE LÍNEA: [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta] + (Sigla fuente: AEMPS, FDA o EMA). "
-                          f"Título síntesis: Comienza directamente con 'Medicamentos afectados:' o 'Fármacos correctamente dosificados:'. "
-                          f"Separa detalle con: 'A continuación, se detallan los ajustes:'.")
-                
-                resp = llamar_ia_en_cascada(prompt)
-                glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
-                try:
-                    partes = resp.split("A continuación, se detallan los ajustes")
-                    sintesis, detalle = partes[0].strip(), "A continuación, se detallan los ajustes" + (partes[1] if len(partes)>1 else "")
-                    with placeholder_salida.container():
-                        st.markdown(f'<div class="synthesis-box {glow}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
-                        st.markdown(f"""<div class="blue-detail-container">{detalle.replace("\n", "<br>")}
-                        <br><br><span style="color:#2c5282;"><b>NOTA IMPORTANTE:</b></span><br>
-                        <b>3.1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</b><br>
-                        <b>3.2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</b><br>
-                        <b>3.3. La decisión final corresponde siempre al prescriptor médico.</b><br>
-                        <b>3.4. Considere la situación clínica global del paciente antes de modificar dosis.</b></div>""", unsafe_allow_html=True)
-                    st.session_state.soip_o = " | ".join(filter(None, [f"Edad: {int(calc_e)}" if calc_e else "", f"Peso: {calc_p}" if calc_p else "", f"Cr: {calc_c}" if calc_c else "", f"FG: {valor_fg}" if float(valor_fg or 0)>0 else ""]))
-                    st.session_state.soip_i = sintesis
-                    st.session_state.ic_info = detalle
-                    st.session_state.ic_motivo = f"Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente.\n\nLISTADO DETECTADO:\n{sintesis}"
-                except: st.error("Error en la estructura de respuesta.")
-
-with tabs[1]:
-    st.markdown('<div style="text-align:center;"><div class="header-capsule">📄 Nota Evolutiva SOIP</div></div>', unsafe_allow_html=True)
-    for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
-        st.markdown(f'<div class="linea-discreta-soip">{label}</div>', unsafe_allow_html=True)
-        st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed")
-    st.write(""); st.markdown('<div style="text-align:center;"><div class="header-capsule">📨 Solicitud de Interconsulta</div></div>', unsafe_allow_html=True)
-    st.markdown('<div class="linea-discreta-soip">Motivo de la Interconsulta</div>', unsafe_allow_html=True)
-    st.text_area("ic_mot", st.session_state.ic_motivo, height=180, label_visibility="collapsed")
-    st.markdown('<div class="linea-discreta-soip">Información Clínica</div>', unsafe_allow_html=True)
-    st.text_area("ic_inf", st.session_state.ic_info, height=250, label_visibility="collapsed")
-
-with tabs[2]:
-    st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
-
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 28 feb 14:05</div>""", unsafe_allow_html=True)
+st.markdown
