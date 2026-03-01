@@ -1,4 +1,4 @@
-# v. 01 mar 2026 16:20
+# v. 01 mar 2026 17:30
 
 import streamlit as st
 import pandas as pd
@@ -97,15 +97,12 @@ def inject_styles():
     .sub-version { text-align: center; font-size: 0.6rem; color: #bbb; margin-top: -5px; margin-bottom: 20px; font-family: monospace; }
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
     .unit-label { font-size: 0.65rem; color: #888; margin-top: -10px; margin-bottom: 5px; font-family: sans-serif; text-align: center; }
-    .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; }
-    .glow-orange { background-color: #fff3e0; color: #e65100; border-color: #ffcc80; box-shadow: 0 0 12px #ffcc80; }
-    .blue-detail-container { background-color: #e6f0ff; color: #1a365d; padding: 20px; border-radius: 10px; border: 1px solid #90cdf4; margin-top: 10px; font-size: 0.9rem; }
+    .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; background-color: #fff3e0; color: #e65100; border-color: #ffcc80; box-shadow: 0 0 12px #ffcc80; }
     .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
     .header-capsule { background-color: #e2e8f0; color: #2d3748; padding: 10px 30px; border-radius: 50px; display: inline-block; font-weight: 800; font-size: 0.9rem; margin-bottom: 20px; }
     .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
     .fg-special-border { border: 1.5px solid #9d00ff !important; border-radius: 5px; }
-    .important-note { background-color: #002244; color: #ffffff; padding: 20px; border-radius: 10px; font-weight: bold; margin-top: 20px; }
     </style>
     """, unsafe_allow_html=True)
 inject_styles()
@@ -113,7 +110,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 01 mar 2026 16:20</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 01 mar 2026 17:30</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -204,35 +201,22 @@ with tabs[0]:
                 resp = llamar_ia_en_cascada(prompt_final)
                 
                 try:
+                    # Separación estricta por el divisor ---
                     partes = resp.split("---")
                     sintesis = partes[0].replace("### BLOQUE 1: SÍNTESIS RÁPIDA", "").strip()
-                    detalle_completo = partes[1].replace("### BLOQUE 2: DETALLE TÉCNICO", "").strip()
+                    detalle_completo = partes[1].replace("### BLOQUE 2: INFORMACIÓN CLÍNICA", "").strip()
                     
                     with placeholder_salida.container():
-                        st.markdown("#### 🔍 Medicamentos afectados", unsafe_allow_html=True)
-                        st.markdown(f'<div class="synthesis-box glow-orange">{sintesis.replace("-", "•").replace("\n", "<br>")}</div>', unsafe_allow_html=True)
-                        st.markdown("#### ⚙️ Detalle Técnico y Comparativa", unsafe_allow_html=True)
+                        # Bloque 1: Síntesis Rápida
+                        st.markdown(sintesis, unsafe_allow_html=True)
                         
-                        # --- MODIFICACIÓN DE VISUALIZACIÓN ---
-                        st.markdown(f'<div class="blue-detail-container">{detalle_completo.replace("A continuación se detallan los ajustes:", "<b>A continuación se detallan los ajustes:</b>").replace("\n", "<br>")}</div>', unsafe_allow_html=True)
+                        # Separador visual
+                        st.markdown("---")
                         
-                        # NOTA IMPORTANTE FINAL
-                        st.markdown("""
-                        <div class="important-note">
-                        NOTA IMPORTANTE:<br>
-                        3.1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).<br>
-                        3.2. Los ajustes propuestos son orientativos según filtrado glomerular actual.<br>
-                        3.3. La decisión final corresponde siempre al prescriptor médico.<br>
-                        3.4. Considere la situación clínica global del paciente antes de modificar dosis.
-                        </div>
-                        """, unsafe_allow_html=True)
-                        # --------------------------------------
-
-                    st.session_state.soip_o = f"Edad: {int(calc_e)} | Peso: {calc_p} | Cr: {calc_c} | FG: {valor_fg}"
-                    st.session_state.soip_i = sintesis
-                    st.session_state.ic_info = detalle_completo
-                    st.session_state.ic_motivo = f"Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente.\n\nLISTADO DETECTADO:\n{sintesis}"
-                except: st.error("Error en la estructura de respuesta de la IA.")
+                        # Bloque 2: Detalle Técnico (renderizado como HTML)
+                        st.markdown(detalle_completo, unsafe_allow_html=True)
+                        
+                except: st.error("Error en la estructura de respuesta de la IA. Por favor, asegúrate de que el prompt genere los dos bloques separados por '---'.")
 
 # ... (Resto de pestañas sin cambios)
 with tabs[1]:
@@ -250,4 +234,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 16:20</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 17:30</div>""", unsafe_allow_html=True)
