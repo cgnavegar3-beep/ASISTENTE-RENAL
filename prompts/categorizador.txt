@@ -9,90 +9,77 @@ NO extrapolar.
 
 Cockcroft-Gault es la referencia principal.
 
----------------------------------------------------------------------
+CATEGORIZACIÓN OBLIGATORIA (para todos los bloques y tabla comparativa):ICONO-CATEGORIA-
+
+⛔ Contraindicado | Riesgo: crítico| Nivel de riesgo: 4 | Condición objetiva: Uso prohibido o contraindicado por debajo de un FG específico
+Palabras clave: avoid use, contraindicado, contraindicated, CrCl < X contraindicated, discontinue if renal function < X, do not administer, do not use, must not be used, no administrar, no debe utilizarse, no usar, prohibido, severe renal impairment contraindicated, should not be used, use is contraindicated
+
+⚠️⚠️⚠️ Requiere ajuste por riesgo de toxicidad | Riesgo: grave | Nivel de riesgo: 3 | Condición objetiva: Requiere reducción importante de dosis o límite estricto para evitar acumulación/toxicidad
+Palabras clave: acidosis láctica, accumulation, acumulación, alto riesgo de acumulación, avoid high doses, cardiotoxicidad, depresión respiratoria, do not exceed, dose must be reduced, dosis máxima, hemorragia grave, high risk of accumulation, hiperpotasemia severa, increase dosing interval to avoid toxicity, increased risk of serious adverse reactions, limit dose, maximum dose, nefrotoxicidad, neurotoxicidad, no exceder dosis, reduce dose by %, reduce dose by 50% or more, reduce dose significantly, reduce dose substantially, reduce initial dose, reducir dosis significativamente, requires major dose adjustment, requires strict adjustment, riesgo de acumulación, riesgo de toxicidad, risk of serious adverse effects, risk of toxicity increased, significant dose reduction required, toxicidad, toxicidad orgánica
+
+⚠️⚠️ Requiere ajuste de dosis o intervalo | Riesgo: moderado| Nivel de riesgo: 2 | Condición objetiva: Requiere ajuste formal de dosis o intervalo
+Palabras clave: adjust dose, adjust dose to maintain effect, adjust dosage, adjust dosing interval, ajustar dosis, ajuste renal, consider dose adjustment, dose adjustment recommended, dose adjustment required, efecto terapéutico reducido, efectos adversos leves o moderados, ESPACIAR DOSIS, increase dosing interval, increased exposure without severe toxicity, loss of efficacy, maximum dose limit, may be less effective, modify dose, modificar intervalo, reduced efficacy, reduce dose, reducir dosis, renal dose adjustment, requiere ajuste, requires adjustment
+
+⚠️ Precaución / monitorización | Riesgo: leve | Nivel de riesgo: 1 | Condición objetiva: No exige ajuste formal, pero requiere vigilancia
+Palabras clave: careful monitoring recommended, caution, monitor creatinine, monitor potassium, monitor renal function, monitorizar, monitorizar función renal, no adjustment required but caution, precaution, precaución, renal function should be monitored, sin instrucciones concretas de ajuste, use with caution, usar con precaución, vigilar función renal
+
+✅ No requiere ajuste | Nivel de riesgo: 0 | Condición objetiva: La fuente indica explícitamente que no necesita ajuste renal
+Palabras clave: no adjustment required, no clinically relevant change, no dosage adjustment needed, no dose adjustment necessary, no renal adjustment needed, no requiere ajuste, safe in renal impairment, sin ajuste, sin ajuste renal
 
 SALIDA OBLIGATORIA
 
-Generar EXACTAMENTE DOS BLOQUES separados por una línea horizontal centrada:
+Generar EXACTAMENTE TRES BLOQUES, separados como se indica:
 
----
-
----------------------------------------------------------------------
+|||
 
 BLOQUE 1: SÍNTESIS RÁPIDA
 
 Título obligatorio:
 
-### 🔍 Medicamentos afectados (FG Cockcroft-Gault: [valor] mL/min)
+🔍 Medicamentos afectados (FG Cockcroft-Gault: [valor] mL/min)
 
 Formato obligatorio de cada línea:
+[ICONO] Medicamento — Categoría clínica DE LA CATEGORIZACION— "frase literal de ficha técnica sobre restricción renal" (Fuente)
 
-[ICONO] Medicamento — Categoría clínica — "frase literal de ficha técnica sobre restricción renal" (Fuente)
-
-Reglas:
-
-• Mostrar SOLO medicamentos afectados  
-• NO mostrar medicamentos seguros  
-• NO incluir marcas comerciales  
-• NO incluir grupos terapéuticos  
-
-Iconos obligatorios:
-
-⛔ Contraindicado  
-⚠️⚠️⚠️ Ajuste por toxicidad  
-⚠️⚠️ Ajuste dosis/intervalo  
-⚠️ Precaución  
-✅ Seguro (NO mostrar en este bloque)
-
----------------------------------------------------------------------
-
-BLOQUE 2: INFORMACIÓN CLÍNICA
-
-TODO este bloque debe estar dentro de este cuadro azul:
-
-<div style="background-color:#e6f2ff;padding:15px;border-radius:8px;">
-
-──────────────── ZONA SUPERIOR ────────────────
-
-Mostrar tabla HTML EXACTA:
-
-| Icono | Fármaco | Grupo Terapéutico | Cockcroft FG | Cockcroft Categoría | Cockcroft Riesgo | CKD-EPI FG | CKD-EPI Categoría | CKD-EPI Riesgo | MDRD-4 FG | MDRD-4 Categoría | MDRD-4 Riesgo |
 
 Reglas:
+• Mostrar SOLO medicamentos afectados
+• Cada medicamento en una línea
+• NO mostrar medicamentos seguros
+• NO incluir marcas comerciales
+• NO incluir grupos terapéuticos
 
-• Mostrar SOLO medicamentos afectados  
-• Grupo terapéutico = código ATC + nombre  
-• Usar iconos definidos  
+|||
 
-──────────────── ZONA MEDIA ────────────────
+BLOQUE 2: TABLA COMPARATIVA
 
-Mostrar EXACTAMENTE esta frase:
+Mostrar tabla HTML EXACTA (un fármaco por fila, solo afectados):
 
+<table style="width:100%; border-collapse: collapse; font-size: 0.8rem;"> <tr style="background-color: #0057b8; color: white;"> <th>Icono</th><th>Fármaco</th><th>Grupo Terapéutico</th><th>Cockcroft FG</th><th>Cockcroft Categoría</th><th>Cockcroft Riesgo</th><th>CKD-EPI FG</th><th>CKD-EPI Categoría</th><th>CKD-EPI Riesgo</th><th>MDRD-4 FG</th><th>MDRD-4 Categoría</th><th>MDRD-4 Riesgo</th> </tr> <tr> <td>[ICONO]</td><td>[Principio Activo]</td><td>[Código ATC + nombre]</td><td>[Valor FG C-G]</td><td>[Categoría clínica]</td><td>[Nivel de riesgo]</td><td>[Valor CKD-EPI]</td><td>[Categoría CKD-EPI]</td><td>[Nivel de riesgo]</td><td>[Valor MDRD-4]</td><td>[Categoría MDRD-4]</td><td>[Nivel de riesgo]</td> </tr> </table>
+
+ Reglas:
+se rellena según la tablas de categorización
+
+|||
+
+BLOQUE 3: INFORMACIÓN CLÍNICA
+
+mostrar EXACTAMENTE esta frase:
 A continuación se detallan los ajustes:
 
-Después, para cada medicamento:
+[ICONO] Principio Activo: [Justificación detallada literal de ficha técnica] (Fuente)
 
-[ICONO] Medicamento: justificación literal de ficha técnica (Fuente)
+Reglas:
+• UN fármaco por línea
+• NO inventar información, solo datos de ficha técnica
+• Mantener iconos y categorías definidos
 
-──────────────── ZONA INFERIOR ────────────────
-
-Mostrar EXACTAMENTE este recuadro:
-
-<div style="background-color:#0057b8;color:white;padding:10px;border-radius:6px;">
-<b>NOTA IMPORTANTE:</b><br>
-• Basado en ficha técnica oficial<br>
-• Cockcroft-Gault es la referencia principal<br>
-• CKD-EPI y MDRD son informativos<br>
-• Validar clínicamente antes de modificar tratamiento
-</div>
-
-</div>
-
----------------------------------------------------------------------
+|||
 
 REGLAS ABSOLUTAS
 
-NO añadir texto fuera de los bloques  
-NO cambiar formato  
-NO cambiar iconos  
-NO añadir explicaciones adicionales  
+NO añadir texto fuera de los bloques
+NO cambiar formato
+NO cambiar iconos
+NO añadir explicaciones adicionales
+
