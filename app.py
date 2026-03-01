@@ -1,4 +1,4 @@
-# v. 01 mar 2026 20:40
+# v. 01 mar 2026 21:15
 
 import streamlit as st
 import pandas as pd
@@ -22,6 +22,7 @@ st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_
 # --- INICIALIZACIÓN DE VARIABLES DE SESIÓN ---
 if "active_model" not in st.session_state: st.session_state.active_model = "BUSCANDO..."
 if "main_meds" not in st.session_state: st.session_state.main_meds = ""
+# Inicialización de campos SOIP/IC
 for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "reg_id", "reg_centro", "calc_e", "calc_p", "calc_c", "calc_s", "reg_res"]:
     if key not in st.session_state: st.session_state[key] = None
 
@@ -81,8 +82,10 @@ def reset_registro():
 
 def reset_meds():
     st.session_state.main_meds = ""
+    # RESTAURACIÓN TEXTOS FIJOS
     st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
-    st.session_state.soip_o = ""; st.session_state.soip_i = ""
+    st.session_state.soip_o = ""
+    st.session_state.soip_i = ""
     st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
     st.session_state.ic_motivo = "Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente."
     st.session_state.ic_info = ""
@@ -143,12 +146,12 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 01 mar 2026 20:40</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 01 mar 2026 21:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
 with tabs[0]:
-    # ... [UI de Registro y Calculadora igual] ...
+    # ... [UI de Registro y Calculadora] ...
     st.markdown("### Registro de Paciente")
     c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1.5, 0.4])
     def on_centro_change():
@@ -170,11 +173,10 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            # PLACEHOLDERS ACTUALIZADOS
-            calc_e = st.number_input("Edad (años)", value=None, step=1, key="calc_e_input", placeholder="Ej: 65")
-            calc_p = st.number_input("Peso (kg)", value=None, placeholder="Ej: 70.5", key="calc_p_input")
-            calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="Ej: 1.2", key="calc_c_input")
-            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=None, placeholder="Elegir...", key="calc_s_input")
+            calc_e = st.number_input("Edad (años)", value=st.session_state.calc_e if st.session_state.calc_e is not None else 0, step=1, key="calc_e_input", placeholder="Ej: 65")
+            calc_p = st.number_input("Peso (kg)", value=st.session_state.calc_p if st.session_state.calc_p is not None else 0.0, placeholder="Ej: 70.5", key="calc_p_input")
+            calc_c = st.number_input("Creatinina (mg/dL)", value=st.session_state.calc_c if st.session_state.calc_c is not None else 0.0, placeholder="Ej: 1.2", key="calc_c_input")
+            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=0 if st.session_state.calc_s == "Hombre" else (1 if st.session_state.calc_s == "Mujer" else None), placeholder="Elegir...", key="calc_s_input")
             
             st.session_state.calc_e = calc_e; st.session_state.calc_p = calc_p
             st.session_state.calc_c = calc_c; st.session_state.calc_s = calc_s
@@ -187,7 +189,6 @@ with tabs[0]:
 
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
-        # PLACEHOLDERS ACTUALIZADOS CON TEXTO ESPECÍFICO
         fg_m = st.text_input("Ajuste Manual", placeholder="Fórmula Cockcroft-Gault: entrada manual")
         valor_fg = fg_m if fg_m else fg
         st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
@@ -195,6 +196,7 @@ with tabs[0]:
         st.write(""); l1, l2 = st.columns(2)
         with l1:
             st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
+            # PLACEHOLDER ACTUALIZADO
             val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
             st.markdown('</div>', unsafe_allow_html=True)
             if val_ckd is not None: st.markdown(f'<div class="unit-label">{val_ckd} mL/min/1,73m²</div>', unsafe_allow_html=True)
@@ -288,6 +290,29 @@ with tabs[0]:
                         # 3. Contenedor Detalle Clínico + Nota Importante
                         st.markdown(f'<div class="clinical-detail-container">{detalle_completo}{nota_importante}</div>', unsafe_allow_html=True)
                         
+                    # --- AUTO-RELLENADO SOIP/INTERCONSULTA (RESTAURACIÓN) ---
+                    # 1. Preparar datos para el SOIP O (Objetivo) con los valores numéricos
+                    datos_calc = []
+                    if calc_e: datos_calc.append(f"Edad: {calc_e} años")
+                    if calc_p: datos_calc.append(f"Peso: {calc_p} kg")
+                    if calc_c: datos_calc.append(f"Cr: {calc_c} mg/dL")
+                    if valor_fg: datos_calc.append(f"FG (C-G): {valor_fg} mL/min")
+                    
+                    st.session_state.soip_o = "Datos del paciente:\n" + "\n".join(datos_calc)
+                    
+                    # 2. Rellenar Interpretación (I) con síntesis técnica (Bloque 1)
+                    st.session_state.soip_i = sintesis
+                    
+                    # 3. Rellenar Solicitud Interconsulta
+                    st.session_state.ic_info = (
+                        f"ID: {st.session_state.reg_id}\n"
+                        f"FG (C-G): {valor_fg} mL/min\n"
+                        "---------------------------\n"
+                        f"{sintesis}\n"
+                        "---------------------------\n"
+                        f"{detalle_completo}"
+                    )
+                        
                 except Exception as e:
                     st.error(f"Error técnico en AFR-V10: {e}")
                     st.code(resp)
@@ -308,4 +333,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 20:40</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 21:15</div>""", unsafe_allow_html=True)
