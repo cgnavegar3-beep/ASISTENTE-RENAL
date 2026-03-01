@@ -1,4 +1,4 @@
-# v. 01 mar 08:45
+# v. 01 mar 09:05
 import streamlit as st
 import pandas as pd
 import io
@@ -168,39 +168,12 @@ if "active_model" not in st.session_state:
     st.session_state.active_model = "BUSCANDO..."
 
 # INICIALIZACIÓN DE VARIABLES DE SESIÓN
-for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds", "reg_id", "reg_centro"]:
+for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds", "reg_id", "reg_centro", "api_error"]:
     if key not in st.session_state:
         if key == "soip_s": st.session_state[key] = "Revisión farmacoterapéutica según función renal."
         elif key == "soip_p": st.session_state[key] = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
         elif key == "ic_motivo": st.session_state[key] = "Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente."
         else: st.session_state[key] = ""
-
-# --- FUNCION DE PROCESAMIENTO HÍBRIDO (RegEx + IA) ---
-def procesar_y_limpiar_meds():
-    texto = st.session_state.main_meds
-    if texto:
-        # 1. Limpieza inicial rápida con RegEx
-        texto_limpio = re.sub(r"\s*-\s*|;\s*", "\n", texto)
-        texto_limpio = re.sub(r"\n+", "\n", texto_limpio).strip()
-        
-        # 2. Prompt IA modificado para incluir Principio Activo, Dosis y Marca
-        prompt = f"""
-        Actúa como farmacéutico clínico. Reescribe el siguiente listado de medicamentos siguiendo estas reglas estrictas:
-        1. Estructura cada línea como: [Principio Activo] + [Dosis] + (Marca Comercial).
-        2. Si no identificas la marca, omite el paréntesis.
-        3. Coloca cada medicamento en una línea independiente.
-        4. Mantén exactamente el mismo texto original si no es necesario reestructurar, sin añadir ni inventar información.
-        5. No agregues numeración ni explicaciones.
-        Texto a procesar:
-        {texto_limpio}
-        """
-        
-        # 3. Llamada a la IA (en cascada)
-        resultado = llamar_ia_en_cascada(prompt)
-        
-        # 4. Actualiza el mismo cuadro
-        st.session_state.main_meds = resultado
-# ----------------------------------------------------
 
 def reset_registro():
     st.session_state["reg_centro"] = ""; st.session_state["reg_edad"] = None
@@ -215,6 +188,7 @@ def reset_meds():
     st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
     st.session_state.ic_motivo = "Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente."
     st.session_state.ic_info = ""
+    st.session_state.api_error = ""
 
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
@@ -240,13 +214,17 @@ def llamar_ia_en_cascada(prompt):
                 st.session_state.active_model = mod_name.upper()
                 model = genai.GenerativeModel(f'models/gemini-{mod_name}')
                 return model.generate_content(prompt).text
-            except: continue
-    return "⚠️ Error."
+            except Exception as e:
+                error_msg = str(e)
+                if "429" in error_msg:
+                    st.session_state.active_model = "LÍMITE CUOTA"
+                    return "⚠️ Error de API: Límite de cuota alcanzado (Tokens/minuto). Espera un minuto."
+                continue
+    return "⚠️ Error de API: Todos los modelos fallaron."
 
 def inject_styles():
     st.markdown("""
     <style>
-    /* ANIMACIÓN DE PARPADEO PARA AVISOS */
     @keyframes blinker {
         50% { opacity: 0; }
     }
@@ -276,7 +254,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 01 mar 08:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 01 mar 09:05</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -335,8 +313,7 @@ with tabs[0]:
     
     txt_meds = st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds")
     
-    st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
-    
+    # --- FUSIÓN DE BOTONES: ELIMINADO "Procesar", AHORA "Validar" HACE AMBOS ---
     b1, b2 = st.columns([0.85, 0.15])
     btn_val = b1.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True)
     b2.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
@@ -350,31 +327,55 @@ with tabs[0]:
             st.error("Por favor, introduce al menos un medicamento.")
         else:
             placeholder_salida = st.empty()
-            with st.spinner("Procesando análisis clínico..."):
-                prompt_analisis = (f"Actúa como farmacéutico clínico experto. Analiza la adecuación de los siguientes medicamentos según el FG: {valor_fg}. "
-                                   f"Listado: {txt_meds}. "
-                                   f"FORMATO OBLIGATORIO DE LÍNEA: [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta] + (Sigla fuente: AEMPS, FDA o EMA). "
-                                   f"Título síntesis: Comienza directamente con 'Medicamentos afectados:' o 'Fármacos correctamente dosificados:'. "
-                                   f"Separa detalle con: 'A continuación, se detallan los ajustes:'.")
+            with st.spinner("Procesando y analizando medicamentos..."):
+                # PROMPT COMBINADO: Estructura + Limpieza Ceros + Analiza
+                prompt_combinado = f"""
+                Actúa como farmacéutico clínico experto.
+
+                PASO 1: Reescribe el siguiente listado de medicamentos siguiendo estas reglas estrictas:
+                1. Estructura cada línea como: [Principio Activo] + [Dosis] + (Marca Comercial).
+                2. Si no identificas la marca, omite el paréntesis.
+                3. LIMPIA LOS NÚMEROS: usa formato decimal simple, elimina ceros innecesarios (ej. 80.0000 -> 80).
+                4. Coloca cada medicamento en una línea independiente.
                 
-                resp = llamar_ia_en_cascada(prompt_analisis)
-                glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
-                try:
-                    partes = resp.split("A continuación, se detallan los ajustes")
-                    sintesis, detalle = partes[0].strip(), "A continuación, se detallan los ajustes" + (partes[1] if len(partes)>1 else "")
-                    with placeholder_salida.container():
-                        st.markdown(f'<div class="synthesis-box {glow}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
-                        st.markdown(f"""<div class="blue-detail-container">{detalle.replace("\n", "<br>")}
-                        <br><br><span style="color:#2c5282;"><b>NOTA IMPORTANTE:</b></span><br>
-                        <b>3.1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</b><br>
-                        <b>3.2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</b><br>
-                        <b>3.3. La decisión final corresponde siempre al prescriptor médico.</b><br>
-                        <b>3.4. Considere la situación clínica global del paciente antes de modificar dosis.</b></div>""", unsafe_allow_html=True)
-                    st.session_state.soip_o = " | ".join(filter(None, [f"Edad: {int(calc_e)}" if calc_e else "", f"Peso: {calc_p}" if calc_p else "", f"Cr: {calc_c}" if calc_c else "", f"FG: {valor_fg}" if float(valor_fg or 0)>0 else ""]))
-                    st.session_state.soip_i = sintesis
-                    st.session_state.ic_info = detalle
-                    st.session_state.ic_motivo = f"Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente.\n\nLISTADO DETECTADO:\n{sintesis}"
-                except: st.error("Error en la estructura de respuesta.")
+                PASO 2: Analiza la adecuación del listado resultante según el FG: {valor_fg}.
+                
+                FORMATO OBLIGATORIO DE SALIDA:
+                - Título síntesis: Comienza directamente con 'Medicamentos afectados:' o 'Fármacos correctamente dosificados:'.
+                - Líneas de análisis: [Icono ⚠️ o ⛔] + [Nombre] + [Frase corta] + (Sigla fuente: AEMPS, FDA o EMA).
+                - Separa detalle con: 'A continuación, se detallan los ajustes:'.
+
+                Texto a procesar:
+                {txt_meds}
+                """
+                
+                resp = llamar_ia_en_cascada(prompt_combinado)
+                
+                if "⚠️ Error de API" not in resp:
+                    glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
+                    try:
+                        partes = resp.split("A continuación, se detallan los ajustes")
+                        sintesis, detalle = partes[0].strip(), "A continuación, se detallan los ajustes" + (partes[1] if len(partes)>1 else "")
+                        
+                        # --- ACTUALIZAR CUADRO DE TEXTO CON MEDICAMENTOS ESTRUCTURADOS Y LIMPIOS ---
+                        st.session_state.main_meds = sintesis.replace("Medicamentos afectados:", "").replace("Fármacos correctamente dosificados:", "").strip()
+                        
+                        with placeholder_salida.container():
+                            st.markdown(f'<div class="synthesis-box {glow}"><b>{sintesis.replace("\n", "<br>")}</b></div>', unsafe_allow_html=True)
+                            st.markdown(f"""<div class="blue-detail-container">{detalle.replace("\n", "<br>")}
+                            <br><br><span style="color:#2c5282;"><b>NOTA IMPORTANTE:</b></span><br>
+                            <b>3.1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</b><br>
+                            <b>3.2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</b><br>
+                            <b>3.3. La decisión final corresponde siempre al prescriptor médico.</b><br>
+                            <b>3.4. Considere la situación clínica global del paciente antes de modificar dosis.</b></div>""", unsafe_allow_html=True)
+                        
+                        st.session_state.soip_o = " | ".join(filter(None, [f"Edad: {int(calc_e)}" if calc_e else "", f"Peso: {calc_p}" if calc_p else "", f"Cr: {calc_c}" if calc_c else "", f"FG: {valor_fg}" if float(valor_fg or 0)>0 else ""]))
+                        st.session_state.soip_i = sintesis
+                        st.session_state.ic_info = detalle
+                        st.session_state.ic_motivo = f"Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente.\n\nLISTADO DETECTADO:\n{sintesis}"
+                    except: st.error("Error en la estructura de respuesta.")
+                else:
+                    st.error(resp)
 
 with tabs[1]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📄 Nota Evolutiva SOIP</div></div>', unsafe_allow_html=True)
@@ -390,4 +391,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 08:45</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 09:05</div>""", unsafe_allow_html=True)
