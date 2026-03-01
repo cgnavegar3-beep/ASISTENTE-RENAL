@@ -1,4 +1,4 @@
-# v. 01 mar 2026 18:35
+# v. 01 mar 2026 18:32
 
 import streamlit as st
 import pandas as pd
@@ -11,7 +11,10 @@ import os
 
 # =================================================================
 # PRINCIPIOS FUNDAMENTALES:
-# # ... (Mantener principios sin cambios)
+# 1. RIGOR TÉCNICO: La seguridad y precisión de los datos es la máxima prioridad.
+# 2. SEPARACIÓN DE BLOQUES: Los datos de la IA deben parsearse estrictamente usando |||.
+# 3. SEGURIDAD TÉCNICA: Se deben proteger los elementos clave contra cambios accidentales.
+# 4. NOTA IMPORTANTE: Se deben mostrar los 4 puntos de seguridad clínica obligatorios.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -114,6 +117,7 @@ def inject_styles():
     .header-capsule { background-color: #e2e8f0; color: #2d3748; padding: 10px 30px; border-radius: 50px; display: inline-block; font-weight: 800; font-size: 0.9rem; margin-bottom: 20px; }
     .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
     .fg-special-border { border: 1.5px solid #9d00ff !important; border-radius: 5px; }
+    .nota-importante-box { border-top: 2px dashed #0057b8; margin-top: 15px; padding-top: 10px; font-size: 0.8rem; color: #1a365d; }
     </style>
     """, unsafe_allow_html=True)
 inject_styles()
@@ -121,7 +125,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 01 mar 2026 18:35</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 01 mar 2026 18:32</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -219,8 +223,14 @@ with tabs[0]:
                 resp = llamar_ia_en_cascada(prompt_final)
                 
                 try:
-                    # PARSING DE 3 BLOQUES (Separación |||)
-                    partes = resp.split("|||")
+                    # --- CORRECCIÓN DE PARSING DE 3 BLOQUES ---
+                    # Eliminamos espacios en blanco extremos antes de separar
+                    partes = resp.strip().split("|||")
+                    
+                    if len(partes) < 3:
+                        # Si falla el parseo, lanzamos error para que no renderice cajas vacías
+                        raise ValueError("Estructura de bloques incorrecta.")
+                        
                     sintesis = partes[0].strip()
                     tabla_html = partes[1].strip()
                     detalle_completo = partes[2].strip()
@@ -228,8 +238,19 @@ with tabs[0]:
                     # --- APLICAR LÓGICA GLOW ---
                     if "⛔" in sintesis: glow = "glow-red"
                     elif "⚠️⚠️⚠️" in sintesis: glow = "glow-orange"
-                    elif "⚠️⚠️" in sintesis: glow = "glow-yellow" # Ajuste leve
+                    elif "⚠️⚠️" in sintesis: glow = "glow-yellow"
                     else: glow = "glow-green"
+                    
+                    # Contenido de la NOTA IMPORTANTE (Principios Fundamentales)
+                    nota_importante = """
+                    <div class="nota-importante-box">
+                        <b>⚠️ NOTA IMPORTANTE:</b><br>
+                        • 3.1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).<br>
+                        • 3.2. Los ajustes propuestos son orientativos según filtrado glomerular actual.<br>
+                        • 3.3. La decisión final corresponde siempre al prescriptor médico.<br>
+                        • 3.4. Considere la situación clínica global del paciente antes de modificar dosis.
+                    </div>
+                    """
                     
                     
 
@@ -241,13 +262,15 @@ with tabs[0]:
                         # 2. Contenedor Tabla Comparativa
                         st.markdown(f'<div class="table-container">{tabla_html}</div>', unsafe_allow_html=True)
                         
-                        # 3. Contenedor Detalle Clínico
-                        st.markdown(f'<div class="clinical-detail-container">{detalle_completo}</div>', unsafe_allow_html=True)
+                        # 3. Contenedor Detalle Clínico + Nota Importante
+                        st.markdown(f'<div class="clinical-detail-container">{detalle_completo}{nota_importante}</div>', unsafe_allow_html=True)
                         
                 except Exception as e:
-                    st.error(f"Error en la estructura AFR-V10 (asegurar |||): {e}")
+                    st.error(f"Error en la estructura AFR-V10: {e}")
+                    # Mostramos la respuesta para depurar si falla
+                    st.code(resp)
 
-# ... (Resto de pestañas sin cambios)
+# ... [MANTENER EL RESTO DE TABS Y ESTILOS IGUAL] ...
 with tabs[1]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📄 Nota Evolutiva SOIP</div></div>', unsafe_allow_html=True)
     for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
@@ -263,4 +286,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 18:35</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 18:32</div>""", unsafe_allow_html=True)
