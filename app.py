@@ -1,4 +1,4 @@
-# v. 01 mar 2026 20:30
+# v. 01 mar 2026 20:35
 
 import streamlit as st
 import pandas as pd
@@ -143,7 +143,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 01 mar 2026 20:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 01 mar 2026 20:35</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -170,17 +170,21 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            # AÑADIDO PLACEHOLDER EN CAMPOS DE CALCULADORA
-            calc_e = st.number_input("Edad (años)", value=st.session_state.calc_e if st.session_state.calc_e is not None else 0, step=1, key="calc_e_input", placeholder="Ej: 65")
-            calc_p = st.number_input("Peso (kg)", value=st.session_state.calc_p if st.session_state.calc_p is not None else 0.0, placeholder="Ej: 70.5", key="calc_p_input")
-            calc_c = st.number_input("Creatinina (mg/dL)", value=st.session_state.calc_c if st.session_state.calc_c is not None else 0.0, placeholder="Ej: 1.2", key="calc_c_input")
-            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=0 if st.session_state.calc_s == "Hombre" else (1 if st.session_state.calc_s == "Mujer" else None), placeholder="Elegir...", key="calc_s_input")
+            # AÑADIDO PLACEHOLDER Y VALUE POR DEFECTO PARA PLACEHOLDER
+            calc_e = st.number_input("Edad (años)", value=None, step=1, key="calc_e_input", placeholder="Ej: 65")
+            calc_p = st.number_input("Peso (kg)", value=None, placeholder="Ej: 70.5", key="calc_p_input")
+            calc_c = st.number_input("Creatinina (mg/dL)", value=None, placeholder="Ej: 1.2", key="calc_c_input")
+            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=None, placeholder="Elegir...", key="calc_s_input")
             
             st.session_state.calc_e = calc_e; st.session_state.calc_p = calc_p
             st.session_state.calc_c = calc_c; st.session_state.calc_s = calc_s
             
             st.markdown('<div class="formula-label" style="text-align:right;">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
-            fg = round(((140 - calc_e) * calc_p) / (72 * (calc_c if calc_c > 0 else 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e > 0 and calc_p > 0 and calc_c > 0 and calc_s else 0.0
+            # Manejo de None para evitar errores en la calculadora
+            if calc_e is not None and calc_p is not None and calc_c is not None and calc_s is not None:
+                fg = round(((140 - calc_e) * calc_p) / (72 * (calc_c if calc_c > 0 else 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1)
+            else:
+                fg = 0.0
 
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
@@ -304,4 +308,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 20:30</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 20:35</div>""", unsafe_allow_html=True)
