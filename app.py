@@ -1,4 +1,4 @@
-# v. 01 mar 2026 15:05
+# v. 01 mar 2026 15:10
 
 import streamlit as st
 import pandas as pd
@@ -33,13 +33,14 @@ st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_
 if "active_model" not in st.session_state:
     st.session_state.active_model = "BUSCANDO..."
 
-# INICIALIZACIÓN DE VARIABLES DE SESIÓN
-for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds", "reg_id", "reg_centro", "calc_e", "calc_p", "calc_c", "calc_s"]:
-    if key not in st.session_state:
-        if key == "soip_s": st.session_state[key] = "Revisión farmacoterapéutica según función renal."
-        elif key == "soip_p": st.session_state[key] = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
-        elif key == "ic_motivo": st.session_state[key] = "Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente."
-        else: st.session_state[key] = ""
+# INICIALIZACIÓN DE VARIABLES DE SESIÓN Y BLINDAJE DE DATOS
+for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "main_meds", "reg_id", "reg_centro"]:
+    if key not in st.session_state: st.session_state[key] = ""
+    
+# --- CORRECCIÓN: Inicialización segura para calculadora ---
+for key in ["calc_e", "calc_p", "calc_c", "calc_s"]:
+    if key not in st.session_state: st.session_state[key] = None
+# ---------------------------------------------------------
 
 # --- FUNCIONES DE SOPORTE ---
 def cargar_prompt_clinico():
@@ -79,9 +80,10 @@ def procesar_y_limpiar_meds():
         st.session_state.main_meds = llamar_ia_en_cascada(prompt)
 
 def reset_registro():
-    for key in ["reg_centro", "reg_res", "reg_id", "calc_e", "calc_p", "calc_c", "calc_s", "fgl_ckd", "fgl_mdrd"]:
+    for key in ["reg_centro", "reg_res", "reg_id", "fgl_ckd", "fgl_mdrd"]:
         st.session_state[key] = ""
-    st.session_state["reg_edad"] = None
+    for key in ["calc_e", "calc_p", "calc_c", "calc_s"]:
+        st.session_state[key] = None
 
 def reset_meds():
     st.session_state.main_meds = ""
@@ -131,7 +133,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 01 mar 2026 15:05</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 01 mar 2026 15:10</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -157,10 +159,17 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            calc_e = st.number_input("Edad (años)", value=st.session_state.get("calc_e", 0), step=1, key="calc_e", placeholder="0.0")
-            calc_p = st.number_input("Peso (kg)", value=st.session_state.get("calc_p", 0.0), placeholder="0.0", key="calc_p")
-            calc_c = st.number_input("Creatinina (mg/dL)", value=st.session_state.get("calc_c", 0.0), placeholder="0.0", key="calc_c")
-            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=0 if st.session_state.calc_s == "Hombre" else (1 if st.session_state.calc_s == "Mujer" else None), placeholder="Elegir...", key="calc_s")
+            # --- CORRECCIÓN DE BINDING DE SESIÓN ---
+            calc_e = st.number_input("Edad (años)", value=st.session_state.calc_e if st.session_state.calc_e is not None else 0, step=1, key="calc_e_input", placeholder="0.0")
+            calc_p = st.number_input("Peso (kg)", value=st.session_state.calc_p if st.session_state.calc_p is not None else 0.0, placeholder="0.0", key="calc_p_input")
+            calc_c = st.number_input("Creatinina (mg/dL)", value=st.session_state.calc_c if st.session_state.calc_c is not None else 0.0, placeholder="0.0", key="calc_c_input")
+            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=0 if st.session_state.calc_s == "Hombre" else (1 if st.session_state.calc_s == "Mujer" else None), placeholder="Elegir...", key="calc_s_input")
+            
+            # Actualizar session_state
+            st.session_state.calc_e = calc_e; st.session_state.calc_p = calc_p
+            st.session_state.calc_c = calc_c; st.session_state.calc_s = calc_s
+            # ---------------------------------------
+            
             st.markdown('<div class="formula-label" style="text-align:right;">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
             fg = round(((140 - calc_e) * calc_p) / (72 * (calc_c if calc_c > 0 else 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if calc_e > 0 and calc_p > 0 and calc_c > 0 and calc_s else 0.0
 
@@ -204,7 +213,6 @@ with tabs[0]:
         else:
             placeholder_salida = st.empty()
             with st.spinner("Procesando análisis clínico..."):
-                # --- AQUÍ ESTÁ EL CAMBIO TÉCNICO DE INTEGRACIÓN DE DATOS ---
                 prompt_base = cargar_prompt_clinico()
                 datos_paciente = f"""
                 DATOS DEL PACIENTE PARA LA AUDITORÍA:
@@ -215,7 +223,6 @@ with tabs[0]:
                 - Sexo: {calc_s}
                 """
                 prompt_final = datos_paciente + "\n" + prompt_base + "\nLISTA DE MEDICAMENTOS:\n" + txt_meds
-                # ----------------------------------------------------------
                 
                 resp = llamar_ia_en_cascada(prompt_final)
                 glow = "glow-red" if "⛔" in resp else ("glow-orange" if "⚠️" in resp else "glow-green")
@@ -254,4 +261,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 15:05</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 15:10</div>""", unsafe_allow_html=True)
