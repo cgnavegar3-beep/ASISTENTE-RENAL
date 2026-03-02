@@ -1,7 +1,7 @@
-# v. 02 mar 2026 17:50 (Estructura Modular + Corrección sintaxis)
+# v. 02 mar 2026 17:55 (Estructura Modular + Ejemplos Formato)
 __all__ = ["PROMPT_AFR_V10", "PROMPT_VERSION"]
 
-PROMPT_VERSION = "AFR-V10_Modular_Final_02mar2026_1750"
+PROMPT_VERSION = "AFR-V10_Modular_Final_02mar2026_1755"
 
 # ==============================
 # BLOQUES BASE (Integridad absoluta)
@@ -52,13 +52,11 @@ BLOQUE 1: ALERTAS Y AJUSTES
 
 🔍 Medicamentos afectados (FG Cockcroft-Gault: [valor] mL/min)
 
-Formato obligatorio de cada línea:
-[ICONO] Medicamento — Categoría clínica DE LA CATEGORIZACION— "frase literal de ficha técnica sobre restricción renal" (Fuente)
-
-
 Reglas:
 • Mostrar SOLO medicamentos afectados
-• Cada medicamento DEBE iniciar en una línea nueva, identificada por el icono.
+• Cada medicamento DEBE iniciar en una línea nueva.
+• Formato estricto por línea: [ICONO] Medicamento — Categoría clínica DE LA CATEGORIZACION— "frase literal de ficha técnica sobre restricción renal" (Fuente)
+• EJEMPLO DE LINEA:⚠️⚠️⚠️ Ciprofloxacino — Requiere ajuste por riesgo de toxicidad — "Aclaramiento de creatinina < 30: 500 mg cada 24 h" (AEMPS)
 • NO mostrar medicamentos seguros
 • NO incluir marcas comerciales
 • NO incluir grupos terapéuticos
@@ -80,17 +78,17 @@ BLOQUE 3: INFORMACIÓN CLÍNICA
 
 A continuación se detallan los ajustes:
 
-[ICONO] Principio Activo: [Justificación literal de ficha técnica] (Fuente)
-
 Reglas:
-• Cada medicamento DEBE iniciar en una línea nueva, identificada por el icono.
+• Cada medicamento DEBE iniciar en una línea nueva.
+• Formato estricto por línea: [ICONO] Principio Activo: [Justificación literal de ficha técnica] (Fuente)
+• EJEMPLO DE LINEA:⚠️⚠️⚠️ Ciprofloxacino: Se recomienda ajustar la dosis en pacientes con insuficiencia renal. Para FG < 30 ml/min, dosis 500 mg cada 24 h (AEMPS)
 • NO inventar información, solo datos de ficha técnica
 • Mantener iconos y categorías definidos
 
 ⚠️ NOTA IMPORTANTE:
 • 3.1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).
 • 3.2. Los ajustes propuestos son orientativos según filtrado glomerular actual.
-• 3.3. The decisión final corresponde siempre al prescriptor médico.
+• 3.3. La decisión final corresponde siempre al prescriptor médico.
 • 3.4. Considere la situación clínica global del paciente antes de modificar dosis.
 
 |||
