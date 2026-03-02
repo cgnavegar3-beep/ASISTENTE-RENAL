@@ -1,4 +1,4 @@
-# v. 02 mar 2026 14:12 (Versión Final Funcional)
+# v. 02 mar 2026 18:30 (Estructura Funcional + Corrección CSS renderizado)
 
 import streamlit as st
 import pandas as pd
@@ -97,14 +97,14 @@ def inject_styles():
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
     .unit-label { font-size: 0.65rem; color: #888; margin-top: -10px; margin-bottom: 5px; font-family: sans-serif; text-align: center; }
     
-    .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; }
+    .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; white-space: pre-line; }
     .glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; box-shadow: 0 0 12px #feb2b2; }
     .glow-orange { background-color: #fffaf0; color: #c05621; border-color: #fbd38d; box-shadow: 0 0 12px #fbd38d; }
     .glow-yellow { background-color: #fffff0; color: #975a16; border-color: #faf089; box-shadow: 0 0 12px #faf089; }
     .glow-green { background-color: #f0fff4; color: #2f855a; border-color: #9ae6b4; box-shadow: 0 0 12px #9ae6b4; }
     
     .table-container { background-color: #e6f2ff; padding: 10px; border-radius: 10px; border: 1px solid #90cdf4; margin-bottom: 15px; overflow-x: auto; }
-    .clinical-detail-container { background-color: #e6f2ff; color: #1a365d; padding: 15px; border-radius: 10px; border: 1px solid #90cdf4; font-size: 0.9rem; }
+    .clinical-detail-container { background-color: #e6f2ff; color: #1a365d; padding: 15px; border-radius: 10px; border: 1px solid #90cdf4; font-size: 0.9rem; white-space: pre-line; }
     
     .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
@@ -119,7 +119,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 02 mar 2026 14:12</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 02 mar 2026 18:30</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -145,7 +145,6 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            # PLACEHOLDERS IMPLEMENTADOS
             calc_e = st.number_input("Edad (años)", value=st.session_state.calc_e if st.session_state.calc_e is not None else None, step=1, key="calc_e_input", placeholder="Ej: 65")
             calc_p = st.number_input("Peso (kg)", value=st.session_state.calc_p if st.session_state.calc_p is not None else None, placeholder="Ej: 70.5", key="calc_p_input")
             calc_c = st.number_input("Creatinina (mg/dL)", value=st.session_state.calc_c if st.session_state.calc_c is not None else None, placeholder="Ej: 1.2", key="calc_c_input")
@@ -168,17 +167,14 @@ with tabs[0]:
         st.markdown('<div class="formula-label">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
         st.write(""); l1, l2 = st.columns(2)
         
-        # ORDEN DE CUADROS CORREGIDO
         with l1:
             st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
-            # MDRD-4 A LA IZQUIERDA
             val_mdrd = st.number_input("FG MDRD-4 IDMS", value=None, placeholder="MDRD-4", label_visibility="collapsed", key="fgl_mdrd")
             st.markdown('</div>', unsafe_allow_html=True)
             if val_mdrd is not None: st.markdown(f'<div class="unit-label">{val_mdrd} mL/min/1,73m²</div>', unsafe_allow_html=True)
             
         with l2:
             st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
-            # CKD-EPI A LA DERECHA
             val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
             st.markdown('</div>', unsafe_allow_html=True)
             if val_ckd is not None: st.markdown(f'<div class="unit-label">{val_ckd} mL/min/1,73m²</div>', unsafe_allow_html=True)
@@ -204,9 +200,8 @@ with tabs[0]:
             st.error("Por favor, introduce al menos un medicamento.")
         else:
             placeholder_salida = st.empty()
-            with st.spinner("Procesando análisis clínico..."): # SPINNER DISCRETO
+            with st.spinner("Procesando análisis clínico..."):
                 
-                # --- USO DE CONSTANTE OPTIMIZADA ---
                 prompt_final = f"""
                 {c.PROMPT_AFR_V10}
                 
@@ -286,4 +281,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 02 mar 2026 14:12</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 02 mar 2026 18:30</div>""", unsafe_allow_html=True)
