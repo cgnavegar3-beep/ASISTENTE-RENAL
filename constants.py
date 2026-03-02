@@ -1,7 +1,7 @@
-# v. 02 mar 2026 18:05 (Estructura Modular + Corrección sintaxis raw string)
+# v. 02 mar 2026 18:15 (Estructura Modular + Corrección sintaxis raw string)
 __all__ = ["PROMPT_AFR_V10", "PROMPT_VERSION"]
 
-PROMPT_VERSION = "AFR-V10_Modular_Final_02mar2026_1805"
+PROMPT_VERSION = "AFR-V10_Modular_Final_02mar2026_1815"
 
 # ==============================
 # BLOQUES BASE (Integridad absoluta)
@@ -52,16 +52,26 @@ BLOQUE 1: ALERTAS Y AJUSTES
 
 🔍 Medicamentos afectados (FG Cockcroft-Gault: [valor] mL/min):
 
-Formato obligatorio:
-• Cada medicamento en **línea separada**.
-• Cada línea debe iniciar con su **icono correspondiente**.
-• Mostrar solo fármacos afectados por FG.
-• Mantener categoría clínica exacta y frase literal de ficha técnica.
-• **Ejemplo de línea**:
-⚠️⚠️⚠️ Ciprofloxacino — Requiere ajuste por riesgo de toxicidad — "Aclaramiento de creatinina < 30: 500 mg cada 24 h" (AEMPS)
+FORMATO ESTRUCTURAL OBLIGATORIO:
 
-Reglas:
-• NO combinar fármacos en la misma línea
+• Cada medicamento debe aparecer en una LÍNEA INDEPENDIENTE.
+• Cada línea debe comenzar obligatoriamente con su icono correspondiente.
+• Está PROHIBIDO concatenar medicamentos en una misma línea.
+• Está PROHIBIDO usar "\n" literal.
+• Solo usar saltos de línea reales.
+• No usar comas, puntos y seguido ni espacios para separar medicamentos.
+• Cada línea es un registro independiente.
+
+Formato exacto de cada línea:
+[ICONO] Medicamento — Categoría clínica — "Frase literal de ficha técnica sobre restricción renal" (Fuente)
+
+Ejemplo correcto:
+
+⚠️⚠️⚠️ Ciprofloxacino — Requiere ajuste por riesgo de toxicidad — "Aclaramiento de creatinina < 30: 500 mg cada 24 h" (AEMPS)
+⚠️⚠️ Furosemida — Requiere ajuste de dosis o intervalo — "En insuficiencia renal grave, la dosis inicial no debe exceder 20 mg/día" (AEMPS)
+
+REGLAS:
+• Mostrar SOLO medicamentos afectados
 • NO mostrar medicamentos seguros
 • NO incluir marcas comerciales
 • NO incluir grupos terapéuticos
@@ -72,18 +82,18 @@ BLOQUE 2: TABLA COMPARATIVA
 
 Mostrar tabla HTML EXACTA (un fármaco por fila, solo afectados):
 
-<table style="width:100%; border-collapse: collapse; font-size: 0.8rem;">
-<tr style="background-color: #0057b8; color: white;">
+<table style="width:100%; border-collapse: collapse; font-size: 0.8rem;"> 
+<tr style="background-color: #0057b8; color: white;"> 
 <th>Icono</th><th>Fármaco</th><th>Grupo Terapéutico</th><th>Cockcroft FG</th>
 <th>Cockcroft Categoría</th><th>Cockcroft Riesgo</th><th>CKD-EPI FG</th>
 <th>CKD-EPI Categoría</th><th>CKD-EPI Riesgo</th><th>MDRD-4 FG</th>
-<th>MDRD-4 Categoría</th><th>MDRD-4 Riesgo</th>
-</tr>
-<tr>
+<th>MDRD-4 Categoría</th><th>MDRD-4 Riesgo</th> 
+</tr> 
+<tr> 
 <td>[ICONO]</td><td>[Principio Activo]</td><td>[Código ATC + nombre]</td>
 <td>[Valor FG C-G]</td><td>[Categoría clínica]</td><td>[Nivel de riesgo]</td>
 <td>[Valor CKD-EPI]</td><td>[Categoría CKD-EPI]</td><td>[Nivel de riesgo]</td>
-<td>[Valor MDRD-4]</td><td>[Categoría MDRD-4]</td><td>[Nivel de riesgo]</td>
+<td>[Valor MDRD-4]</td><td>[Categoría MDRD-4]</td><td>[Nivel de riesgo]</td> 
 </tr> </table>
 
 Reglas:
@@ -95,13 +105,22 @@ BLOQUE 3: INFORMACIÓN CLÍNICA
 
 A continuación se detallan los ajustes:
 
-Formato obligatorio:
-• Cada fármaco debe terminar con un salto de línea explícito (\n) antes de iniciar el siguiente icono.
-• Cada línea debe iniciar con su **icono correspondiente**.
-• Incluir nombre del principio activo y frase literal de ficha técnica.
-• NO combinar fármacos ni añadir texto adicional.
-• **Ejemplo de línea**:
-⚠️⚠️⚠️ Ciprofloxacino: Se recomienda ajustar la dosis en pacientes con insuficiencia renal. Para FG < 30 ml/min, dosis 500 mg cada 24 h (AEMPS)\n
+FORMATO ESTRUCTURAL OBLIGATORIO:
+
+• Cada medicamento debe aparecer en una LÍNEA INDEPENDIENTE.
+• Cada línea debe comenzar obligatoriamente con su icono correspondiente.
+• Está PROHIBIDO concatenar medicamentos en la misma línea.
+• No usar "\n" literal.
+• No añadir texto adicional entre medicamentos.
+
+Formato exacto de cada línea:
+[ICONO] Principio Activo: [Justificación literal de ficha técnica] (Fuente)
+
+Ejemplo correcto:
+
+⚠️⚠️⚠️ Metamizol: En pacientes con insuficiencia renal o hepática se debe evitar la administración de dosis elevadas repetidas. (AEMPS)
+⚠️⚠️ Enalapril: En pacientes con insuficiencia renal la dosis inicial debe ajustarse según aclaramiento de creatinina. (AEMPS)
+
 
 |||
 
