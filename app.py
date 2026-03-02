@@ -1,4 +1,4 @@
-# v. 02 mar 2026 19:35 (Corrección de lectura de API Key en Secrets)
+# v. 02 mar 2026 19:40 (Validación estructura API Key)
 
 import streamlit as st
 import pandas as pd
@@ -10,7 +10,7 @@ import re
 import os
 import constants as c # Mantiene la integridad del prompt central
 
-# ... [Style inject_styles igual que antes] ...
+# --- CONFIGURACIÓN Y ESTILOS ---
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
 # --- INICIALIZACIÓN DE SESIÓN (CORRECCIÓN DE ERROR) ---
@@ -32,23 +32,21 @@ if 'ic_info' not in st.session_state: st.session_state.ic_info = ""
 
 # --- FUNCIONES DE SOPORTE ---
 def llamar_ia_en_cascada(prompt):
-    # --- CORRECCIÓN AQUÍ PARA LEER DE SECRETS ---
+    # --- LECTURA DE SECRETS ---
     API_KEY = st.secrets.get("GOOGLE_API_KEY") 
+    if API_KEY: genai.configure(api_key=API_KEY)
     
-    if not API_KEY: return "⚠️ Error: API Key no configurada."
-    
-    genai.configure(api_key=API_KEY)
-    
-    disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+    # --- ESTRUCTURA EXACTA SOLICITADA ---
+    disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods] if API_KEY else ["2.5-flash"]
     orden = ['2.5-flash', 'flash-latest', '1.5-pro']
     for mod_name in orden:
         if mod_name in disponibles:
             try:
                 st.session_state.active_model = mod_name.upper()
                 model = genai.GenerativeModel(f'models/gemini-{mod_name}')
-                return model.generate_content(prompt, generation_config={"temperature": 0.1}).text
+                return model.generate_content(prompt).text
             except: continue
-    return "⚠️ Error en la generación."
+    return "⚠️ Error."
 
 # --- NUEVA FUNCIÓN: ORDENAMIENTO CLÍNICO ---
 def ordenar_medicamentos_por_riesgo(bloque_texto):
@@ -135,7 +133,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 02 mar 2026 19:35</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 02 mar 2026 19:40</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -304,4 +302,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 02 mar 2026 19:35</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 02 mar 2026 19:40</div>""", unsafe_allow_html=True)
