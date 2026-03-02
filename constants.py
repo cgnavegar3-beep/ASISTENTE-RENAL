@@ -106,11 +106,6 @@ Ejemplo correcto:
 ⚠️⚠️⚠️ Metamizol: En pacientes con insuficiencia renal o hepática se debe evitar la administración de dosis elevadas repetidas. (AEMPS)
 ⚠️⚠️ Enalapril: En pacientes con insuficiencia renal la dosis inicial debe ajustarse según aclaramiento de creatinina. (AEMps)
 
-⚠️ NOTA IMPORTANTE:
-• Verifique siempre con la ficha técnica oficial (AEMPS/EMA).
-• Los ajustes propuestos son orientativos según FG actual.
-• La decisión final corresponde siempre al prescriptor médico.
-• Considere la situación clínica global del paciente antes de modificar dosis.
 
 |||
 
