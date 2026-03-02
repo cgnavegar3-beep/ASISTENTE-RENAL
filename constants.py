@@ -1,7 +1,7 @@
-# v. 02 mar 2026 17:55 (Estructura Modular + Ejemplos Formato)
+# v. 02 mar 2026 17:58 (Estructura Propuesta por Usuario)
 __all__ = ["PROMPT_AFR_V10", "PROMPT_VERSION"]
 
-PROMPT_VERSION = "AFR-V10_Modular_Final_02mar2026_1755"
+PROMPT_VERSION = "AFR-V10_Modular_Final_02mar2026_1758"
 
 # ==============================
 # BLOQUES BASE (Integridad absoluta)
@@ -44,19 +44,24 @@ SALIDA_REGLAS = """
 ---------------------------------------------------------------------
 SALIDA OBLIGATORIA
 
-Generar EXACTAMENTE TRES BLOQUES, separados como se indica:
+Generar EXACTAMENTE TRES BLOQUES, separados por '|||'.
 
 |||
 
 BLOQUE 1: ALERTAS Y AJUSTES
 
-🔍 Medicamentos afectados (FG Cockcroft-Gault: [valor] mL/min)
+🔍 Medicamentos afectados (FG Cockcroft-Gault: [valor] mL/min):
+
+Formato obligatorio:
+• Cada medicamento en **línea separada**.
+• Cada línea debe iniciar con su **icono correspondiente**.
+• Mostrar solo fármacos afectados por FG.
+• Mantener categoría clínica exacta y frase literal de ficha técnica.
+• **Ejemplo de línea**:
+⚠️⚠️⚠️ Ciprofloxacino — Requiere ajuste por riesgo de toxicidad — "Aclaramiento de creatinina < 30: 500 mg cada 24 h" (AEMPS)
 
 Reglas:
-• Mostrar SOLO medicamentos afectados
-• Cada medicamento DEBE iniciar en una línea nueva.
-• Formato estricto por línea: [ICONO] Medicamento — Categoría clínica DE LA CATEGORIZACION— "frase literal de ficha técnica sobre restricción renal" (Fuente)
-• EJEMPLO DE LINEA:⚠️⚠️⚠️ Ciprofloxacino — Requiere ajuste por riesgo de toxicidad — "Aclaramiento de creatinina < 30: 500 mg cada 24 h" (AEMPS)
+• NO combinar fármacos en la misma línea
 • NO mostrar medicamentos seguros
 • NO incluir marcas comerciales
 • NO incluir grupos terapéuticos
@@ -67,7 +72,19 @@ BLOQUE 2: TABLA COMPARATIVA
 
 Mostrar tabla HTML EXACTA (un fármaco por fila, solo afectados):
 
-<table style="width:100%; border-collapse: collapse; font-size: 0.8rem;"> <tr style="background-color: #0057b8; color: white;"> <th>Icono</th><th>Fármaco</th><th>Grupo Terapéutico</th><th>Cockcroft FG</th><th>Cockcroft Categoría</th><th>Cockcroft Riesgo</th><th>CKD-EPI FG</th><th>CKD-EPI Categoría</th><th>CKD-EPI Riesgo</th><th>MDRD-4 FG</th><th>MDRD-4 Categoría</th><th>MDRD-4 Riesgo</th> </tr> <tr> <td>[ICONO]</td><td>[Principio Activo]</td><td>[Código ATC + nombre]</td><td>[Valor FG C-G]</td><td>[Categoría clínica]</td><td>[Nivel de riesgo]</td><td>[Valor CKD-EPI]</td><td>[Categoría CKD-EPI]</td><td>[Nivel de riesgo]</td><td>[Valor MDRD-4]</td><td>[Categoría MDRD-4]</td><td>[Nivel de riesgo]</td> </tr> </table>
+<table style="width:100%; border-collapse: collapse; font-size: 0.8rem;"> 
+<tr style="background-color: #0057b8; color: white;"> 
+<th>Icono</th><th>Fármaco</th><th>Grupo Terapéutico</th><th>Cockcroft FG</th>
+<th>Cockcroft Categoría</th><th>Cockcroft Riesgo</th><th>CKD-EPI FG</th>
+<th>CKD-EPI Categoría</th><th>CKD-EPI Riesgo</th><th>MDRD-4 FG</th>
+<th>MDRD-4 Categoría</th><th>MDRD-4 Riesgo</th> 
+</tr> 
+<tr> 
+<td>[ICONO]</td><td>[Principio Activo]</td><td>[Código ATC + nombre]</td>
+<td>[Valor FG C-G]</td><td>[Categoría clínica]</td><td>[Nivel de riesgo]</td>
+<td>[Valor CKD-EPI]</td><td>[Categoría CKD-EPI]</td><td>[Nivel de riesgo]</td>
+<td>[Valor MDRD-4]</td><td>[Categoría MDRD-4]</td><td>[Nivel de riesgo]</td> 
+</tr> </table>
 
 Reglas:
 se rellena según la tablas de categorización
@@ -78,18 +95,19 @@ BLOQUE 3: INFORMACIÓN CLÍNICA
 
 A continuación se detallan los ajustes:
 
-Reglas:
-• Cada medicamento DEBE iniciar en una línea nueva.
-• Formato estricto por línea: [ICONO] Principio Activo: [Justificación literal de ficha técnica] (Fuente)
-• EJEMPLO DE LINEA:⚠️⚠️⚠️ Ciprofloxacino: Se recomienda ajustar la dosis en pacientes con insuficiencia renal. Para FG < 30 ml/min, dosis 500 mg cada 24 h (AEMPS)
-• NO inventar información, solo datos de ficha técnica
-• Mantener iconos y categorías definidos
+Formato obligatorio:
+• Cada fármaco en **línea separada**.
+• Cada línea debe iniciar con su **icono correspondiente**.
+• Incluir nombre del principio activo y frase literal de ficha técnica.
+• NO combinar fármacos ni añadir texto adicional.
+• **Ejemplo de línea**:
+⚠️⚠️⚠️ Ciprofloxacino: Se recomienda ajustar la dosis en pacientes con insuficiencia renal. Para FG < 30 ml/min, dosis 500 mg cada 24 h (AEMPS)
 
 ⚠️ NOTA IMPORTANTE:
-• 3.1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).
-• 3.2. Los ajustes propuestos son orientativos según filtrado glomerular actual.
-• 3.3. La decisión final corresponde siempre al prescriptor médico.
-• 3.4. Considere la situación clínica global del paciente antes de modificar dosis.
+• Verifique siempre con la ficha técnica oficial (AEMPS/EMA).
+• Los ajustes propuestos son orientativos según FG actual.
+• La decisión final corresponde siempre al prescriptor médico.
+• Considere la situación clínica global del paciente antes de modificar dosis.
 
 |||
 
