@@ -1,4 +1,4 @@
-# v. 02 mar 2026 19:35 (Corrección de error de sesión)
+# v. 02 mar 2026 19:35 (Corrección de lectura de API Key en Secrets)
 
 import streamlit as st
 import pandas as pd
@@ -32,7 +32,9 @@ if 'ic_info' not in st.session_state: st.session_state.ic_info = ""
 
 # --- FUNCIONES DE SOPORTE ---
 def llamar_ia_en_cascada(prompt):
-    API_KEY = os.environ.get("GOOGLE_API_KEY")
+    # --- CORRECCIÓN AQUÍ PARA LEER DE SECRETS ---
+    API_KEY = st.secrets.get("GOOGLE_API_KEY") 
+    
     if not API_KEY: return "⚠️ Error: API Key no configurada."
     
     genai.configure(api_key=API_KEY)
