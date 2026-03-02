@@ -37,7 +37,7 @@ Generar EXACTAMENTE TRES BLOQUES, separados como se indica:
 
 BLOQUE 1: ALERTAS Y AJUSTES
 
-🔍 Medicamentos afectados (FG Cockcroft-Gault: [valor] mL/min):
+🔍 Medicamentos afectados (FG Cockcroft-Gault: [valor] mL/min)
 
 Formato obligatorio de cada línea:
 [ICONO] Medicamento — Categoría clínica DE LA CATEGORIZACION— "frase literal de ficha técnica sobre restricción renal" (Fuente)
@@ -45,11 +45,10 @@ Formato obligatorio de cada línea:
 
 Reglas:
 • Mostrar SOLO medicamentos afectados
-• Cada medicamento en una línea separada. ESTO ES OBLIGATORIO
+• Cada medicamento DEBE iniciar en una línea nueva, identificada por el icono.
 • NO mostrar medicamentos seguros
 • NO incluir marcas comerciales
 • NO incluir grupos terapéuticos
-
 
 |||
 
@@ -71,14 +70,14 @@ A continuación se detallan los ajustes:
 [ICONO] Principio Activo: [Justificación literal de ficha técnica] (Fuente)
 
 Reglas:
-• UN fármaco por línea. ESTO ES OBLIGATORIO
+• Cada medicamento DEBE iniciar en una línea nueva, identificada por el icono.
 • NO inventar información, solo datos de ficha técnica
 • Mantener iconos y categorías definidos
 
 ⚠️ NOTA IMPORTANTE:
 • 3.1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).
 • 3.2. Los ajustes propuestos son orientativos según filtrado glomerular actual.
-• 3.3. La decisión final corresponde siempre al prescriptor médico.
+• 3.3. The decisión final corresponde siempre al prescriptor médico.
 • 3.4. Considere la situación clínica global del paciente antes de modificar dosis.
 
 |||
@@ -89,3 +88,4 @@ NO añadir texto fuera de los bloques
 NO cambiar formato
 NO cambiar iconos
 NO añadir explicaciones adicionales
+RESPETAR LAS REGLAS DE LOS BLOQUES
