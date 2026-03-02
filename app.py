@@ -1,4 +1,4 @@
-# v. 01 mar 2026 21:20
+ # v. 01 mar 2026 21:20 (Modificado para optimización)
 
 import streamlit as st
 import pandas as pd
@@ -8,6 +8,7 @@ import google.generativeai as genai
 import random
 import re
 import os
+import constants as c # IMPORTACIÓN OPTIMIZADA
 
 # =================================================================
 # PRINCIPIOS FUNDAMENTALES:
@@ -50,12 +51,7 @@ def llamar_ia_en_cascada(prompt):
             except: continue
     return "⚠️ Error en la generación."
 
-def cargar_prompt_clinico():
-    try:
-        with open(os.path.join("prompts", "categorizador.txt"), "r", encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError:
-        return "Error: No se encontró el archivo de prompt."
+# Función cargar_prompt_clinico() eliminada para optimizar latencia.
 
 def procesar_y_limpiar_meds():
     texto = st.session_state.main_meds
@@ -117,10 +113,10 @@ def inject_styles():
     
     /* Contenedores nuevos - FONDO AZUL */
     .table-container { 
-        background-color: #e6f2ff; /* Azul igual al bloque 3 */
+        background-color: #e6f2ff;
         padding: 10px; 
         border-radius: 10px; 
-        border: 1px solid #90cdf4; /* Borde azul claro */
+        border: 1px solid #90cdf4; 
         margin-bottom: 15px; 
         overflow-x: auto; 
     }
@@ -228,12 +224,9 @@ with tabs[0]:
             placeholder_salida = st.empty()
             with st.spinner("Procesando análisis clínico con AFR-V10..."):
                 
-                # CARGAR EL PROMPT DEFINITIVO (AFR-V10)
-                prompt_base = cargar_prompt_clinico()
-                
-                # CONECTAR DATOS DE LA UI AL PROMPT
+                # --- USO DE CONSTANTE OPTIMIZADA ---
                 prompt_final = f"""
-                {prompt_base}
+                {c.PROMPT_AFR_V10}
                 
                 DATOS DEL PACIENTE:
                 - FG Cockcroft-Gault: {valor_fg} mL/min
@@ -288,10 +281,8 @@ with tabs[0]:
                         st.markdown(f'<div class="clinical-detail-container">{detalle_completo}{nota_importante}</div>', unsafe_allow_html=True)
                         
                     # --- AUTO-RELLENADO SOIP/INTERCONSULTA (RESTAURACIÓN) ---
-                    # Corregido SOIP S
                     st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
                     
-                    # 1. Corregido SOIP O: Solo datos numéricos
                     datos_calc = []
                     if calc_e: datos_calc.append(f"Edad: {calc_e} años")
                     if calc_p: datos_calc.append(f"Peso: {calc_p} kg")
@@ -299,14 +290,8 @@ with tabs[0]:
                     if valor_fg: datos_calc.append(f"FG (C-G): {valor_fg} mL/min")
                     
                     st.session_state.soip_o = "\n".join(datos_calc)
-                    
-                    # 2. Rellenar Interpretación (I) con síntesis técnica (Bloque 1)
                     st.session_state.soip_i = sintesis
-                    
-                    # Corregido SOIP P: Añadir texto fijo
                     st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
-                    
-                    # 3. Corregido IC Motivo y IC Info
                     st.session_state.ic_motivo = "Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente."
                     
                     st.session_state.ic_info = (
