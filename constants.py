@@ -103,12 +103,6 @@ Formato obligatorio:
 • **Ejemplo de línea**:
 ⚠️⚠️⚠️ Ciprofloxacino: Se recomienda ajustar la dosis en pacientes con insuficiencia renal. Para FG < 30 ml/min, dosis 500 mg cada 24 h (AEMPS)\n
 
-⚠️ NOTA IMPORTANTE:
-• Verifique siempre con la ficha técnica oficial (AEMPS/EMA).
-• Los ajustes propuestos son orientativos según FG actual.
-• La decisión final corresponde siempre al prescriptor médico.
-• Considere la situación clínica global del paciente antes de modificar dosis.
-
 |||
 
 REGLAS ABSOLUTAS
