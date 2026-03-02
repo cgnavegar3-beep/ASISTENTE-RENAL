@@ -1,4 +1,4 @@
-# v. 02 mar 2026 19:15 (Implementación Ordenamiento Clínico por Backend)
+# v. 02 mar 2026 19:35 (Corrección de error de sesión)
 
 import streamlit as st
 import pandas as pd
@@ -13,11 +13,30 @@ import constants as c # Mantiene la integridad del prompt central
 # ... [Style inject_styles igual que antes] ...
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
-# ... [Inicialización igual que antes] ...
+# --- INICIALIZACIÓN DE SESIÓN (CORRECCIÓN DE ERROR) ---
+if 'active_model' not in st.session_state: st.session_state.active_model = "---"
+if 'reg_centro' not in st.session_state: st.session_state.reg_centro = ""
+if 'reg_res' not in st.session_state: st.session_state.reg_res = None
+if 'reg_id' not in st.session_state: st.session_state.reg_id = ""
+if 'calc_e' not in st.session_state: st.session_state.calc_e = None
+if 'calc_p' not in st.session_state: st.session_state.calc_p = None
+if 'calc_c' not in st.session_state: st.session_state.calc_c = None
+if 'calc_s' not in st.session_state: st.session_state.calc_s = None
+if 'main_meds' not in st.session_state: st.session_state.main_meds = ""
+if 'soip_s' not in st.session_state: st.session_state.soip_s = ""
+if 'soip_o' not in st.session_state: st.session_state.soip_o = ""
+if 'soip_i' not in st.session_state: st.session_state.soip_i = ""
+if 'soip_p' not in st.session_state: st.session_state.soip_p = ""
+if 'ic_motivo' not in st.session_state: st.session_state.ic_motivo = ""
+if 'ic_info' not in st.session_state: st.session_state.ic_info = ""
 
 # --- FUNCIONES DE SOPORTE ---
 def llamar_ia_en_cascada(prompt):
+    API_KEY = os.environ.get("GOOGLE_API_KEY")
     if not API_KEY: return "⚠️ Error: API Key no configurada."
+    
+    genai.configure(api_key=API_KEY)
+    
     disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
     orden = ['2.5-flash', 'flash-latest', '1.5-pro']
     for mod_name in orden:
@@ -32,6 +51,7 @@ def llamar_ia_en_cascada(prompt):
 # --- NUEVA FUNCIÓN: ORDENAMIENTO CLÍNICO ---
 def ordenar_medicamentos_por_riesgo(bloque_texto):
     """Ordena las líneas del bloque según el icono de riesgo."""
+    if not bloque_texto: return ""
     lineas = bloque_texto.strip().split('\n')
     
     # Asignación de pesos según la jerarquía clínica
@@ -53,7 +73,29 @@ def ordenar_medicamentos_por_riesgo(bloque_texto):
     lineas_ordenadas = sorted(lineas, key=obtener_peso, reverse=True)
     return "\n".join(lineas_ordenadas)
 
-# ... [Funciones reset_registro, reset_meds, verificar_datos_completos iguales] ...
+# --- FUNCIONES DE UI Y LÓGICA ---
+def reset_registro():
+    st.session_state.reg_centro = ""
+    st.session_state.reg_res = None
+    st.session_state.reg_id = ""
+    st.session_state.calc_e = None
+    st.session_state.calc_p = None
+    st.session_state.calc_c = None
+    st.session_state.calc_s = None
+
+def reset_meds():
+    st.session_state.main_meds = ""
+
+def verificar_datos_completos():
+    faltantes = []
+    if not st.session_state.calc_e: faltantes.append("Edad")
+    if not st.session_state.calc_p: faltantes.append("Peso")
+    if not st.session_state.calc_c: faltantes.append("Creatinina")
+    if not st.session_state.calc_s: faltantes.append("Sexo")
+    return faltantes
+
+def procesar_y_limpiar_meds():
+    pass
 
 # --- UI STYLE ---
 def inject_styles():
@@ -91,12 +133,11 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 02 mar 2026 19:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 02 mar 2026 19:35</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
 with tabs[0]:
-    # ... [Registro Paciente y Calculadora igual] ...
     st.markdown("### Registro de Paciente")
     c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1.5, 0.4])
     def on_centro_change():
@@ -175,13 +216,18 @@ with tabs[0]:
             placeholder_salida = st.empty()
             with st.spinner("Procesando análisis clínico..."):
                 
+                try: val_mdrd_prompt = val_mdrd if val_mdrd else "N/A"
+                except: val_mdrd_prompt = "N/A"
+                try: val_ckd_prompt = val_ckd if val_ckd else "N/A"
+                except: val_ckd_prompt = "N/A"
+
                 prompt_final = f"""
                 {c.PROMPT_AFR_V10}
                 
                 DATOS DEL PACIENTE:
                 - FG Cockcroft-Gault: {valor_fg} mL/min
-                - FG CKD-EPI: {val_ckd} mL/min/1,73m²
-                - FG MDRD-4: {val_mdrd} mL/min/1,73m²
+                - FG CKD-EPI: {val_ckd_prompt} mL/min/1,73m²
+                - FG MDRD-4: {val_mdrd_prompt} mL/min/1,73m²
                 
                 MEDICAMENTOS A ANALIZAR:
                 {st.session_state.main_meds}
@@ -208,7 +254,6 @@ with tabs[0]:
                     elif "⚠️" in sintesis: glow = "glow-yellow"
                     else: glow = "glow-green"
                     
-                    # ... [renderizado con centrado HTML] ...
                     with placeholder_salida.container():
                         st.markdown(f'<div style="text-align:center; font-weight:700;">🔍 Medicamentos afectados (FG Cockcroft-Gault: {valor_fg} mL/min)</div>', unsafe_allow_html=True)
                         st.markdown(f'<div class="synthesis-box {glow}">{sintesis}</div>', unsafe_allow_html=True)
@@ -217,7 +262,7 @@ with tabs[0]:
                         st.markdown(f'<div style="text-align:center; font-weight:700;">A continuación se detallan los ajustes:</div>', unsafe_allow_html=True)
                         st.markdown(f'<div class="clinical-detail-container">{detalle_completo}</div>', unsafe_allow_html=True)
                     
-                    # ... [Generación SOIP igual] ...
+                    # --- GESTIÓN SOIP ---
                     datos_calc = []
                     if calc_e: datos_calc.append(f"Edad: {calc_e} años")
                     if calc_p: datos_calc.append(f"Peso: {calc_p} kg")
@@ -242,12 +287,12 @@ with tabs[0]:
                     st.error(f"Error técnico en AFR-V10: {e}")
                     st.code(resp)
 
-# ... [Tabs informe y datos iguales] ...
 with tabs[1]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📄 Nota Evolutiva SOIP</div></div>', unsafe_allow_html=True)
     for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
         st.markdown(f'<div class="linea-discreta-soip">{label}</div>', unsafe_allow_html=True)
         st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed")
+    
     st.write(""); st.markdown('<div style="text-align:center;"><div class="header-capsule">📨 Solicitud de Interconsulta</div></div>', unsafe_allow_html=True)
     st.markdown('<div class="linea-discreta-soip">Motivo de la Interconsulta</div>', unsafe_allow_html=True)
     st.text_area("ic_mot", st.session_state.ic_motivo, height=180, label_visibility="collapsed")
@@ -257,4 +302,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 02 mar 2026 19:15</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 02 mar 2026 19:35</div>""", unsafe_allow_html=True)
