@@ -1,4 +1,4 @@
-# v. 02 mar 2026 19:40 (Actualización Placeholder Centro + Corrección NameError)
+# v. 02 mar 2026 20:15 (Restauración Cascara IA + Placeholder Centro)
 
 import streamlit as st
 import pandas as pd
@@ -23,6 +23,7 @@ st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_
 # --- INICIALIZACIÓN DE VARIABLES DE SESIÓN ---
 if "active_model" not in st.session_state: st.session_state.active_model = "BUSCANDO..."
 if "main_meds" not in st.session_state: st.session_state.main_meds = ""
+# Inicialización de campos SOIP/IC
 for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "reg_id", "reg_centro", "calc_e", "calc_p", "calc_c", "calc_s", "reg_res"]:
     if key not in st.session_state: st.session_state[key] = None
 
@@ -34,17 +35,21 @@ except:
     API_KEY = None
     st.sidebar.error("API Key no encontrada. Revisa los secretos de Streamlit.")
 
-# --- FUNCIONES DE SOPORTE (DEFINICIONES PRIMERO) ---
-
+# --- FUNCIONES DE SOPORTE (RESTAURADA A CASCADA) ---
 def llamar_ia_en_cascada(prompt):
     if not API_KEY: return "⚠️ Error: API Key no configurada."
     
-    # --- CONFIGURACIÓN ORIGINAL AUTORIZADA ---
-    try:
-        model = genai.GenerativeModel('gemini-1.5-flash') # <-- MODELO ORIGINAL
-        return model.generate_content(prompt, generation_config={"temperature": 0.1}).text
-    except Exception as e:
-        return f"⚠️ Error en la generación: {e}"
+    disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+    orden = ['2.5-flash', 'flash-latest', '1.5-pro']
+    
+    for mod_name in orden:
+        if mod_name in disponibles:
+            try:
+                st.session_state.active_model = mod_name.upper()
+                model = genai.GenerativeModel(f'models/gemini-{mod_name}')
+                return model.generate_content(prompt, generation_config={"temperature": 0.1}).text
+            except: continue
+    return "⚠️ Error en la generación."
 
 def procesar_y_limpiar_meds():
     texto = st.session_state.main_meds
@@ -62,7 +67,7 @@ def procesar_y_limpiar_meds():
         """
         st.session_state.main_meds = llamar_ia_en_cascada(prompt)
 
-# --- FUNCIÓN CORREGIDA DEFINIDA ANTES DE SER USADA ---
+# --- FUNCIÓN DEFINIDA ANTES DE SER USADA ---
 def reset_registro():
     """Resetea los campos del registro de paciente y calculadora."""
     for key in ["reg_centro", "reg_res", "reg_id", "fgl_ckd", "fgl_mdrd", "main_meds"]:
@@ -119,7 +124,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 02 mar 2026 19:40</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 02 mar 2026 20:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -283,4 +288,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 02 mar 2026 19:40</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 02 mar 2026 20:15</div>""", unsafe_allow_html=True)
