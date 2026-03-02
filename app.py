@@ -1,4 +1,4 @@
- # v. 01 mar 2026 21:20 (Modificado para optimización)
+# v. 01 mar 2026 21:30 (Actualización de Interfaz y Placeholders)
 
 import streamlit as st
 import pandas as pd
@@ -8,7 +8,7 @@ import google.generativeai as genai
 import random
 import re
 import os
-import constants as c # IMPORTACIÓN OPTIMIZADA
+import constants as c # Mantenemos la importación optimizada
 
 # =================================================================
 # PRINCIPIOS FUNDAMENTALES:
@@ -23,7 +23,6 @@ st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_
 # --- INICIALIZACIÓN DE VARIABLES DE SESIÓN ---
 if "active_model" not in st.session_state: st.session_state.active_model = "BUSCANDO..."
 if "main_meds" not in st.session_state: st.session_state.main_meds = ""
-# Inicialización de campos SOIP/IC
 for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "reg_id", "reg_centro", "calc_e", "calc_p", "calc_c", "calc_s", "reg_res"]:
     if key not in st.session_state: st.session_state[key] = None
 
@@ -38,10 +37,8 @@ except:
 # --- FUNCIONES DE SOPORTE ---
 def llamar_ia_en_cascada(prompt):
     if not API_KEY: return "⚠️ Error: API Key no configurada."
-    
     disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
     orden = ['2.5-flash', 'flash-latest', '1.5-pro']
-    
     for mod_name in orden:
         if mod_name in disponibles:
             try:
@@ -51,14 +48,11 @@ def llamar_ia_en_cascada(prompt):
             except: continue
     return "⚠️ Error en la generación."
 
-# Función cargar_prompt_clinico() eliminada para optimizar latencia.
-
 def procesar_y_limpiar_meds():
     texto = st.session_state.main_meds
     if texto:
         texto_limpio = re.sub(r"\s*-\s*|;\s*", "\n", texto)
         texto_limpio = re.sub(r"\n+", "\n", texto_limpio).strip()
-        
         prompt = f"""
         Actúa como farmacéutico clínico. Reescribe el siguiente listado de medicamentos siguiendo estas reglas estrictas:
         1. Estructura cada línea como: [Principio Activo] + [Dosis] + (Marca Comercial).
@@ -78,7 +72,6 @@ def reset_registro():
 
 def reset_meds():
     st.session_state.main_meds = ""
-    # RESTAURACIÓN TEXTOS FIJOS
     st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
     st.session_state.soip_o = ""
     st.session_state.soip_i = ""
@@ -104,30 +97,14 @@ def inject_styles():
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
     .unit-label { font-size: 0.65rem; color: #888; margin-top: -10px; margin-bottom: 5px; font-family: sans-serif; text-align: center; }
     
-    /* ESTILOS CLÍNICOS */
     .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; }
     .glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; box-shadow: 0 0 12px #feb2b2; }
     .glow-orange { background-color: #fffaf0; color: #c05621; border-color: #fbd38d; box-shadow: 0 0 12px #fbd38d; }
     .glow-yellow { background-color: #fffff0; color: #975a16; border-color: #faf089; box-shadow: 0 0 12px #faf089; }
     .glow-green { background-color: #f0fff4; color: #2f855a; border-color: #9ae6b4; box-shadow: 0 0 12px #9ae6b4; }
     
-    /* Contenedores nuevos - FONDO AZUL */
-    .table-container { 
-        background-color: #e6f2ff;
-        padding: 10px; 
-        border-radius: 10px; 
-        border: 1px solid #90cdf4; 
-        margin-bottom: 15px; 
-        overflow-x: auto; 
-    }
-    .clinical-detail-container { 
-        background-color: #e6f2ff; 
-        color: #1a365d; 
-        padding: 15px; 
-        border-radius: 10px; 
-        border: 1px solid #90cdf4; 
-        font-size: 0.9rem; 
-    }
+    .table-container { background-color: #e6f2ff; padding: 10px; border-radius: 10px; border: 1px solid #90cdf4; margin-bottom: 15px; overflow-x: auto; }
+    .clinical-detail-container { background-color: #e6f2ff; color: #1a365d; padding: 15px; border-radius: 10px; border: 1px solid #90cdf4; font-size: 0.9rem; }
     
     .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
@@ -142,12 +119,11 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 01 mar 2026 21:20</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 01 mar 2026 21:30</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
 with tabs[0]:
-    # ... [UI de Registro y Calculadora] ...
     st.markdown("### Registro de Paciente")
     c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1.5, 0.4])
     def on_centro_change():
@@ -169,6 +145,7 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
+            # 1. ACTUALIZACIÓN: Textos flotantes añadidos
             calc_e = st.number_input("Edad (años)", value=st.session_state.calc_e if st.session_state.calc_e is not None else 0, step=1, key="calc_e_input", placeholder="Ej: 65")
             calc_p = st.number_input("Peso (kg)", value=st.session_state.calc_p if st.session_state.calc_p is not None else 0.0, placeholder="Ej: 70.5", key="calc_p_input")
             calc_c = st.number_input("Creatinina (mg/dL)", value=st.session_state.calc_c if st.session_state.calc_c is not None else 0.0, placeholder="Ej: 1.2", key="calc_c_input")
@@ -190,16 +167,21 @@ with tabs[0]:
         st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
         st.markdown('<div class="formula-label">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
         st.write(""); l1, l2 = st.columns(2)
+        
+        # 2. ACTUALIZACIÓN: Orden de los cuadros cambiado
         with l1:
             st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
-            val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
-            st.markdown('</div>', unsafe_allow_html=True)
-            if val_ckd is not None: st.markdown(f'<div class="unit-label">{val_ckd} mL/min/1,73m²</div>', unsafe_allow_html=True)
-        with l2:
-            st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
+            # CUADRO MDRD-4 A LA IZQUIERDA
             val_mdrd = st.number_input("FG MDRD-4 IDMS", value=None, placeholder="MDRD-4", label_visibility="collapsed", key="fgl_mdrd")
             st.markdown('</div>', unsafe_allow_html=True)
             if val_mdrd is not None: st.markdown(f'<div class="unit-label">{val_mdrd} mL/min/1,73m²</div>', unsafe_allow_html=True)
+            
+        with l2:
+            st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
+            # CUADRO CKD-EPI A LA DERECHA
+            val_ckd = st.number_input("FG CKD-EPI", value=None, placeholder="CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
+            st.markdown('</div>', unsafe_allow_html=True)
+            if val_ckd is not None: st.markdown(f'<div class="unit-label">{val_ckd} mL/min/1,73m²</div>', unsafe_allow_html=True)
 
     st.write(""); st.markdown("---")
     m_col1, m_col2 = st.columns([0.5, 0.5])
@@ -237,27 +219,19 @@ with tabs[0]:
                 {st.session_state.main_meds}
                 """
                 
-                # LLAMAR A LA IA
                 resp = llamar_ia_en_cascada(prompt_final)
                 
                 try:
-                    # --- PARSING ROBUSTO SUGERIDO ---
                     resp_limpia = resp.strip()
                     partes = [p.strip() for p in resp_limpia.split("|||") if p.strip()]
-                    
-                    # Forzar tres bloques para evitar errores de renderizado
-                    while len(partes) < 3:
-                        partes.append("")
-                    
+                    while len(partes) < 3: partes.append("")
                     sintesis, tabla_html, detalle_completo = partes[:3]
                     
-                    # --- APLICAR LÓGICA GLOW ---
                     if "⛔" in sintesis: glow = "glow-red"
                     elif "⚠️⚠️⚠️" in sintesis: glow = "glow-orange"
                     elif "⚠️" in sintesis: glow = "glow-yellow"
                     else: glow = "glow-green"
                     
-                    # Contenido de la NOTA IMPORTANTE (Principios Fundamentales)
                     nota_importante = """
                     <div class="nota-importante-box">
                         <b>⚠️ NOTA IMPORTANTE:</b><br>
@@ -268,21 +242,13 @@ with tabs[0]:
                     </div>
                     """
                     
-                    # --- RENDERIZADO EN CONTENEDORES ---
                     with placeholder_salida.container():
-                        # 1. Contenedor Síntesis con Glow
                         st.markdown(f'<div class="synthesis-box {glow}">{sintesis}</div>', unsafe_allow_html=True)
                         st.markdown("---")
-                        
-                        # 2. Contenedor Tabla Comparativa (Fondo Azul)
                         st.markdown(f'<div class="table-container">{tabla_html}</div>', unsafe_allow_html=True)
-                        
-                        # 3. Contenedor Detalle Clínico + Nota Importante
                         st.markdown(f'<div class="clinical-detail-container">{detalle_completo}{nota_importante}</div>', unsafe_allow_html=True)
                         
-                    # --- AUTO-RELLENADO SOIP/INTERCONSULTA (RESTAURACIÓN) ---
                     st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
-                    
                     datos_calc = []
                     if calc_e: datos_calc.append(f"Edad: {calc_e} años")
                     if calc_p: datos_calc.append(f"Peso: {calc_p} kg")
@@ -293,7 +259,6 @@ with tabs[0]:
                     st.session_state.soip_i = sintesis
                     st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
                     st.session_state.ic_motivo = "Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente."
-                    
                     st.session_state.ic_info = (
                         f"ID: {st.session_state.reg_id}\n"
                         f"FG (C-G): {valor_fg} mL/min\n"
@@ -307,13 +272,11 @@ with tabs[0]:
                     st.error(f"Error técnico en AFR-V10: {e}")
                     st.code(resp)
 
-# ... [MANTENER EL RESTO DE TABS Y ESTILOS IGUAL] ...
 with tabs[1]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📄 Nota Evolutiva SOIP</div></div>', unsafe_allow_html=True)
     for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
         st.markdown(f'<div class="linea-discreta-soip">{label}</div>', unsafe_allow_html=True)
         st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed")
-
     st.write(""); st.markdown('<div style="text-align:center;"><div class="header-capsule">📨 Solicitud de Interconsulta</div></div>', unsafe_allow_html=True)
     st.markdown('<div class="linea-discreta-soip">Motivo de la Interconsulta</div>', unsafe_allow_html=True)
     st.text_area("ic_mot", st.session_state.ic_motivo, height=180, label_visibility="collapsed")
@@ -323,4 +286,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 21:20</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 01 mar 2026 21:30</div>""", unsafe_allow_html=True)
