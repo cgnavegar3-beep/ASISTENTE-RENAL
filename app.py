@@ -1,4 +1,4 @@
-# v. 02 mar 2026 18:42 (Versión Funcional + Limpieza Regex + Centrado Profesional)
+# v. 02 mar 2026 18:30 (Estructura Funcional + Corrección CSS renderizado)
 
 import streamlit as st
 import pandas as pd
@@ -119,7 +119,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 02 mar 2026 18:42</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 02 mar 2026 18:30</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -222,10 +222,6 @@ with tabs[0]:
                     while len(partes) < 3: partes.append("")
                     sintesis, tabla_html, detalle_completo = partes[:3]
                     
-                    # --- LIMPIEZA DE ESPACIADO CON REGEX ---
-                    sintesis = re.sub(r"\n{2,}", "\n", sintesis.strip())
-                    detalle_completo = re.sub(r"\n{2,}", "\n", detalle_completo.strip())
-                    
                     if "⛔" in sintesis: glow = "glow-red"
                     elif "⚠️⚠️⚠️" in sintesis: glow = "glow-orange"
                     elif "⚠️" in sintesis: glow = "glow-yellow"
@@ -242,12 +238,9 @@ with tabs[0]:
                     """
                     
                     with placeholder_salida.container():
-                        # --- CENTRADO PROFESIONAL Y RENDERIZADO ---
-                        st.markdown(f'<div style="text-align:center; font-weight:700;">🔍 Medicamentos afectados (FG Cockcroft-Gault: {valor_fg} mL/min)</div>', unsafe_allow_html=True)
                         st.markdown(f'<div class="synthesis-box {glow}">{sintesis}</div>', unsafe_allow_html=True)
                         st.markdown("---")
                         st.markdown(f'<div class="table-container">{tabla_html}</div>', unsafe_allow_html=True)
-                        st.markdown(f'<div style="text-align:center; font-weight:700;">A continuación se detallan los ajustes:</div>', unsafe_allow_html=True)
                         st.markdown(f'<div class="clinical-detail-container">{detalle_completo}{nota_importante}</div>', unsafe_allow_html=True)
                         
                     st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
@@ -288,4 +281,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 02 mar 2026 18:42</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 02 mar 2026 18:30</div>""", unsafe_allow_html=True)
