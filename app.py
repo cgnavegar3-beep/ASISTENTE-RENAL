@@ -1,4 +1,4 @@
-# v. 02 mar 2026 14:03 (Versión Final con Corrección de Placeholders y Estructura)
+# v. 02 mar 2026 14:10 (Versión Final: Orden, Placeholders y Spinner limpio)
 
 import streamlit as st
 import pandas as pd
@@ -8,7 +8,7 @@ import google.generativeai as genai
 import random
 import re
 import os
-import constants as c # IMPORTACIÓN OPTIMIZADA
+import constants as c # IMPORTACIÓN ESENCIAL: NO ELIMINAR constants.py
 
 # =================================================================
 # PRINCIPIOS FUNDAMENTALES:
@@ -119,7 +119,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 02 mar 2026 14:03</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 02 mar 2026 14:10</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -145,7 +145,7 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            # PLACEHOLDERS CORREGIDOS
+            # PLACEHOLDERS ACTIVOS
             calc_e = st.number_input("Edad (años)", value=st.session_state.calc_e if st.session_state.calc_e is not None else None, step=1, key="calc_e_input", placeholder="Ej: 65")
             calc_p = st.number_input("Peso (kg)", value=st.session_state.calc_p if st.session_state.calc_p is not None else None, placeholder="Ej: 70.5", key="calc_p_input")
             calc_c = st.number_input("Creatinina (mg/dL)", value=st.session_state.calc_c if st.session_state.calc_c is not None else None, placeholder="Ej: 1.2", key="calc_c_input")
@@ -168,7 +168,7 @@ with tabs[0]:
         st.markdown('<div class="formula-label">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
         st.write(""); l1, l2 = st.columns(2)
         
-        # ORDEN DE CUADROS INVERTIDO
+        # ORDEN DE CUADROS MANTENIDO
         with l1:
             st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
             # MDRD-4 A LA IZQUIERDA
@@ -204,7 +204,7 @@ with tabs[0]:
             st.error("Por favor, introduce al menos un medicamento.")
         else:
             placeholder_salida = st.empty()
-            with st.spinner("Procesando análisis clínico con AFR-V10..."):
+            with st.spinner("Procesando análisis clínico..."): # SPINNER LIMPIO
                 
                 # --- USO DE CONSTANTE OPTIMIZADA ---
                 prompt_final = f"""
@@ -286,4 +286,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 02 mar 2026 14:03</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 02 mar 2026 14:10</div>""", unsafe_allow_html=True)
