@@ -210,8 +210,6 @@ with tabs[0]:
                     glow = obtener_glow_class(sintesis)
                     st.markdown(f'<div class="synthesis-box {glow}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
-                    
-                    # RENDERIZADO DEL BLOQUE 3 CON NOTA IMPORTANTE ESTÁTICA
                     st.markdown(f'''
                     <div class="clinical-detail-container">
                         {detalle.replace("\n","<br>")}
@@ -224,9 +222,22 @@ with tabs[0]:
                         </div>
                     </div>
                     ''', unsafe_allow_html=True)
-                    
                     comp = []
                     if calc_e: comp.append(f"Edad: {calc_e} años")
                     if calc_p: comp.append(f"Peso: {calc_p} kg")
                     if calc_c: comp.append(f"Creatinina: {calc_c} mg/dL")
-                    if valor_fg: comp.append(f"FG (C
+                    if valor_fg: comp.append(f"FG (C-G): {valor_fg} mL/min")
+                    st.session_state.soip_o = ", ".join(comp)
+                    st.session_state.soip_i = sintesis
+                    st.session_state.ic_info = f"ID: {st.session_state.reg_id}\nFG: {valor_fg}\n\n{sintesis}\n\n{detalle}"
+                except Exception as e: st.error(f"Error de parseo: {e}")
+
+with tabs[1]:
+    for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
+        st.markdown(f'<div class="linea-discreta-soip">{label}</div>', unsafe_allow_html=True)
+        st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed")
+    st.markdown('<div class="linea-discreta-soip">Interconsulta</div>', unsafe_allow_html=True)
+    st.text_area("ic_mot", st.session_state.ic_motivo, height=100)
+    st.text_area("ic_inf", st.session_state.ic_info, height=200)
+
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 03 mar 2026 19:15</div>""", unsafe_allow_html=True)
