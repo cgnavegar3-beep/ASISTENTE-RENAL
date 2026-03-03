@@ -1,4 +1,4 @@
-# v. 02 mar 2026 20:15 (Restauración Cascara IA + Placeholder Centro)
+# v. 03 mar 2026 10:35 (Evolución: Categorización de Alertas Visuales)
 
 import streamlit as st
 import pandas as pd
@@ -35,7 +35,7 @@ except:
     API_KEY = None
     st.sidebar.error("API Key no encontrada. Revisa los secretos de Streamlit.")
 
-# --- FUNCIONES DE SOPORTE (RESTAURADA A CASCADA) ---
+# --- FUNCIONES DE SOPORTE ---
 def llamar_ia_en_cascada(prompt):
     if not API_KEY: return "⚠️ Error: API Key no configurada."
     
@@ -50,6 +50,19 @@ def llamar_ia_en_cascada(prompt):
                 return model.generate_content(prompt, generation_config={"temperature": 0.1}).text
             except: continue
     return "⚠️ Error en la generación."
+
+def obtener_glow_class(sintesis_texto):
+    """Determina el color del cuadro según la intensidad de la alerta."""
+    if "⛔" in sintesis_texto:
+        return "glow-red"
+    elif "⚠️⚠️⚠️" in sintesis_texto:
+        return "glow-orange"
+    elif "⚠️⚠️" in sintesis_texto:
+        return "glow-yellow-dark"
+    elif "⚠️" in sintesis_texto:
+        return "glow-yellow"
+    else:
+        return "glow-green"
 
 def procesar_y_limpiar_meds():
     texto = st.session_state.main_meds
@@ -67,9 +80,7 @@ def procesar_y_limpiar_meds():
         """
         st.session_state.main_meds = llamar_ia_en_cascada(prompt)
 
-# --- FUNCIÓN DEFINIDA ANTES DE SER USADA ---
 def reset_registro():
-    """Resetea los campos del registro de paciente y calculadora."""
     for key in ["reg_centro", "reg_res", "reg_id", "fgl_ckd", "fgl_mdrd", "main_meds"]:
         st.session_state[key] = ""
     for key in ["calc_e", "calc_p", "calc_c", "calc_s", "calc_e_input", "calc_p_input", "calc_c_input", "calc_s_input"]:
@@ -105,6 +116,7 @@ def inject_styles():
     .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; }
     .glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; box-shadow: 0 0 12px #feb2b2; }
     .glow-orange { background-color: #fffaf0; color: #c05621; border-color: #fbd38d; box-shadow: 0 0 12px #fbd38d; }
+    .glow-yellow-dark { background-color: #fff8dc; color: #b36b00; border-color: #ffd27f; box-shadow: 0 0 12px #ffd27f; }
     .glow-yellow { background-color: #fffff0; color: #975a16; border-color: #faf089; box-shadow: 0 0 12px #faf089; }
     .glow-green { background-color: #f0fff4; color: #2f855a; border-color: #9ae6b4; box-shadow: 0 0 12px #9ae6b4; }
     
@@ -124,7 +136,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 02 mar 2026 20:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 03 mar 2026 10:35</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -140,7 +152,6 @@ with tabs[0]:
             iniciales = "".join([word[0] for word in st.session_state.reg_centro.split()]).upper()[:3]
             st.session_state.reg_id = f"PAC-{iniciales if iniciales else 'GEN'}{random.randint(10000, 99999)}"
     
-    # --- CAMBIO AUTORIZADO: PLACEHOLDER MEJORADO ---
     with c1: st.text_input("Centro", placeholder="M / G", key="reg_centro", on_change=on_centro_change)
     with c2: st.selectbox("¿Residencia?", ["No", "Sí"], index=None, placeholder="Sí / No", key="reg_res")
     with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
@@ -208,7 +219,6 @@ with tabs[0]:
             placeholder_salida = st.empty()
             with st.spinner("Procesando análisis clínico..."):
                 
-                # --- USO DE CONSTANTE OPTIMIZADA ---
                 prompt_final = f"""
                 {c.PROMPT_AFR_V10}
                 
@@ -229,10 +239,7 @@ with tabs[0]:
                     while len(partes) < 3: partes.append("")
                     sintesis, tabla_html, detalle_completo = partes[:3]
                     
-                    if "⛔" in sintesis: glow = "glow-red"
-                    elif "⚠️⚠️⚠️" in sintesis: glow = "glow-orange"
-                    elif "⚠️" in sintesis: glow = "glow-yellow"
-                    else: glow = "glow-green"
+                    glow = obtener_glow_class(sintesis)
                     
                     nota_importante = """
                     <div class="nota-importante-box">
@@ -288,4 +295,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 02 mar 2026 20:15</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 03 mar 2026 10:35</div>""", unsafe_allow_html=True)
