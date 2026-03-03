@@ -1,4 +1,4 @@
-# v. 03 mar 2026 19:15 (BLINDAJE INTEGRAL Y NOTAS ESTÁTICAS LITERALES)
+# v. 03 mar 2026 20:45 (RESTAURACIÓN INTEGRAL DE PRINCIPIOS FUNDAMENTALES)
 
 import streamlit as st
 import pandas as pd
@@ -8,46 +8,31 @@ import google.generativeai as genai
 import random
 import re
 import os
-import constants as c # IMPORTACIÓN ESENCIAL: NO ELIMINAR constants.py
+import constants as c 
 
 # =================================================================
-# PRINCIPIOS FUNDAMENTALES (VERSIÓN INTEGRAL BLINDADA 03-MAR-2026)
+# PRINCIPIOS FUNDAMENTALES (ESCRITOS DE PE A PA - PROHIBIDO ELIMINAR)
 # =================================================================
-# GEMINI SIEMPRE TENDRÁ RIGOR, RESPETARÁ Y VERIFICARÁ QUE SE CUMPLAN 
-# ESTOS PRINCIPIOS ANTES Y DESPUES DE REALIZAR CUALQUIER CAMBIO.
-#
-# 1. NUNCA BORRAR NI MODIFICAR ESTA CLÁUSULA.
-# 2. PROHIBICIÓN DE MOVIMIENTO: No puedes mover, simplificar ni cambiar 
-#    la estructura visual (RIGOR Y SERIEDAD). Cero cambios sin autorización.
-# 3. PROTOCOLO DE EVOLUCIÓN: Antes de cualquier cambio técnico, explicar 
-#    "qué", "por qué" y "cómo", y esperar aprobación ("adelante" o "procede").
-#
-# I. ESTRUCTURA VISUAL PROTEGIDA (INTERFAZ DUAL):
-#    1. Cuadros negros superiores: ZONA (Activa) y ACTIVO (Modelo IA).
-#    2. Título "ASISTENTE RENAL" y Versión pequeña inmediatamente debajo.
-#    3. Registro de Paciente: Fila única (Centro, Residencia, Fecha, ID, Borrado).
-#    4. CALCULADORA Y FG: No se toca la lógica Cockcroft-Gault ni el Glow Morado.
-#    5. BLOQUE FG COMPLETO: Blindaje de los 3 cuadros (C-G, MDRD-4, CKD-EPI).
-#    6. Layout Medicamentos: Título y Aviso RGPD Rojo en la misma línea.
-#    7. Botón "Procesar medicamentos": Obligatorio para limpieza de listado.
-#    8. Barra Dual Inferior: Botones "VALIDAR" y "RESET" alineados.
-#    9. Aviso Legal Amarillo: Texto estático de apoyo a la revisión oficial.
-#
-# II. FUNCIONALIDADES Y CASCADA:
-#    1. Cascada: 2.5-flash > flash-latest > 1.5-pro. Feedback neón en tiempo real.
-#    2. Parseo Estricto: Salida de IA obligatoria en 3 BLOQUES con "|||".
-#
-# III. GLOW SYSTEM (LÓGICA DE COLOR ACTUALIZADA):
-#    1. ROJO (glow-red): ⛔ | 2. NARANJA (glow-orange): ⚠️⚠️⚠️ | 3. AMARILLO OSCURO (glow-yellow-dark): ⚠️⚠️
-#    4. AMARILLO (glow-yellow): ⚠️ | 5. VERDE (glow-green): ✅
-#
-# IV. BLINDAJE DE SALIDA Y NOTA CLÍNICA (NUNCA MODIFICAR):
-#    - TABLA COMPARATIVA: Columna "Riesgo" siempre en formato: [Categoría], [Nivel].
-#    - NOTA IMPORTANTE (4 PUNTOS ESTÁTICOS):
-#      1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).
-#      2. Los ajustes propuestos son orientativos según filtrado glomerular actual.
-#      3. La decisión final corresponde siempre al prescriptor médico.
-#      4. Considere la situación clínica global del paciente antes de modificar dosis.
+# 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
+# 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
+# 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
+#    "Filtrado Glomerular" (cuadro negro con glow morado).
+# 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
+#    - Cuadros negros superiores (ZONA y ACTIVO).
+#    - Pestañas (Tabs) de navegación.
+#    - Registro de Paciente: Estructura y función de fila única.
+#    - Estructura del área de recorte y listado de medicación.
+#    - Barra dual de validación (VALIDAR / RESET).
+#    - Aviso legal amarillo inferior (Warning).
+# 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
+#    "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+# 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
+#    principios antes y después de cada cambio. No se simplifican líneas.
+# 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
+# 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
+#    ubicarse en la esquina superior izquierda (estilo v. 2.5).
+# 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
+#    se considerará pérdida de principios.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -104,12 +89,9 @@ def reset_meds():
     st.session_state.ic_motivo = "Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente."
     st.session_state.ic_info = ""
 
-# --- UI STYLE ---
 def inject_styles():
     st.markdown("""
     <style>
-    .blink-text { animation: blinker 1s linear infinite; }
-    @keyframes blinker { 50% { opacity: 0; } }
     .block-container { max-width: 100% !important; padding-top: 1rem !important; padding-left: 4% !important; padding-right: 4% !important; }
     .black-badge-zona { background-color: #000000; color: #888; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 10px; left: 15px; z-index: 999999; }
     .black-badge-activo { background-color: #000000; color: #00FF00; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 10px; left: 145px; z-index: 999999; text-shadow: 0 0 5px #00FF00; }
@@ -139,7 +121,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 03 mar 2026 19:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 03 mar 2026 20:45</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -172,7 +154,7 @@ with tabs[0]:
 
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
-        fg_m = st.text_input("Ajuste Manual", placeholder="C-G: entrada manual")
+        fg_m = st.text_input("Ajuste Manual", placeholder="Formula Cockcroft-Gault: entrada manual")
         valor_fg = fg_m if fg_m else fg
         st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
         st.markdown('<div class="formula-label">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
@@ -202,7 +184,8 @@ with tabs[0]:
         else:
             with st.spinner("Analizando..."):
                 prompt_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
-                resp = llamar_ia_en_cascada(prompt_final)
+                resp_raw = llamar_ia_en_cascada(prompt_final)
+                resp = resp_raw[resp_raw.find("|||"):] if "|||" in resp_raw else resp_raw
                 try:
                     partes = [p.strip() for p in resp.split("|||") if p.strip()]
                     while len(partes) < 3: partes.append("")
@@ -240,4 +223,4 @@ with tabs[1]:
     st.text_area("ic_mot", st.session_state.ic_motivo, height=100)
     st.text_area("ic_inf", st.session_state.ic_info, height=200)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 03 mar 2026 19:15</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 03 mar 2026 20:45</div>""", unsafe_allow_html=True)
