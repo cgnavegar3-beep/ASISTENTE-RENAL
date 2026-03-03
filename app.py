@@ -1,4 +1,4 @@
-# v. 03 mar 2026 11:45 (Sincronización con AFR-V10 + Refuerzo de Formato por Línea)
+# v. 03 mar 2026 12:05 (Optimización SOIP: Constantes en línea)
 
 import streamlit as st
 import pandas as pd
@@ -137,7 +137,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 03 mar 2026 11:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 03 mar 2026 12:05</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -241,10 +241,8 @@ with tabs[0]:
                     while len(partes) < 3: partes.append("")
                     sintesis, tabla_html, detalle_completo = partes[:3]
                     
-                    # Post-procesado para saltos de línea HTML (CRÍTICO PARA FORMATO POR FÁRMACO)
                     sintesis_html = sintesis.replace("\n", "<br>")
                     detalle_html = detalle_completo.replace("\n", "<br>")
-                    
                     glow = obtener_glow_class(sintesis)
                     
                     nota_importante = """
@@ -264,13 +262,15 @@ with tabs[0]:
                         st.markdown(f'<div class="clinical-detail-container">{detalle_html}{nota_importante}</div>', unsafe_allow_html=True)
                         
                     st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
-                    datos_calc = []
-                    if calc_e: datos_calc.append(f"Edad: {calc_e} años")
-                    if calc_p: datos_calc.append(f"Peso: {calc_p} kg")
-                    if calc_c: datos_calc.append(f"Creatinina: {calc_c} mg/dL")
-                    if valor_fg: datos_calc.append(f"FG (C-G): {valor_fg} mL/min")
                     
-                    st.session_state.soip_o = "\n".join(datos_calc)
+                    # LOGICA OPTIMIZADA SOIP-O: CONSTANTES EN LÍNEA
+                    componentes = []
+                    if calc_e: componentes.append(f"Edad: {calc_e} años")
+                    if calc_p: componentes.append(f"Peso: {calc_p} kg")
+                    if calc_c: componentes.append(f"Creatinina: {calc_c} mg/dL")
+                    if valor_fg: componentes.append(f"FG (C-G): {valor_fg} mL/min")
+                    
+                    st.session_state.soip_o = ", ".join(componentes)
                     st.session_state.soip_i = sintesis
                     st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
                     st.session_state.ic_motivo = "Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente."
@@ -301,4 +301,4 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div style="text-align:center;"><div class="header-capsule">📊 Gestión de Datos y Volcado</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 03 mar 2026 11:45</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 03 mar 2026 12:05</div>""", unsafe_allow_html=True)
