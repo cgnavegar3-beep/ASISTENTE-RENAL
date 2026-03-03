@@ -1,4 +1,4 @@
-# v. 03 mar 2026 21:05 (RESTAURACIÓN DE PLACEHOLDERS Y TEXTOS SOIP)
+# v. 03 mar 2026 21:25 (BLINDAJE ESTRUCTURA INFORME Y LIMPIEZA DE BLOQUES)
 
 import streamlit as st
 import pandas as pd
@@ -43,8 +43,8 @@ if "main_meds" not in st.session_state: st.session_state.main_meds = ""
 if "soip_s" not in st.session_state: st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
 if "soip_p" not in st.session_state: st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
 
-for key in ["soip_o", "soip_i", "ic_motivo", "ic_info", "reg_id", "reg_centro", "calc_e", "calc_p", "calc_c", "calc_s", "reg_res"]:
-    if key not in st.session_state: st.session_state[key] = None
+for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "calc_e", "calc_p", "calc_c", "calc_s", "reg_res"]:
+    if key not in st.session_state: st.session_state[key] = ""
 
 # --- CONFIGURACIÓN IA ---
 try:
@@ -89,8 +89,7 @@ def reset_meds():
     st.session_state.main_meds = ""
     st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
     st.session_state.soip_o = ""; st.session_state.soip_i = ""; st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
-    st.session_state.ic_motivo = "Se solicita valoración médica tras la revisión de la adecuación del tratamiento a la función renal del paciente."
-    st.session_state.ic_info = ""
+    st.session_state.ic_inter = ""; st.session_state.ic_clinica = ""
 
 def inject_styles():
     st.markdown("""
@@ -124,7 +123,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 03 mar 2026 21:05</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 03 mar 2026 21:25</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -194,27 +193,39 @@ with tabs[0]:
                     while len(partes) < 3: partes.append("")
                     sintesis, tabla, detalle = partes[:3]
                     glow = obtener_glow_class(sintesis)
+                    
+                    # RENDER EN PANTALLA
                     st.markdown(f'<div class="synthesis-box {glow}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
                     st.markdown(f'''<div class="clinical-detail-container">{detalle.replace("\n","<br>")}<div class="nota-importante-box"><div style="font-weight: 800; margin-bottom: 8px;">⚠️ NOTA IMPORTANTE:</div><div class="nota-item">1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</div><div class="nota-item">2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</div><div class="nota-item">3. La decisión final corresponde siempre al prescriptor médico.</div><div class="nota-item">4. Considere la situación clínica global del paciente antes de modificar dosis.</div></div></div>''', unsafe_allow_html=True)
                     
+                    # LOGICA DE VOLCADO A INFORME (BLINDADA)
                     datos_calc = []
                     if calc_e: datos_calc.append(f"Edad: {calc_e} años")
                     if calc_p: datos_calc.append(f"Peso: {calc_p} kg")
                     if calc_c: datos_calc.append(f"Creatinina: {calc_c} mg/dL")
                     if valor_fg: datos_calc.append(f"FG (C-G): {valor_fg} mL/min")
                     
+                    sintesis_limpia = sintesis.replace("BLOQUE 1: ALERTAS Y AJUSTES", "").strip()
+                    detalle_limpio = detalle.split("⚠️ NOTA IMPORTANTE:")[0].replace("BLOQUE 3: ANALISIS CLINICO", "").strip()
+                    
                     st.session_state.soip_o = "\n".join(datos_calc)
-                    st.session_state.soip_i = sintesis
-                    st.session_state.ic_info = f"ID: {st.session_state.reg_id}\nFG: {valor_fg}\n\n{sintesis}\n\n{detalle}"
+                    st.session_state.soip_i = sintesis_limpia
+                    st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{sintesis_limpia}"
+                    st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{detalle_limpio}"
                 except Exception as e: st.error(f"Error de parseo: {e}")
 
 with tabs[1]:
+    # --- SECCIÓN SOIP ---
     for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
         st.markdown(f'<div class="linea-discreta-soip">{label}</div>', unsafe_allow_html=True)
         st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed")
-    st.markdown('<div class="linea-discreta-soip">Interconsulta</div>', unsafe_allow_html=True)
-    st.text_area("ic_mot", st.session_state.ic_motivo, height=100)
-    st.text_area("ic_inf", st.session_state.ic_info, height=200)
+    
+    # --- SECCIÓN INTERCONSULTA (RESTRUCTURADA) ---
+    st.markdown('<div class="linea-discreta-soip">INTERCONSULTA</div>', unsafe_allow_html=True)
+    st.text_area("INTERCONSULTA", st.session_state.ic_inter, height=150, label_visibility="collapsed")
+    
+    st.markdown('<div class="linea-discreta-soip">INFORMACIÓN CLÍNICA</div>', unsafe_allow_html=True)
+    st.text_area("INFORMACIÓN CLÍNICA", st.session_state.ic_clinica, height=250, label_visibility="collapsed")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 03 mar 2026 21:05</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 03 mar 2026 21:25</div>""", unsafe_allow_html=True)
