@@ -1,4 +1,4 @@
-# v. 03 mar 2026 20:45 (RESTAURACIÓN INTEGRAL DE PRINCIPIOS FUNDAMENTALES)
+# v. 03 mar 2026 21:05 (RESTAURACIÓN DE PLACEHOLDERS Y TEXTOS SOIP)
 
 import streamlit as st
 import pandas as pd
@@ -40,7 +40,10 @@ st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_
 # --- INICIALIZACIÓN ---
 if "active_model" not in st.session_state: st.session_state.active_model = "BUSCANDO..."
 if "main_meds" not in st.session_state: st.session_state.main_meds = ""
-for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_motivo", "ic_info", "reg_id", "reg_centro", "calc_e", "calc_p", "calc_c", "calc_s", "reg_res"]:
+if "soip_s" not in st.session_state: st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
+if "soip_p" not in st.session_state: st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
+
+for key in ["soip_o", "soip_i", "ic_motivo", "ic_info", "reg_id", "reg_centro", "calc_e", "calc_p", "calc_c", "calc_s", "reg_res"]:
     if key not in st.session_state: st.session_state[key] = None
 
 # --- CONFIGURACIÓN IA ---
@@ -121,7 +124,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 03 mar 2026 20:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 03 mar 2026 21:05</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -154,18 +157,18 @@ with tabs[0]:
 
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
-        fg_m = st.text_input("Ajuste Manual", placeholder="Formula Cockcroft-Gault: entrada manual")
+        fg_m = st.text_input("Ajuste Manual", placeholder="Fórmula Cockcroft-Gault: entrada manual")
         valor_fg = fg_m if fg_m else fg
         st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
         st.markdown('<div class="formula-label">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
         st.write(""); l1, l2 = st.columns(2)
         with l1:
             st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
-            val_mdrd = st.number_input("MDRD-4", value=None, label_visibility="collapsed", key="fgl_mdrd")
+            val_mdrd = st.number_input("MDRD-4", value=None, placeholder="MDRD-4", label_visibility="collapsed", key="fgl_mdrd")
             st.markdown('</div><div class="unit-label">mL/min/1,73m²</div>', unsafe_allow_html=True)
         with l2:
             st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
-            val_ckd = st.number_input("CKD-EPI", value=None, label_visibility="collapsed", key="fgl_ckd")
+            val_ckd = st.number_input("CKD-EPI", value=None, placeholder="CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
             st.markdown('</div><div class="unit-label">mL/min/1,73m²</div>', unsafe_allow_html=True)
 
     st.write(""); st.markdown("---")
@@ -193,24 +196,15 @@ with tabs[0]:
                     glow = obtener_glow_class(sintesis)
                     st.markdown(f'<div class="synthesis-box {glow}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
-                    st.markdown(f'''
-                    <div class="clinical-detail-container">
-                        {detalle.replace("\n","<br>")}
-                        <div class="nota-importante-box">
-                            <div style="font-weight: 800; margin-bottom: 8px;">⚠️ NOTA IMPORTANTE:</div>
-                            <div class="nota-item">1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</div>
-                            <div class="nota-item">2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</div>
-                            <div class="nota-item">3. La decisión final corresponde siempre al prescriptor médico.</div>
-                            <div class="nota-item">4. Considere la situación clínica global del paciente antes de modificar dosis.</div>
-                        </div>
-                    </div>
-                    ''', unsafe_allow_html=True)
-                    comp = []
-                    if calc_e: comp.append(f"Edad: {calc_e} años")
-                    if calc_p: comp.append(f"Peso: {calc_p} kg")
-                    if calc_c: comp.append(f"Creatinina: {calc_c} mg/dL")
-                    if valor_fg: comp.append(f"FG (C-G): {valor_fg} mL/min")
-                    st.session_state.soip_o = ", ".join(comp)
+                    st.markdown(f'''<div class="clinical-detail-container">{detalle.replace("\n","<br>")}<div class="nota-importante-box"><div style="font-weight: 800; margin-bottom: 8px;">⚠️ NOTA IMPORTANTE:</div><div class="nota-item">1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</div><div class="nota-item">2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</div><div class="nota-item">3. La decisión final corresponde siempre al prescriptor médico.</div><div class="nota-item">4. Considere la situación clínica global del paciente antes de modificar dosis.</div></div></div>''', unsafe_allow_html=True)
+                    
+                    datos_calc = []
+                    if calc_e: datos_calc.append(f"Edad: {calc_e} años")
+                    if calc_p: datos_calc.append(f"Peso: {calc_p} kg")
+                    if calc_c: datos_calc.append(f"Creatinina: {calc_c} mg/dL")
+                    if valor_fg: datos_calc.append(f"FG (C-G): {valor_fg} mL/min")
+                    
+                    st.session_state.soip_o = "\n".join(datos_calc)
                     st.session_state.soip_i = sintesis
                     st.session_state.ic_info = f"ID: {st.session_state.reg_id}\nFG: {valor_fg}\n\n{sintesis}\n\n{detalle}"
                 except Exception as e: st.error(f"Error de parseo: {e}")
@@ -223,4 +217,4 @@ with tabs[1]:
     st.text_area("ic_mot", st.session_state.ic_motivo, height=100)
     st.text_area("ic_inf", st.session_state.ic_info, height=200)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 03 mar 2026 20:45</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 03 mar 2026 21:05</div>""", unsafe_allow_html=True)
