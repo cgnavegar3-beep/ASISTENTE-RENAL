@@ -1,4 +1,4 @@
-# v. 03 mar 2026 21:50 (CIERRE DE SINTAXIS Y BLINDAJE DE INFORMES)
+# v. 03 mar 2026 22:05 (ID PROTEGIDO, OBJETIVO EN LÍNEA Y BLINDAJE DE TEXTOS)
 
 import streamlit as st
 import pandas as pd
@@ -33,6 +33,9 @@ import constants as c
 #    ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
 #    se considerará pérdida de principios.
+# 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
+#     sus textos flotantes (placeholders) y los textos predefinidos en las
+#     secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -124,7 +127,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 03 mar 2026 21:50</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 03 mar 2026 22:05</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -141,8 +144,8 @@ with tabs[0]:
 
     with c1: st.text_input("Centro", placeholder="M / G", key="reg_centro", on_change=on_centro_change)
     with c2: st.selectbox("¿Residencia?", ["No", "Sí"], index=None, placeholder="Sí / No", key="reg_res")
-    with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True, placeholder="DD/MM/AAAA")
-    with c4: st.text_input("ID Registro", key="reg_id", placeholder="Autogenerado")
+    with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True, placeholder="Fecha")
+    with c4: st.text_input("ID Registro", key="reg_id", disabled=True)
     with c5: st.write(""); st.button("🗑️", on_click=reset_registro, key="btn_reset_reg")
 
     col_izq, col_der = st.columns(2, gap="large")
@@ -152,7 +155,7 @@ with tabs[0]:
             calc_e = st.number_input("Edad (años)", step=1, key="calc_e", placeholder="Edad (Ej: 65)", value=None)
             calc_p = st.number_input("Peso (kg)", key="calc_p", placeholder="Peso (Ej: 70.5)", value=None)
             calc_c = st.number_input("Creatinina (mg/dL)", key="calc_c", placeholder="Creatinina (Ej: 1.2)", value=None)
-            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=None, placeholder="Seleccionar...", key="calc_s")
+            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=None, placeholder="Seleccionar sexo...", key="calc_s")
             fg = round(((140 - calc_e) * calc_p) / (72 * (calc_c if calc_c and calc_c > 0 else 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if all([calc_e, calc_p, calc_c, calc_s]) else 0.0
 
     with col_der:
@@ -175,7 +178,7 @@ with tabs[0]:
     m_col1, m_col2 = st.columns([0.5, 0.5])
     with m_col1: st.markdown("#### 📝 Listado de medicamentos")
     with m_col2: st.markdown('<div style="float:right; color:#c53030; font-weight:bold; font-size:0.8rem;">🛡️ RGPD: No datos personales</div>', unsafe_allow_html=True)
-    st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds", placeholder="Pegue el listado aquí...")
+    st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds", placeholder="Pegue el listado de fármacos aquí...")
     st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
     
     b1, b2 = st.columns([0.85, 0.15])
@@ -198,17 +201,17 @@ with tabs[0]:
                     st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
                     st.markdown(f'''<div class="clinical-detail-container">{detalle.replace("\n","<br>")}<div class="nota-importante-box"><div style="font-weight: 800; margin-bottom: 8px;">⚠️ NOTA IMPORTANTE:</div><div class="nota-item">1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</div><div class="nota-item">2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</div><div class="nota-item">3. La decisión final corresponde siempre al prescriptor médico.</div><div class="nota-item">4. Considere la situación clínica global del paciente antes de modificar dosis.</div></div></div>''', unsafe_allow_html=True)
                     
-                    # PROCESAMIENTO PARA INFORME
-                    datos_obj = []
-                    if calc_e: datos_obj.append(f"Edad: {calc_e} años")
-                    if calc_p: datos_obj.append(f"Peso: {calc_p} kg")
-                    if calc_c: datos_obj.append(f"Creatinina: {calc_c} mg/dL")
-                    if valor_fg: datos_obj.append(f"FG (C-G): {valor_fg} mL/min")
+                    # PROCESAMIENTO OBJETIVO (O) EN UNA SOLA LÍNEA
+                    datos_obj_lista = []
+                    if calc_e: datos_obj_lista.append(f"Edad: {calc_e}a")
+                    if calc_p: datos_obj_lista.append(f"Peso: {calc_p}kg")
+                    if calc_c: datos_obj_lista.append(f"Crea: {calc_c}mg/dL")
+                    if valor_fg: datos_obj_lista.append(f"FG: {valor_fg}mL/min")
                     
                     sintesis_limpia = sintesis.replace("BLOQUE 1: ALERTAS Y AJUSTES", "").strip()
                     detalle_limpio = detalle.split("⚠️ NOTA IMPORTANTE:")[0].replace("BLOQUE 3: ANALISIS CLINICO", "").strip()
                     
-                    st.session_state.soip_o = "\n".join(datos_obj)
+                    st.session_state.soip_o = " | ".join(datos_obj_lista)
                     st.session_state.soip_i = sintesis_limpia
                     st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{sintesis_limpia}"
                     st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{detalle_limpio}"
@@ -217,12 +220,12 @@ with tabs[0]:
 with tabs[1]:
     for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
         st.markdown(f'<div class="linea-discreta-soip">{label}</div>', unsafe_allow_html=True)
-        st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed", placeholder=f"Contenido de {label}")
+        st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed", placeholder=f"Contenido de {label}...")
     
     st.markdown('<div class="linea-discreta-soip">INTERCONSULTA</div>', unsafe_allow_html=True)
-    st.text_area("INTER_BOX", st.session_state.ic_inter, height=150, label_visibility="collapsed", placeholder="Se solicita revisión...")
+    st.text_area("IC_B1", st.session_state.ic_inter, height=150, label_visibility="collapsed", placeholder="Se solicita revisión...")
     
     st.markdown('<div class="linea-discreta-soip">INFORMACIÓN CLÍNICA</div>', unsafe_allow_html=True)
-    st.text_area("CLINIC_BOX", st.session_state.ic_clinica, height=250, label_visibility="collapsed", placeholder="Datos objetivos y análisis...")
+    st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed", placeholder="Datos objetivos y análisis clínico...")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 03 mar 2026 21:50</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 03 mar 2026 22:05</div>""", unsafe_allow_html=True)
