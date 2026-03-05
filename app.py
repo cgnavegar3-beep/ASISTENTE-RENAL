@@ -1,4 +1,4 @@
-# v. 05 mar 2026 12:40 (CONTROL DE INTEGRIDAD INTERNO: 184 LÍNEAS)
+# v. 05 mar 2026 12:48 (CONTROL DE INTEGRIDAD INTERNO: 188 LÍNEAS)
 
 import streamlit as st
 import pandas as pd
@@ -36,6 +36,8 @@ import constants as c
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
 #     sus textos flotantes (placeholders) y los textos predefinidos en las
 #     secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+# 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
+#     principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -120,7 +122,7 @@ def inject_styles():
     .nota-importante-box { border-top: 2px dashed #0057b8; margin-top: 15px; padding-top: 12px; font-size: 0.85rem; color: #1a365d; }
     .nota-item { margin-bottom: 4px; font-weight: 500; }
     @keyframes blinker { 50% { opacity: 0; } }
-    .blink-text { animation: blinker 1s linear infinite; color: #c53030; font-weight: bold; padding: 10px; border: 1px solid #c53030; border-radius: 5px; background: #fff5f5; text-align: center; }
+    .blink-text { animation: blinker 1s linear infinite; color: #c53030; font-weight: bold; padding: 10px; border: 1px solid #c53030; border-radius: 5px; background: #fff5f5; text-align: center; margin-bottom: 15px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -129,7 +131,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 05 mar 2026 12:40</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 05 mar 2026 12:48</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -190,8 +192,9 @@ with tabs[0]:
     if btn_val:
         faltan_datos = not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s])
         if faltan_datos:
-            st.markdown('<div class="blink-text">⚠️ FALTA COMPLETAR DATOS DEL REGISTRO O CALCULADORA PARA VALIDAR</div>', unsafe_allow_html=True)
-        elif not st.session_state.main_meds:
+            st.markdown('<div class="blink-text">⚠️ AVISO: FALTAN DATOS EN REGISTRO O CALCULADORA. EL ANÁLISIS PUEDE SER INCOMPLETO.</div>', unsafe_allow_html=True)
+        
+        if not st.session_state.main_meds:
             st.error("Introduce medicamentos.")
         else:
             with st.spinner("Analizando..."):
@@ -233,4 +236,4 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">INFORMACIÓN CLÍNICA</div>', unsafe_allow_html=True)
     st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed", placeholder="Datos objetivos y análisis clínico...")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 05 mar 2026 12:40</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 05 mar 2026 12:48</div>""", unsafe_allow_html=True)
