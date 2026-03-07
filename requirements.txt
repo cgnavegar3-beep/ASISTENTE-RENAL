@@ -3,3 +3,6 @@ google-generativeai
 Pillow
 PyMuPDF
 streamlit-paste-button
+gspread
+google-auth
+pandas
