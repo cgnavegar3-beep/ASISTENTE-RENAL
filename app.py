@@ -1,12 +1,12 @@
-# v. 07 mar 2026 09:45 (CONTROL DE INTEGRIDAD INTERNO: 312 LÍNEAS)
+# v. 07 mar 2026 10:30 (CONTROL DE INTEGRIDAD INTERNO: 338 LÍNEAS)
 
 import streamlit as st
 import pandas as pd
-import io
+import gspread
+from google.oauth2.service_account import Credentials
 from datetime import datetime
 import google.generativeai as genai
 import random
-import re
 import os
 import constants as c 
 
@@ -47,65 +47,41 @@ if "active_model" not in st.session_state: st.session_state.active_model = "BUSC
 if "main_meds" not in st.session_state: st.session_state.main_meds = ""
 if "soip_s" not in st.session_state: st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
 if "soip_p" not in st.session_state: st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
-if "last_analysis" not in st.session_state: st.session_state.last_analysis = None
 
 for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
     if key not in st.session_state: st.session_state[key] = ""
 
-# --- CONFIGURACIÓN IA ---
+# --- CONFIGURACIÓN IA Y CLOUD ---
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=API_KEY)
-except:
-    API_KEY = None
-    st.sidebar.error("API Key no encontrada.")
+    # Configuración Google Sheets
+    scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+    creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
+    client = gspread.authorize(creds)
+    sheet_name = "BD_ASISTENTE_RENAL"
+except Exception as e:
+    st.sidebar.error(f"Error de Configuración: {e}")
 
-# --- FUNCIONES DE EXCEL ---
-DB_FILE = "Asistente_Renal_Datos.xlsx"
-
-def init_excel():
-    if not os.path.exists(DB_FILE):
-        with pd.ExcelWriter(DB_FILE, engine='openpyxl') as writer:
-            pd.DataFrame(columns=["FECHA", "CENTRO", "ID_REGISTRO", "EDAD", "SEXO", "PESO", "RESIDENCIA", "CREATININA", "FG_CG", "FG_CKD", "FG_MDRD", "RIESGO_MAX", "ACEPTACION_GLOBAL"]).to_excel(writer, sheet_name='VALIDACION', index=False)
-            pd.DataFrame(columns=["ID_REGISTRO", "MEDICAMENTO", "GRUPO_TERAPEUTICO", "ADECUACION_INICIAL_CG", "RIESGO_ADE", "MOTIVO_RIESGO", "RECOMENDACION", "ACEPTACION_MEDICO", "ADECUACION_FINAL", "D"]).to_excel(writer, sheet_name='MEDICAMENTOS', index=False)
-            pd.DataFrame(columns=["Indicador", "VALOR"]).to_excel(writer, sheet_name='ANALISIS', index=False)
-
-def grabar_en_excel():
+# --- FUNCIONES DE NUBE ---
+def grabar_datos_cloud():
     try:
-        val_df = pd.read_excel(DB_FILE, sheet_name='VALIDACION')
-        med_df = pd.read_excel(DB_FILE, sheet_name='MEDICAMENTOS')
-        
-        # Nueva entrada Validación
-        nueva_val = {
-            "FECHA": datetime.now().strftime("%d/%m/%Y"),
-            "CENTRO": st.session_state.reg_centro,
-            "ID_REGISTRO": st.session_state.reg_id,
-            "EDAD": st.session_state.calc_e,
-            "SEXO": st.session_state.calc_s,
-            "PESO": st.session_state.calc_p,
-            "RESIDENCIA": st.session_state.reg_res,
-            "CREATININA": st.session_state.calc_c,
-            "FG_CG": st.session_state.get('last_fg_cg', 0),
-            "FG_CKD": st.session_state.fgl_ckd,
-            "FG_MDRD": st.session_state.fgl_mdrd,
-            "RIESGO_MAX": "Pendiente",
-            "ACEPTACION_GLOBAL": "No"
-        }
-        val_df = pd.concat([val_df, pd.DataFrame([nueva_val])], ignore_index=True)
-        
-        # Aquí se procesarían los medicamentos de la última respuesta de la IA para rellenar med_df
-        # Por simplicidad en este bloque, guardamos la cabecera del registro
-        
-        with pd.ExcelWriter(DB_FILE, engine='openpyxl') as writer:
-            val_df.to_excel(writer, sheet_name='VALIDACION', index=False)
-            med_df.to_excel(writer, sheet_name='MEDICAMENTOS', index=False)
-        st.success("¡Datos grabados correctamente en el Excel!")
+        sh = client.open(sheet_name)
+        # Grabación en pestaña VALIDACION
+        ws_val = sh.worksheet("VALIDACION")
+        nueva_fila = [
+            datetime.now().strftime("%d/%m/%Y"), st.session_state.reg_centro, st.session_state.reg_id,
+            st.session_state.calc_e, st.session_state.calc_s, st.session_state.calc_p,
+            st.session_state.reg_res, st.session_state.calc_c, st.session_state.get('last_fg_cg', 0),
+            st.session_state.fgl_ckd, st.session_state.fgl_mdrd, "", "", "", "", "", "", "", "", "", "", "", "", "Pendiente", "No"
+        ]
+        ws_val.append_row(nueva_fila)
+        st.success("✅ DATOS GRABADOS EN LA NUBE (BD_ASISTENTE_RENAL)")
     except Exception as e:
-        st.error(f"Error al grabar: {e}")
+        st.error(f"Error al grabar en Sheets: {e}")
 
-# --- FUNCIONES DE IA ---
+# --- FUNCIONES IA ---
 def llamar_ia_en_cascada(prompt):
-    if not API_KEY: return "⚠️ Error: API Key no configurada."
     disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
     orden = ['2.5-flash', 'flash-latest', '1.5-pro']
     for mod_name in orden:
@@ -115,7 +91,7 @@ def llamar_ia_en_cascada(prompt):
                 model = genai.GenerativeModel(f'models/gemini-{mod_name}')
                 return model.generate_content(prompt, generation_config={"temperature": 0.1}).text
             except: continue
-    return "⚠️ Error en la generación."
+    return "⚠️ Error."
 
 def obtener_glow_class(sintesis_texto):
     if "⛔" in sintesis_texto: return "glow-red"
@@ -125,32 +101,24 @@ def obtener_glow_class(sintesis_texto):
     else: return "glow-green"
 
 def procesar_y_limpiar_meds():
-    texto = st.session_state.main_meds
-    if texto:
-        prompt = f"Actúa como farmacéutico clínico. Reescribe este listado: [Principio Activo] + [Dosis] + (Marca). Una línea por fármaco. Sin explicaciones:\n{texto}"
+    if st.session_state.main_meds:
+        prompt = f"Actúa como farmacéutico clínico. Reescribe este listado: [Principio Activo] + [Dosis] + (Marca). Una línea por fármaco. Sin explicaciones:\n{st.session_state.main_meds}"
         st.session_state.main_meds = llamar_ia_en_cascada(prompt)
 
 def reset_registro():
     for key in ["reg_centro", "reg_res", "reg_id", "fgl_ckd", "fgl_mdrd", "main_meds"]: st.session_state[key] = ""
-    for key in ["calc_e", "calc_p", "calc_c", "calc_s"]: 
-        if key in st.session_state: st.session_state[key] = None
-
-def reset_meds():
-    st.session_state.main_meds = ""
-    st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
-    st.session_state.soip_o = ""; st.session_state.soip_i = ""; st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
-    st.session_state.ic_inter = ""; st.session_state.ic_clinica = ""
+    for key in ["calc_e", "calc_p", "calc_c", "calc_s"]: st.session_state[key] = None
 
 def inject_styles():
     st.markdown("""
     <style>
     .block-container { max-width: 100% !important; padding-top: 1rem !important; padding-left: 4% !important; padding-right: 4% !important; }
-    .black-badge-zona { background-color: #000000; color: #888; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 10px; left: 15px; z-index: 999999; }
-    .black-badge-activo { background-color: #000000; color: #00FF00; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 10px; left: 145px; z-index: 999999; text-shadow: 0 0 5px #00FF00; }
-    .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; margin-top: 20px; }
+    .black-badge-zona { background-color: #000; color: #888; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 10px; left: 15px; z-index: 999999; }
+    .black-badge-activo { background-color: #000; color: #00FF00; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 10px; left: 145px; z-index: 999999; text-shadow: 0 0 5px #00FF00; }
+    .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-top: 20px; }
     .sub-version { text-align: center; font-size: 0.6rem; color: #bbb; margin-top: -5px; margin-bottom: 20px; font-family: monospace; }
-    .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
-    .unit-label { font-size: 0.65rem; color: #888; margin-top: -10px; margin-bottom: 5px; font-family: sans-serif; text-align: center; }
+    .fg-glow-box { background-color: #000; color: #FFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
+    .unit-label { font-size: 0.65rem; color: #888; margin-top: -10px; margin-bottom: 5px; text-align: center; }
     .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; line-height: 1.6; }
     .glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; box-shadow: 0 0 12px #feb2b2; }
     .glow-orange { background-color: #fffaf0; color: #c05621; border-color: #fbd38d; box-shadow: 0 0 12px #fbd38d; }
@@ -158,8 +126,8 @@ def inject_styles():
     .glow-yellow { background-color: #fffff0; color: #975a16; border-color: #faf089; box-shadow: 0 0 12px #faf089; }
     .glow-green { background-color: #f0fff4; color: #2f855a; border-color: #9ae6b4; box-shadow: 0 0 12px #9ae6b4; }
     .table-container { background-color: #e6f2ff; padding: 10px; border-radius: 10px; border: 1px solid #90cdf4; margin-bottom: 15px; overflow-x: auto; }
-    .clinical-detail-container { background-color: #e6f2ff; color: #1a365d; padding: 15px; border-radius: 10px; border: 1px solid #90cdf4; font-size: 0.9rem; line-height: 1.6; }
-    .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
+    .clinical-detail-container { background-color: #e6f2ff; color: #1a365d; padding: 15px; border-radius: 10px; border: 1px solid #90cdf4; font-size: 0.9rem; }
+    .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; }
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
     .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
     .fg-special-border { border: 1.5px solid #9d00ff !important; border-radius: 5px; }
@@ -169,12 +137,11 @@ def inject_styles():
     """, unsafe_allow_html=True)
 
 inject_styles()
-init_excel()
 
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 07 mar 2026 09:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 07 mar 2026 10:30</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -202,7 +169,7 @@ with tabs[0]:
             calc_e = st.number_input("Edad (años)", step=1, key="calc_e", placeholder="Edad", value=None)
             calc_p = st.number_input("Peso (kg)", key="calc_p", placeholder="Peso", value=None)
             calc_c = st.number_input("Creatinina (mg/dL)", key="calc_c", placeholder="Creatinina", value=None)
-            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=None, placeholder="Seleccionar...", key="calc_s")
+            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=None, placeholder="Sexo", key="calc_s")
             fg = round(((140 - calc_e) * calc_p) / (72 * (calc_c if calc_c and calc_c > 0 else 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if all([calc_e, calc_p, calc_c, calc_s]) else 0.0
             st.session_state.last_fg_cg = fg
 
@@ -215,70 +182,60 @@ with tabs[0]:
         l1, l2 = st.columns(2)
         with l1:
             st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
-            val_mdrd = st.number_input("MDRD-4", value=None, placeholder="MDRD-4", label_visibility="collapsed", key="fgl_mdrd")
+            st.number_input("MDRD-4", value=None, placeholder="MDRD-4", label_visibility="collapsed", key="fgl_mdrd")
             st.markdown('</div><div class="unit-label">mL/min/1,73m²</div>', unsafe_allow_html=True)
         with l2:
             st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
-            val_ckd = st.number_input("CKD-EPI", value=None, placeholder="CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
+            st.number_input("CKD-EPI", value=None, placeholder="CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
             st.markdown('</div><div class="unit-label">mL/min/1,73m²</div>', unsafe_allow_html=True)
 
     st.markdown("---")
-    st.text_area("Listado de medicamentos", height=120, label_visibility="collapsed", key="main_meds", placeholder="Pegue fármacos aquí...")
+    st.text_area("Listado", height=120, label_visibility="collapsed", key="main_meds", placeholder="Fármacos aquí...")
     st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
     
     b1, b2, b3 = st.columns([0.65, 0.20, 0.15])
     btn_val = b1.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True)
     btn_grab = b2.button("💾 GRABAR DATOS", use_container_width=True)
-    b3.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
+    b3.button("🗑️ RESET", on_click=reset_registro, use_container_width=True)
 
-    if btn_grab: grabar_en_excel()
+    if btn_grab: grabar_datos_cloud()
 
     if btn_val:
         if not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s]):
-            st.markdown('<div class="blink-text">⚠️ AVISO: FALTAN DATOS. ANÁLISIS PUEDE SER INCOMPLETO.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="blink-text">⚠️ AVISO: FALTAN DATOS.</div>', unsafe_allow_html=True)
         
         if st.session_state.main_meds:
             with st.spinner("Analizando..."):
-                prompt_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
-                resp_raw = llamar_ia_en_cascada(prompt_final)
-                resp = resp_raw[resp_raw.find("|||"):] if "|||" in resp_raw else resp_raw
+                prompt_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {st.session_state.fgl_ckd}\nFG MDRD: {st.session_state.fgl_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
+                resp = llamar_ia_en_cascada(prompt_final)
+                resp = resp[resp.find("|||"):] if "|||" in resp else resp
                 try:
                     partes = [p.strip() for p in resp.split("|||") if p.strip()]
                     while len(partes) < 3: partes.append("")
                     sintesis, tabla, detalle = partes[:3]
-                    glow = obtener_glow_class(sintesis)
-                    st.markdown(f'<div class="synthesis-box {glow}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="synthesis-box {obtener_glow_class(sintesis)}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="clinical-detail-container">{detalle.replace("\n","<br>")}</div>', unsafe_allow_html=True)
-                except Exception as e: st.error(f"Error: {e}")
+                except Exception as e: st.error(f"Error IA: {e}")
 
 with tabs[1]:
-    for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
+    for label, key, h in [("S", "soip_s", 70), ("O", "soip_o", 70), ("I", "soip_i", 120), ("P", "soip_p", 100)]:
         st.markdown(f'<div class="linea-discreta-soip">{label}</div>', unsafe_allow_html=True)
         st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed")
 
 with tabs[2]:
-    st.markdown("### 📊 Histórico y Consulta Dinámica")
-    if os.path.exists(DB_FILE):
-        sheet = st.radio("Pestaña a visualizar:", ["VALIDACION", "MEDICAMENTOS", "ANALISIS"], horizontal=True)
-        df_edit = pd.read_excel(DB_FILE, sheet_name=sheet)
-        edited_df = st.data_editor(df_edit, use_container_width=True, num_rows="dynamic")
-        
-        if st.button("Guardar Cambios en Tabla"):
-            with pd.ExcelWriter(DB_FILE, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
-                edited_df.to_excel(writer, sheet_name=sheet, index=False)
-            st.success("Cambios guardados.")
-
+    st.markdown("### 📊 Histórico en la Nube (Google Sheets)")
+    try:
+        sh = client.open(sheet_name)
+        ws_val = sh.worksheet("VALIDACION")
+        df_cloud = pd.DataFrame(ws_val.get_all_records())
+        st.data_editor(df_cloud, use_container_width=True)
         st.divider()
         st.markdown("#### 🤖 CONSULTA DINÁMICA AL ASISTENTE")
-        query_ia = st.text_input("Haz una pregunta sobre los datos:", placeholder="Ej: % de mujeres con FG < 30...")
+        query_ia = st.text_input("Pregunta al histórico:")
         if query_ia:
-            with st.spinner("Consultando histórico..."):
-                contexto_excel = df_edit.to_string()
-                prompt_query = f"Basándote en estos datos de pacientes renales, responde de forma concisa: {query_ia}\n\nDatos:\n{contexto_excel}"
-                st.write(llamar_ia_en_cascada(prompt_query))
-        
-        with open(DB_FILE, "rb") as f:
-            st.download_button("📥 Descargar Excel Completo", f, file_name=DB_FILE)
+            res_ia = llamar_ia_en_cascada(f"Analiza estos datos y responde: {query_ia}\n\nDatos:\n{df_cloud.to_string()}")
+            st.write(res_ia)
+    except: st.warning("Conecta Google Sheets para ver el histórico.")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 07 mar 2026 09:45</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Herramienta de apoyo. Verifique siempre fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 07 mar 2026 10:30</div>""", unsafe_allow_html=True)
