@@ -6,3 +6,4 @@ streamlit-paste-button
 gspread
 google-auth
 pandas
+st-gsheets-connection
