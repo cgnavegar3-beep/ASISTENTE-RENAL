@@ -1,4 +1,4 @@
-# v. 07 mar 2026 09:15 (CONTROL DE INTEGRIDAD INTERNO: 245 LÍNEAS)
+# v. 07 mar 2026 10:20 (CONTROL DE INTEGRIDAD INTERNO: 248 LÍNEAS)
  
 import streamlit as st
 import pandas as pd
@@ -67,11 +67,11 @@ def conectar_google_sheets():
         scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
         credentials = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
         client = gspread.authorize(credentials)
-        # Asegúrate de que el nombre del Excel coincida exactamente
-        sheet = client.open("BD_ASISTENTE_RENAL").sheet1
+        # APUNTAMOS A LA PESTAÑA ESPECÍFICA INDICADA POR EL USUARIO
+        sheet = client.open("BD_ASISTENTE_RENAL").worksheet("VALIDACIONES")
         return sheet
     except Exception as e:
-        st.error(f"Error de conexión con BD: {e}")
+        st.error(f"Error de conexión con la pestaña VALIDACIONES: {e}")
         return None
 
 def grabar_datos_db(datos):
@@ -79,9 +79,9 @@ def grabar_datos_db(datos):
     if sheet:
         try:
             sheet.append_row(datos)
-            st.success("✅ Datos grabados correctamente en Google Sheets.")
+            st.success("✅ Datos grabados correctamente en la pestaña VALIDACIONES.")
         except Exception as e:
-            st.error(f"Error al grabar: {e}")
+            st.error(f"Error al grabar fila: {e}")
  
 # --- FUNCIONES ---
 def llamar_ia_en_cascada(prompt):
@@ -155,7 +155,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 07 mar 2026 09:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 07 mar 2026 10:20</div>', unsafe_allow_html=True)
  
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
  
@@ -273,4 +273,4 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">INFORMACIÓN CLÍNICA</div>', unsafe_allow_html=True)
     st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed", placeholder="Datos objetivos y análisis clínico...")
  
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 07 mar 2026 09:15</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 07 mar 2026 10:20</div>""", unsafe_allow_html=True)
