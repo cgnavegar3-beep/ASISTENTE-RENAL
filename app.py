@@ -1,4 +1,4 @@
-# v. 07 mar 2026 13:45 (CONTROL DE INTEGRIDAD INTERNO: 215 LÍNEAS)
+# v. 07 mar 2026 14:15 (CONTROL DE INTEGRIDAD INTERNO: 242 LÍNEAS)
  
 import streamlit as st
 import pandas as pd
@@ -135,7 +135,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 07 mar 2026 13:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 07 mar 2026 14:15</div>', unsafe_allow_html=True)
  
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
  
@@ -189,7 +189,7 @@ with tabs[0]:
     st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds", placeholder="Pegue el listado de fármacos aquí...")
     st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
     
-    b1, b2 = st.columns([0.85, 0.15])
+    b1, b2, b3 = st.columns([0.70, 0.15, 0.15])
     if b1.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True):
         if not st.session_state.main_meds: st.error("Introduce medicamentos.")
         else:
@@ -199,7 +199,6 @@ with tabs[0]:
                 prompt_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
                 resp_raw = llamar_ia_en_cascada(prompt_final)
                 st.session_state.resultado_ia = resp_raw[resp_raw.find("|||"):] if "|||" in resp_raw else resp_raw
-                # Volcado a SOIP e IC
                 partes = [p.strip() for p in st.session_state.resultado_ia.split("|||") if p.strip()]
                 if len(partes) >= 3:
                     sintesis, tabla, detalle = partes[:3]
@@ -208,7 +207,23 @@ with tabs[0]:
                     st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{st.session_state.soip_i}"
                     st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{detalle.split('⚠️ NOTA IMPORTANTE:')[0].replace('BLOQUE 3: ANALISIS CLINICO', '').strip()}"
 
-    b2.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
+    if b2.button("📥 GUARDAR", use_container_width=True):
+        if st.session_state.resultado_ia:
+            try:
+                conn = st.connection("gsheets", type=GSheetsConnection)
+                nueva_fila = pd.DataFrame([{
+                    "FECHA": datetime.now().strftime("%d/%m/%Y"), "ID": st.session_state.reg_id,
+                    "CENTRO": st.session_state.reg_centro, "FG_CG": valor_fg, 
+                    "SINTESIS": st.session_state.soip_i, "ANALISIS": st.session_state.ic_clinica
+                }])
+                df_actual = conn.read(worksheet="VALIDACIONES")
+                df_final = pd.concat([df_actual, nueva_fila], ignore_index=True)
+                conn.update(worksheet="VALIDACIONES", data=df_final)
+                st.success("✅ Guardado en la nube.")
+            except Exception as e: st.error(f"Error al guardar: {e}")
+        else: st.warning("Valida antes de guardar.")
+
+    b3.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
  
     if st.session_state.resultado_ia:
         partes = [p.strip() for p in st.session_state.resultado_ia.split("|||") if p.strip()]
@@ -230,11 +245,12 @@ with tabs[1]:
 
 with tabs[2]:
     st.markdown("### 📊 Gestión de Datos (BD_ASISTENTE_RENAL)")
+    d_tab1, d_tab2, d_tab3 = st.tabs(["📋 VALIDACIONES", "💊 MEDICAMENTOS", "🧪 ANALISIS"])
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        df = conn.read(worksheet="VALIDACIONES")
-        st.data_editor(df, use_container_width=True)
-    except:
-        st.warning("⚠️ Configura 'Secrets' en Streamlit para visualizar la tabla.")
+        with d_tab1: st.data_editor(conn.read(worksheet="VALIDACIONES"), use_container_width=True, key="ed_val")
+        with d_tab2: st.data_editor(conn.read(worksheet="MEDICAMENTOS"), use_container_width=True, key="ed_med")
+        with d_tab3: st.data_editor(conn.read(worksheet="ANALISIS"), use_container_width=True, key="ed_ana")
+    except: st.warning("⚠️ Configura 'Secrets' en Streamlit para visualizar las tablas.")
  
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 07 mar 2026 13:45</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 07 mar 2026 14:15</div>""", unsafe_allow_html=True)
