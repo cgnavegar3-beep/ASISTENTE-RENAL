@@ -1,4 +1,4 @@
-# v. 07 mar 2026 10:20 (CONTROL DE INTEGRIDAD INTERNO: 248 LÍNEAS)
+# v. 07 mar 2026 11:30 (CONTROL DE INTEGRIDAD INTERNO: 335 LÍNEAS)
  
 import streamlit as st
 import pandas as pd
@@ -65,24 +65,39 @@ except:
 def conectar_google_sheets():
     try:
         scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        credentials = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
-        client = gspread.authorize(credentials)
-        # APUNTAMOS A LA PESTAÑA ESPECÍFICA INDICADA POR EL USUARIO
-        sheet = client.open("BD_ASISTENTE_RENAL").worksheet("VALIDACIONES")
-        return sheet
+        creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
+        client = gspread.authorize(creds)
+        return client.open("BD_ASISTENTE_RENAL")
     except Exception as e:
-        st.error(f"Error de conexión con la pestaña VALIDACIONES: {e}")
+        st.error(f"Error crítico de conexión: {e}")
         return None
 
-def grabar_datos_db(datos):
-    sheet = conectar_google_sheets()
-    if sheet:
-        try:
-            sheet.append_row(datos)
-            st.success("✅ Datos grabados correctamente en la pestaña VALIDACIONES.")
-        except Exception as e:
-            st.error(f"Error al grabar fila: {e}")
- 
+def grabar_datos_db(data_validaciones, data_medicamentos, data_analisis):
+    doc = conectar_google_sheets()
+    if not doc: return
+    
+    fallos = []
+    # 1. Pestaña VALIDACIONES (A-Y)
+    try:
+        doc.worksheet("VALIDACIONES").append_row(data_validaciones)
+    except Exception as e: fallos.append(f"VALIDACIONES ({e})")
+    
+    # 2. Pestaña MEDICAMENTOS (A-M)
+    try:
+        if data_medicamentos:
+            doc.worksheet("MEDICAMENTOS").append_rows(data_medicamentos)
+    except Exception as e: fallos.append(f"MEDICAMENTOS ({e})")
+    
+    # 3. Pestaña ANALISIS
+    try:
+        doc.worksheet("ANALISIS").append_row(data_analisis)
+    except Exception as e: fallos.append(f"ANALISIS ({e})")
+    
+    if not fallos:
+        st.success("✅ Volcado triple completado con éxito.")
+    else:
+        st.warning(f"⚠️ Error parcial en pestañas: {', '.join(fallos)}. Revisa que los nombres de las pestañas no tengan espacios.")
+
 # --- FUNCIONES ---
 def llamar_ia_en_cascada(prompt):
     if not API_KEY: return "⚠️ Error: API Key no configurada."
@@ -155,7 +170,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 07 mar 2026 10:20</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 07 mar 2026 11:30</div>', unsafe_allow_html=True)
  
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
  
@@ -234,31 +249,28 @@ with tabs[0]:
                     st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
                     st.markdown(f'''<div class="clinical-detail-container">{detalle.replace("\n","<br>")}<div class="nota-importante-box"><div style="font-weight: 800; margin-bottom: 8px;">⚠️ NOTA IMPORTANTE:</div><div class="nota-item">1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</div><div class="nota-item">2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</div><div class="nota-item">3. La decisión final corresponde siempre al prescriptor médico.</div><div class="nota-item">4. Considere la situación clínica global del paciente antes de modificar dosis.</div></div></div>''', unsafe_allow_html=True)
                     
-                    datos_obj_lista = []
-                    if calc_e: datos_obj_lista.append(f"Edad: {calc_e}a")
-                    if calc_p: datos_obj_lista.append(f"Peso: {calc_p}kg")
-                    if calc_c: datos_obj_lista.append(f"Crea: {calc_c}mg/dL")
-                    if valor_fg: datos_obj_lista.append(f"FG: {valor_fg}mL/min")
-                    
-                    sintesis_limpia = sintesis.replace("BLOQUE 1: ALERTAS Y AJUSTES", "").strip()
-                    detalle_limpio = detalle.split("⚠️ NOTA IMPORTANTE:")[0].replace("BLOQUE 3: ANALISIS CLINICO", "").strip()
-                    
-                    st.session_state.soip_o = " | ".join(datos_obj_lista)
-                    st.session_state.soip_i = sintesis_limpia
-                    st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{sintesis_limpia}"
-                    st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{detalle_limpio}"
-
                     st.divider()
-                    if st.button("💾 GRABAR DATOS EN BD", use_container_width=True):
-                        fila = [
-                            datetime.now().strftime("%d/%m/%Y %H:%M"),
-                            st.session_state.reg_id,
-                            st.session_state.reg_centro,
-                            st.session_state.reg_res,
-                            calc_e, calc_p, calc_c, valor_fg, val_mdrd, val_ckd,
-                            sintesis_limpia
-                        ]
-                        grabar_datos_db(fila)
+                    if st.button("💾 GRABAR DATOS EN BD (TRIPLE VOLCADO)", use_container_width=True):
+                        # --- PREPARACIÓN DE FILAS ---
+                        ahora = datetime.now().strftime("%d/%m/%Y %H:%M")
+                        
+                        # VALIDACIONES (A-Y)
+                        val_row = [ahora, st.session_state.reg_centro, st.session_state.reg_id, calc_e, calc_s, calc_p, st.session_state.reg_res, calc_c, val_ckd, val_mdrd, valor_fg]
+                        val_row += [""] * (25 - len(val_row)) # Rellenar hasta columna Y
+                        
+                        # MEDICAMENTOS (A-M)
+                        med_rows = []
+                        filas_md = [f.strip() for f in tabla.split("\n") if "|" in f and "---" not in f and "Fármaco" not in f]
+                        for f in filas_md:
+                            cols = [c.strip() for c in f.split("|") if c.strip()]
+                            if len(cols) >= 2:
+                                med_row = [st.session_state.reg_id, cols[0], "", cols[1], "", "", "", "", "", "", "", "", ""]
+                                med_rows.append(med_row)
+                        
+                        # ANALISIS (A-Y)
+                        ana_row = ["INDICADOR_IA", sintesis[:100]] + [""] * 23
+                        
+                        grabar_datos_db(val_row, med_rows, ana_row)
 
                 except Exception as e: st.error(f"Error: {e}")
  
@@ -273,4 +285,4 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">INFORMACIÓN CLÍNICA</div>', unsafe_allow_html=True)
     st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed", placeholder="Datos objetivos y análisis clínico...")
  
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 07 mar 2026 10:20</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 07 mar 2026 11:30</div>""", unsafe_allow_html=True)
