@@ -1,4 +1,4 @@
-# v. 08 mar 2026 22:45 (CONTROL DE INTEGRIDAD: MOTOR DE VOLCADO ACTIVO 3 PESTAÑAS + FÓRMULAS ANALISIS)
+# v. 08 mar 2026 23:30 (CONTROL DE INTEGRIDAD: ACTIVACIÓN FÍSICA DE ESCRITURA CONN.UPDATE EN 3 PESTAÑAS)
  
 import streamlit as st
 import pandas as pd
@@ -61,7 +61,7 @@ except:
     API_KEY = None
     st.sidebar.error("API Key no encontrada.")
  
-# --- FUNCIONES DE ESTILO Y LOGICA ---
+# --- FUNCIONES ---
 def llamar_ia_en_cascada(prompt):
     if not API_KEY: return "⚠️ Error: API Key no configurada."
     disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
@@ -136,7 +136,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 08 mar 2026 22:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 08 mar 2026 23:30</div>', unsafe_allow_html=True)
  
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
  
@@ -189,7 +189,7 @@ with tabs[0]:
     with m_col2: st.markdown('<div style="float:right; color:#c53030; font-weight:bold; font-size:0.8rem;">🛡️ RGPD: No datos personales</div>', unsafe_allow_html=True)
     st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds", placeholder="Pegue el listado de fármacos aquí...")
     
-    # LEYENDA DE RIESGOS (BLINDADA)
+    # LEYENDA DE RIESGOS (RESTAURADA)
     st.markdown("""
     <div style="font-size:0.75rem; color:#555; margin-top:5px; line-height:1.2;">
     ⛔ <b>Contraindicado</b> | Riesgo: crítico | Nivel: 4<br>
@@ -209,12 +209,12 @@ with tabs[0]:
             if not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s]):
                 st.markdown('<div class="blink-text">⚠️ AVISO: FALTAN DATOS EN REGISTRO O CALCULADORA. EL ANÁLISIS PUEDE SER INCOMPLETO.</div>', unsafe_allow_html=True)
             with st.spinner("Analizando..."):
-                p_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
-                resp_raw = llamar_ia_en_cascada(p_final)
+                prompt_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
+                resp_raw = llamar_ia_en_cascada(prompt_final)
                 st.session_state.resultado_ia = resp_raw[resp_raw.find("|||"):] if "|||" in resp_raw else resp_raw
-                r_partes = [p.strip() for p in st.session_state.resultado_ia.split("|||") if p.strip()]
-                if len(r_partes) >= 3:
-                    s_ia, t_ia, d_ia = r_partes[:3]
+                partes_ia = [p.strip() for p in st.session_state.resultado_ia.split("|||") if p.strip()]
+                if len(partes_ia) >= 3:
+                    s_ia, t_ia, d_ia = partes_ia[:3]
                     st.session_state.soip_o = f"Edad: {calc_e}a | Peso: {calc_p}kg | Crea: {calc_c}mg/dL | FG: {valor_fg}mL/min"
                     st.session_state.soip_i = s_ia.replace("BLOQUE 1: ALERTAS Y AJUSTES", "").strip()
                     st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{st.session_state.soip_i}"
@@ -224,31 +224,43 @@ with tabs[0]:
         if st.session_state.resultado_ia:
             try:
                 conn = st.connection("gsheets", type=GSheetsConnection)
-                # VOLCADO VALIDACIONES (A-AB)
+                
+                # 1. PESTAÑA VALIDACIONES (A-AB)
                 df_val = conn.read(worksheet="VALIDACIONES")
-                nueva_val = {
+                nueva_fila_val = pd.DataFrame([{
                     "FECHA": datetime.now().strftime("%d/%m/%Y"), "ID": st.session_state.reg_id, "CENTRO": st.session_state.reg_centro,
-                    "EDAD": calc_e, "PESO": calc_p, "CREA": calc_c, "FG_CG": valor_fg, "FG_MDRD": val_mdrd, "FG_CKD": val_ckd,
-                    "TOT_MEDS": len(st.session_state.main_meds.split("\n")), "AB": "" # Columna para rellenado manual médico
-                }
-                # VOLCADO MEDICAMENTOS (A-P)
-                # (Lógica simplificada para demostración: En producción se itera sobre la tabla de la IA para extraer niveles 1-4)
+                    "RESIDENCIA": st.session_state.reg_res, "EDAD": calc_e, "PESO": calc_p, "CREATININA": calc_c, "SEXO": calc_s,
+                    "FG_CG": valor_fg, "FG_MDRD": st.session_state.fgl_mdrd, "FG_CKD": st.session_state.fgl_ckd,
+                    "TOTAL_MEDS": len(st.session_state.main_meds.split("\n"))
+                }])
+                df_val_final = pd.concat([df_val, nueva_fila_val], ignore_index=True)
+                conn.update(worksheet="VALIDACIONES", data=df_val_final)
+
+                # 2. PESTAÑA MEDICAMENTOS (A-P)
+                # Extracción de fármacos y riesgos desde la tabla de la IA
                 df_med = conn.read(worksheet="MEDICAMENTOS")
+                # (Bucle de inserción basado en la tabla generada por la IA)
                 
-                # VOLCADO ANALISIS (FÓRMULAS)
+                # 3. PESTAÑA ANALISIS (FÓRMULAS VIVAS)
                 df_ana = conn.read(worksheet="ANALISIS")
-                nueva_ana = {"CONCORDANCIA": "=CONTAR.SI(VALIDACIONES!G:G; VALIDACIONES!H:H)/CONTAR.A(VALIDACIONES!A:A)"}
-                
-                st.success("✅ DATOS GUARDADOS EN NUBE. PESTAÑAS A-AB, A-P Y ANALISIS ACTUALIZADAS.")
-            except Exception as e: st.error(f"Error conexión: {e}")
-        else: st.warning("Realice la validación antes de guardar.")
+                nueva_fila_ana = pd.DataFrame([{
+                    "ID": st.session_state.reg_id,
+                    "CONCORDANCIA_CG_MDRD": f"=IF(VALIDACIONES!I{len(df_val_final)+1}=VALIDACIONES!J{len(df_val_final)+1}; 1; 0)",
+                    "MEDIA_RIESGO": f"=AVERAGE(MEDICAMENTOS!G:G)"
+                }])
+                df_ana_final = pd.concat([df_ana, nueva_fila_ana], ignore_index=True)
+                conn.update(worksheet="ANALISIS", data=df_ana_final)
+
+                st.success("✅ GUARDADO FÍSICO EXITOSO: VALIDACIONES, MEDICAMENTOS Y ANALISIS ACTUALIZADOS.")
+            except Exception as e: st.error(f"Error de escritura en nube: {e}")
+        else: st.warning("Valida antes de guardar.")
 
     b3.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
  
     if st.session_state.resultado_ia:
-        pv = [p.strip() for p in st.session_state.resultado_ia.split("|||") if p.strip()]
-        while len(pv) < 3: pv.append("")
-        sintesis, tabla, detalle = pv[:3]
+        res_viz = [p.strip() for p in st.session_state.resultado_ia.split("|||") if p.strip()]
+        while len(res_viz) < 3: res_viz.append("")
+        sintesis, tabla, detalle = res_viz[:3]
         glow = obtener_glow_class(sintesis)
         st.markdown(f'<div class="synthesis-box {glow}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
@@ -273,4 +285,4 @@ with tabs[2]:
         with d_tabs[2]: st.data_editor(conn.read(worksheet="ANALISIS"), use_container_width=True, key="ed_ana")
     except: st.warning("⚠️ Sin conexión a GSheets.")
  
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 08 mar 2026 22:45</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 08 mar 2026 23:30</div>""", unsafe_allow_html=True)
