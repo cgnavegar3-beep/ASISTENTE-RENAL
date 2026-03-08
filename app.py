@@ -1,4 +1,4 @@
-# v. 08 mar 2026 20:10 (CONTROL DE INTEGRIDAD INTERNO: 370 LÍNEAS)
+# v. 08 mar 2026 20:45 (CONTROL DE INTEGRIDAD INTERNO: 375 LÍNEAS)
 
 import streamlit as st
 import pandas as pd
@@ -16,7 +16,7 @@ from streamlit_gsheets import GSheetsConnection
 # =================================================================
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
-# 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
+# 3. INTERFAZ DUAL PROTEGICA: Prohibido modificar la "Calculadora" y el 
 #     "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
 #     - Cuadros negros superiores (ZONA y ACTIVO).
@@ -133,7 +133,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 08 mar 2026 20:10</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 08 mar 2026 20:45</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -232,13 +232,13 @@ with tabs[0]:
                 }])
                 conn.update(worksheet="VALIDACIONES", data=pd.concat([conn.read(worksheet="VALIDACIONES"), nueva_val], ignore_index=True))
                 
-                # 3. ANALISIS (SIN REGEX PARA EVITAR ERROR CRÍTICO)
+                # 3. ANALISIS (Mapeo Blindado contra No-String)
                 df_hist = conn.read(worksheet="VALIDACIONES")
                 df_ana = conn.read(worksheet="ANALISIS")
                 
                 def up_val(indicador_txt, valor):
-                    # Búsqueda de texto exacto para evitar error de paréntesis (Regex=False)
-                    mask = df_ana['Indicador'].str.contains(indicador_txt, na=False, case=False, regex=False)
+                    # Forzamos astype(str) para asegurar compatibilidad con .str.contains
+                    mask = df_ana['Indicador'].astype(str).str.contains(indicador_txt, na=False, case=False, regex=False)
                     idx = df_ana[mask].index
                     if not idx.empty: df_ana.iloc[idx[0], 1] = valor
 
@@ -283,4 +283,4 @@ with tabs[2]:
         with d_tab3: st.data_editor(conn.read(worksheet="ANALISIS"), use_container_width=True, key="ed_ana")
     except: st.warning("⚠️ Configura 'Secrets' en Streamlit para visualizar las tablas.")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 08 mar 2026 20:10</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 08 mar 2026 20:45</div>""", unsafe_allow_html=True)
