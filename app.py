@@ -1,4 +1,4 @@
-# v. 08 mar 2026 19:55 (CONTROL DE INTEGRIDAD INTERNO: 365 LÍNEAS)
+# v. 08 mar 2026 20:10 (CONTROL DE INTEGRIDAD INTERNO: 370 LÍNEAS)
 
 import streamlit as st
 import pandas as pd
@@ -133,7 +133,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 08 mar 2026 19:55</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 08 mar 2026 20:10</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -167,12 +167,8 @@ with tabs[0]:
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
         fg_m = st.text_input("Ajuste Manual", placeholder="Fórmula Cockcroft-Gault: entrada manual")
-        
-        # --- CORRECCIÓN DE SEGURIDAD v. 19:55 ---
-        try:
-            valor_fg = float(fg_m) if fg_m and fg_m.strip() else fg_calc
-        except ValueError:
-            valor_fg = fg_calc
+        try: valor_fg = float(fg_m) if fg_m and fg_m.strip() else fg_calc
+        except: valor_fg = fg_calc
             
         st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
         st.markdown('<div class="formula-label">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
@@ -215,7 +211,7 @@ with tabs[0]:
         if st.session_state.resultado_ia:
             try:
                 conn = st.connection("gsheets", type=GSheetsConnection)
-                # --- PROCESAR MEDICAMENTOS ---
+                # 1. MEDICAMENTOS
                 partes = [p.strip() for p in st.session_state.resultado_ia.split("|||") if p.strip()]
                 rows = re.findall(r"<tr>(.*?)</tr>", partes[1], re.S)
                 meds_data = []
@@ -227,7 +223,7 @@ with tabs[0]:
                 df_med_nuevos = pd.DataFrame(meds_data)
                 conn.update(worksheet="MEDICAMENTOS", data=pd.concat([conn.read(worksheet="MEDICAMENTOS"), df_med_nuevos], ignore_index=True))
 
-                # --- PROCESAR VALIDACIÓN ---
+                # 2. VALIDACIÓN
                 nueva_val = pd.DataFrame([{
                     "FECHA": datetime.now().strftime("%d/%m/%Y"), "CENTRO": st.session_state.reg_centro, "RESIDENCIA": st.session_state.reg_res,
                     "ID_REGISTRO": st.session_state.reg_id, "EDAD": calc_e, "SEXO": calc_s, "PESO": calc_p, "CREATININA": calc_c,
@@ -236,12 +232,14 @@ with tabs[0]:
                 }])
                 conn.update(worksheet="VALIDACIONES", data=pd.concat([conn.read(worksheet="VALIDACIONES"), nueva_val], ignore_index=True))
                 
-                # --- ACTUALIZAR ANÁLISIS (MAPEO POR ETIQUETA) ---
+                # 3. ANALISIS (SIN REGEX PARA EVITAR ERROR CRÍTICO)
                 df_hist = conn.read(worksheet="VALIDACIONES")
                 df_ana = conn.read(worksheet="ANALISIS")
                 
-                def up_val(indicador, valor):
-                    idx = df_ana[df_ana['Indicador'].str.contains(indicador, na=False, case=False)].index
+                def up_val(indicador_txt, valor):
+                    # Búsqueda de texto exacto para evitar error de paréntesis (Regex=False)
+                    mask = df_ana['Indicador'].str.contains(indicador_txt, na=False, case=False, regex=False)
+                    idx = df_ana[mask].index
                     if not idx.empty: df_ana.iloc[idx[0], 1] = valor
 
                 up_val("TOTAL REVISIONES", df_hist["TOTAL_MEDS_PAC"].sum())
@@ -249,6 +247,7 @@ with tabs[0]:
                 up_val("MEDIA FG (CG", round(df_hist["FG_CG"].astype(float).mean(), 1))
                 up_val("MEDIA FG (LAB CKD", round(df_hist["FG_CKD"].astype(float).mean(), 1))
                 up_val("MEDIA FG (LAB MDRD", round(df_hist["FG_MDRD"].astype(float).mean(), 1))
+                
                 conn.update(worksheet="ANALISIS", data=df_ana)
                 st.success("✅ Datos sincronizados correctamente.")
             except Exception as e: st.error(f"Error Crítico: {e}")
@@ -284,4 +283,4 @@ with tabs[2]:
         with d_tab3: st.data_editor(conn.read(worksheet="ANALISIS"), use_container_width=True, key="ed_ana")
     except: st.warning("⚠️ Configura 'Secrets' en Streamlit para visualizar las tablas.")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 08 mar 2026 19:55</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 08 mar 2026 20:10</div>""", unsafe_allow_html=True)
