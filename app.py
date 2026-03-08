@@ -1,5 +1,5 @@
-# v. 07 mar 2026 20:15 (CONTROL DE INTEGRIDAD INTERNO: TOTALMENTE BLINDADO)
- 
+# v. 08 mar 2026 16:15 (CONTROL DE INTEGRIDAD INTERNO: TOTALMENTE BLINDADO)
+
 import streamlit as st
 import pandas as pd
 import io
@@ -10,49 +10,49 @@ import re
 import os
 import constants as c 
 from streamlit_gsheets import GSheetsConnection
- 
+
 # =================================================================
 # PRINCIPIOS FUNDAMENTALES (ESCRITOS DE PE A PA - PROHIBIDO ELIMINAR)
 # =================================================================
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#      "Filtrado Glomerular" (cuadro negro con glow morado).
+#       "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#      - Cuadros negros superiores (ZONA y ACTIVO).
-#      - Pestañas (Tabs) de navegación.
-#      - Registro de Paciente: Estructura y función de fila única.
-#      - Estructura del área de recorte y listado de medicación.
-#      - Barra dual de validación (VALIDAR / RESET).
-#      - Aviso legal amarillo inferior (Warning).
+#       - Cuadros negros superiores (ZONA y ACTIVO).
+#       - Pestañas (Tabs) de navegación.
+#       - Registro de Paciente: Estructura y función de fila única.
+#       - Estructura del área de recorte y listado de medicación.
+#       - Barra dual de validación (VALIDAR / RESET).
+#       - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#      "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#       "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#      principios antes y después de cada cambio. No se simplifican líneas.
+#       principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#      ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#       ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#      se considerará pérdida de principios.
+#       se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#       sus textos flotantes (placeholders) y los textos predefinidos en las
-#       secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#        sus textos flotantes (placeholders) y los textos predefinidos en las
+#        secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#       principio blindado; es informativo y no debe impedir la validación.
+#        principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
- 
+
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
- 
+
 # --- INICIALIZACIÓN ---
 if "active_model" not in st.session_state: st.session_state.active_model = "BUSCANDO..."
 if "main_meds" not in st.session_state: st.session_state.main_meds = ""
 if "resultado_ia" not in st.session_state: st.session_state.resultado_ia = None
 if "soip_s" not in st.session_state: st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
 if "soip_p" not in st.session_state: st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
- 
+
 for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
     if key not in st.session_state: st.session_state[key] = ""
- 
+
 # --- CONFIGURACIÓN IA ---
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
@@ -60,7 +60,7 @@ try:
 except:
     API_KEY = None
     st.sidebar.error("API Key no encontrada.")
- 
+
 # --- FUNCIONES ---
 def llamar_ia_en_cascada(prompt):
     if not API_KEY: return "⚠️ Error: API Key no configurada."
@@ -74,7 +74,7 @@ def llamar_ia_en_cascada(prompt):
                 return model.generate_content(prompt, generation_config={"temperature": 0.1}).text
             except: continue
     return "⚠️ Error en la generación."
- 
+
 def obtener_glow_class(sintesis_texto):
     if "⛔" in sintesis_texto: return "glow-red"
     elif "⚠️⚠️⚠️" in sintesis_texto: return "glow-orange"
@@ -82,15 +82,35 @@ def obtener_glow_class(sintesis_texto):
     elif "⚠️" in sintesis_texto: return "glow-yellow"
     else: return "glow-green"
 
-def extraer_conteo_niveles(texto, fg_tipo):
-    # fg_tipo: "CG", "MDRD", "CKD"
-    # Busca patrones en la tabla de la IA para contar niveles 1, 2, 3, 4
-    # Esta es una lógica simplificada para el ejemplo; en el prompt real la IA devuelve JSON o marcas claras.
-    niveles = {"1": 0, "2": 0, "3": 0, "4": 0}
-    # Lógica de búsqueda por patrones de texto/iconos en el Bloque 2
-    for n in niveles.keys():
-        niveles[n] = len(re.findall(f"Nivel {n}", texto)) # Ajustar según formato exacto de salida
-    return niveles
+def extraer_datos_tabla(html_tabla):
+    # Extrae filas y columnas de la tabla HTML del Bloque 2
+    filas = re.findall(r'<tr>(.*?)</tr>', html_tabla, re.DOTALL)
+    data_meds = []
+    # Saltamos la cabecera (primera fila)
+    for fila in filas[1:]:
+        celdas = re.findall(r'<td.*?>(.*?)</td>', fila, re.DOTALL)
+        if len(celdas) >= 12:
+            # Limpiar HTML tags de las celdas
+            clean_celdas = [re.sub(r'<.*?>', '', c).strip() for c in celdas]
+            data_meds.append(clean_celdas)
+    return data_meds
+
+def extraer_conteo_niveles(data_meds):
+    # Calcula conteos para CG (col 5), MDRD (col 8), CKD (col 11) - Índices 0-based: 5, 8, 11
+    conteos = {
+        "CG": {"1": 0, "2": 0, "3": 0, "4": 0},
+        "MDRD": {"1": 0, "2": 0, "3": 0, "4": 0},
+        "CKD": {"1": 0, "2": 0, "3": 0, "4": 0}
+    }
+    for m in data_meds:
+        # Mapeo de niveles según el texto de la categoría (Riesgo en cols 5, 8, 11)
+        for idx, key in zip([5, 8, 11], ["CG", "MDRD", "CKD"]):
+            val = m[idx]
+            if "4" in val or "crítico" in val.lower(): conteos[key]["4"] += 1
+            elif "3" in val or "grave" in val.lower(): conteos[key]["3"] += 1
+            elif "2" in val or "moderado" in val.lower(): conteos[key]["2"] += 1
+            elif "1" in val or "leve" in val.lower(): conteos[key]["1"] += 1
+    return conteos
 
 def reset_registro():
     for key in ["reg_centro", "reg_res", "reg_id", "fgl_ckd", "fgl_mdrd", "main_meds"]:
@@ -98,14 +118,14 @@ def reset_registro():
     for key in ["calc_e", "calc_p", "calc_c", "calc_s"]: 
         if key in st.session_state: st.session_state[key] = None
     st.session_state.resultado_ia = None
- 
+
 def reset_meds():
     st.session_state.main_meds = ""
     st.session_state.resultado_ia = None
     st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
     st.session_state.soip_o = ""; st.session_state.soip_i = ""; st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
     st.session_state.ic_inter = ""; st.session_state.ic_clinica = ""
- 
+
 def inject_styles():
     st.markdown("""
     <style>
@@ -134,15 +154,15 @@ def inject_styles():
     .blink-text { animation: blinker 1s linear infinite; color: #c53030; font-weight: bold; padding: 10px; border: 1px solid #c53030; border-radius: 5px; background: #fff5f5; text-align: center; margin-bottom: 15px; }
     </style>
     """, unsafe_allow_html=True)
- 
+
 inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 07 mar 2026 20:15</div>', unsafe_allow_html=True)
- 
+st.markdown('<div class="sub-version">v. 08 mar 2026 16:15</div>', unsafe_allow_html=True)
+
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
- 
+
 with tabs[0]:
     st.markdown("### Registro de Paciente")
     c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1.5, 0.4])
@@ -153,13 +173,13 @@ with tabs[0]:
         if st.session_state.reg_centro:
             iniciales = "".join([word[0] for word in st.session_state.reg_centro.split()]).upper()[:3]
             st.session_state.reg_id = f"PAC-{iniciales}{random.randint(10000, 99999)}"
- 
+
     with c1: st.text_input("Centro", placeholder="M / G", key="reg_centro", on_change=on_centro_change)
     with c2: st.selectbox("¿Residencia?", ["No", "Sí"], index=None, placeholder="Sí / No", key="reg_res")
     with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True, placeholder="Fecha")
     with c4: st.text_input("ID Registro", key="reg_id", disabled=True)
     with c5: st.write(""); st.button("🗑️", on_click=reset_registro, key="btn_reset_reg")
- 
+
     col_izq, col_der = st.columns(2, gap="large")
     with col_izq:
         st.markdown("#### 📋 Calculadora")
@@ -169,7 +189,7 @@ with tabs[0]:
             calc_c = st.number_input("Creatinina (mg/dL)", key="calc_c", placeholder="Creatinina (Ej: 1.2)", value=None)
             calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=None, placeholder="Seleccionar sexo...", key="calc_s")
             fg = round(((140 - calc_e) * calc_p) / (72 * (calc_c if calc_c and calc_c > 0 else 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if all([calc_e, calc_p, calc_c, calc_s]) else 0.0
- 
+
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
         fg_m = st.text_input("Ajuste Manual", placeholder="Fórmula Cockcroft-Gault: entrada manual")
@@ -185,7 +205,7 @@ with tabs[0]:
             st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
             val_ckd = st.number_input("CKD-EPI", value=None, placeholder="CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
             st.markdown('</div><div class="unit-label">mL/min/1,73m²</div>', unsafe_allow_html=True)
- 
+
     st.write(""); st.markdown("---")
     m_col1, m_col2 = st.columns([0.5, 0.5])
     with m_col1: st.markdown("#### 📝 Listado de medicamentos")
@@ -214,34 +234,48 @@ with tabs[0]:
         if st.session_state.resultado_ia:
             try:
                 conn = st.connection("gsheets", type=GSheetsConnection)
-                # Conteo de medicamentos total (denominador)
                 total_meds = len([line for line in st.session_state.main_meds.split('\n') if line.strip()])
                 
-                # Extracción automática de conteos por FG (simulada aquí, basada en la tabla de resultados)
-                bloque_2 = st.session_state.resultado_ia.split("|||")[2] # Tabla de medicamentos
-                cnt_cg = extraer_conteo_niveles(bloque_2, "CG")
-                cnt_mdrd = extraer_conteo_niveles(bloque_2, "MDRD")
-                cnt_ckd = extraer_conteo_niveles(bloque_2, "CKD")
+                # Extracción real de la tabla
+                partes = [p.strip() for p in st.session_state.resultado_ia.split("|||") if p.strip()]
+                tabla_html = partes[1]
+                lista_meds = extraer_datos_tabla(tabla_html)
+                cnt_niveles = extraer_conteo_niveles(lista_meds)
 
+                # 1. Volcado a VALIDACIONES
                 nueva_fila_val = pd.DataFrame([{
                     "FECHA": datetime.now().strftime("%d/%m/%Y"), "CENTRO": st.session_state.reg_centro, 
                     "RESIDENCIA": st.session_state.reg_res, "ID_REGISTRO": st.session_state.reg_id,
                     "EDAD": calc_e, "SEXO": calc_s, "PESO": calc_p, "CREATININA": calc_c,
                     "TOTAL_MEDS_PAC": total_meds,
-                    "FG_CG": valor_fg, "TOT_AFEC_CG": sum(cnt_cg.values()), "PRECAU_CG": cnt_cg["1"], "AJUSTE_DOS_CG": cnt_cg["2"], "TOXICID_CG": cnt_cg["3"], "CONTRAIND_CG": cnt_cg["4"],
-                    "FG_MDRD": val_mdrd, "TOT_AFEC_MDRD": sum(cnt_mdrd.values()), "PRECAU_MDRD": cnt_mdrd["1"], "AJUSTE_DOS_MDRD": cnt_mdrd["2"], "TOXICID_MDRD": cnt_mdrd["3"], "CONTRAIND_MDRD": cnt_mdrd["4"],
-                    "FG_CKD": val_ckd, "TOT_AFEC_CKD": sum(cnt_ckd.values()), "PRECAU_CKD": cnt_ckd["1"], "AJUSTE_DOS_CKD": cnt_ckd["2"], "TOXICID_CKD": cnt_ckd["3"], "CONTRAIND_CKD": cnt_ckd["4"],
-                    "ACEPTACION_MEDICO_GOBAL": "" # Manual
+                    "FG_CG": valor_fg, "TOT_AFEC_CG": sum(cnt_niveles["CG"].values()), "PRECAU_CG": cnt_niveles["CG"]["1"], "AJUSTE_DOS_CG": cnt_niveles["CG"]["2"], "TOXICID_CG": cnt_niveles["CG"]["3"], "CONTRAIND_CG": cnt_niveles["CG"]["4"],
+                    "FG_MDRD": val_mdrd, "TOT_AFEC_MDRD": sum(cnt_niveles["MDRD"].values()), "PRECAU_MDRD": cnt_niveles["MDRD"]["1"], "AJUSTE_DOS_MDRD": cnt_niveles["MDRD"]["2"], "TOXICID_MDRD": cnt_niveles["MDRD"]["3"], "CONTRAIND_MDRD": cnt_niveles["MDRD"]["4"],
+                    "FG_CKD": val_ckd, "TOT_AFEC_CKD": sum(cnt_niveles["CKD"].values()), "PRECAU_CKD": cnt_niveles["CKD"]["1"], "AJUSTE_DOS_CKD": cnt_niveles["CKD"]["2"], "TOXICID_CKD": cnt_niveles["CKD"]["3"], "CONTRAIND_CKD": cnt_niveles["CKD"]["4"],
+                    "ACEPTACION_MEDICO_GOBAL": "" 
                 }])
-                
                 df_val = conn.read(worksheet="VALIDACIONES")
                 conn.update(worksheet="VALIDACIONES", data=pd.concat([df_val, nueva_fila_val], ignore_index=True))
-                st.success("✅ Guardado en VALIDACIONES.")
+
+                # 2. Volcado a MEDICAMENTOS (una fila por fármaco)
+                filas_meds = []
+                for m in lista_meds:
+                    filas_meds.append({
+                        "ID_REGISTRO": st.session_state.reg_id, "FECHA": datetime.now().strftime("%d/%m/%Y"),
+                        "FARMACO": m[1], "GRUPO_ATC": m[2],
+                        "CG_CAT": m[4], "CG_RIESGO": m[5],
+                        "MDRD_CAT": m[7], "MDRD_RIESGO": m[8],
+                        "CKD_CAT": m[10], "CKD_RIESGO": m[11]
+                    })
+                if filas_meds:
+                    df_meds = conn.read(worksheet="MEDICAMENTOS")
+                    conn.update(worksheet="MEDICAMENTOS", data=pd.concat([df_meds, pd.DataFrame(filas_meds)], ignore_index=True))
+
+                st.success(f"✅ Guardado: {len(filas_meds)} fármacos registrados.")
             except Exception as e: st.error(f"Error al guardar: {e}")
         else: st.warning("Valida antes de guardar.")
 
     b3.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
- 
+
     if st.session_state.resultado_ia:
         partes = [p.strip() for p in st.session_state.resultado_ia.split("|||") if p.strip()]
         while len(partes) < 3: partes.append("")
@@ -250,7 +284,7 @@ with tabs[0]:
         st.markdown(f'<div class="synthesis-box {glow}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
         st.markdown(f'''<div class="clinical-detail-container">{detalle.replace("\n","<br>")}<div class="nota-importante-box"><div style="font-weight: 800; margin-bottom: 8px;">⚠️ NOTA IMPORTANTE:</div><div class="nota-item">1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</div><div class="nota-item">2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</div><div class="nota-item">3. La decisión final corresponde siempre al prescriptor médico.</div><div class="nota-item">4. Considere la situación clínica global del paciente antes de modificar dosis.</div></div></div>''', unsafe_allow_html=True)
- 
+
 with tabs[1]:
     for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
         st.markdown(f'<div class="linea-discreta-soip">{label}</div>', unsafe_allow_html=True)
@@ -269,5 +303,5 @@ with tabs[2]:
         with d_tab2: st.data_editor(conn.read(worksheet="MEDICAMENTOS"), use_container_width=True, key="ed_med")
         with d_tab3: st.data_editor(conn.read(worksheet="ANALISIS"), use_container_width=True, key="ed_ana")
     except: st.warning("⚠️ Configura 'Secrets' en Streamlit para visualizar las tablas.")
- 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 07 mar 2026 20:15</div>""", unsafe_allow_html=True)
+
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 08 mar 2026 16:15</div>""", unsafe_allow_html=True)
