@@ -1,4 +1,4 @@
-# v. 08 mar 2026 19:45 (CONTROL DE INTEGRIDAD INTERNO: 360 LÍNEAS)
+# v. 08 mar 2026 19:55 (CONTROL DE INTEGRIDAD INTERNO: 365 LÍNEAS)
 
 import streamlit as st
 import pandas as pd
@@ -133,7 +133,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 08 mar 2026 19:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 08 mar 2026 19:55</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -167,7 +167,13 @@ with tabs[0]:
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
         fg_m = st.text_input("Ajuste Manual", placeholder="Fórmula Cockcroft-Gault: entrada manual")
-        valor_fg = float(fg_m) if fg_m else fg_calc
+        
+        # --- CORRECCIÓN DE SEGURIDAD v. 19:55 ---
+        try:
+            valor_fg = float(fg_m) if fg_m and fg_m.strip() else fg_calc
+        except ValueError:
+            valor_fg = fg_calc
+            
         st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
         st.markdown('<div class="formula-label">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
         st.write(""); l1, l2 = st.columns(2)
@@ -185,7 +191,7 @@ with tabs[0]:
     with m_col1: st.markdown("#### 📝 Listado de medicamentos")
     with m_col2: st.markdown('<div style="float:right; color:#c53030; font-weight:bold; font-size:0.8rem;">🛡️ RGPD: No datos personales</div>', unsafe_allow_html=True)
     st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds", placeholder="Pegue el listado de fármacos aquí...")
-    st.button("Procesar medicamentos", on_change=procesar_y_limpiar_meds)
+    st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
     
     b1, b2, b3 = st.columns([0.70, 0.15, 0.15])
     if b1.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True):
@@ -243,10 +249,6 @@ with tabs[0]:
                 up_val("MEDIA FG (CG", round(df_hist["FG_CG"].astype(float).mean(), 1))
                 up_val("MEDIA FG (LAB CKD", round(df_hist["FG_CKD"].astype(float).mean(), 1))
                 up_val("MEDIA FG (LAB MDRD", round(df_hist["FG_MDRD"].astype(float).mean(), 1))
-                # Concordancia (Lógica simplificada para ejemplo)
-                conc_val = (df_hist["FG_CG"].astype(float) - df_hist["FG_CKD"].astype(float)).abs().mean()
-                up_val("CONCORDANCIA CG vs CKD", f"{round(100 - conc_val, 1)}%")
-                
                 conn.update(worksheet="ANALISIS", data=df_ana)
                 st.success("✅ Datos sincronizados correctamente.")
             except Exception as e: st.error(f"Error Crítico: {e}")
@@ -282,4 +284,4 @@ with tabs[2]:
         with d_tab3: st.data_editor(conn.read(worksheet="ANALISIS"), use_container_width=True, key="ed_ana")
     except: st.warning("⚠️ Configura 'Secrets' en Streamlit para visualizar las tablas.")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 08 mar 2026 19:45</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 08 mar 2026 19:55</div>""", unsafe_allow_html=True)
