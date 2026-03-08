@@ -1,4 +1,4 @@
-# v. 08 mar 2026 16:15 (CONTROL DE INTEGRIDAD INTERNO: TOTALMENTE BLINDADO)
+# v. 08 mar 2026 16:30 (CONTROL DE INTEGRIDAD INTERNO: TOTALMENTE BLINDADO)
 
 import streamlit as st
 import pandas as pd
@@ -61,7 +61,7 @@ except:
     API_KEY = None
     st.sidebar.error("API Key no encontrada.")
 
-# --- FUNCIONES ---
+# --- FUNCIONES DE EXTRACCIÓN Y SOPORTE ---
 def llamar_ia_en_cascada(prompt):
     if not API_KEY: return "⚠️ Error: API Key no configurada."
     disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
@@ -82,35 +82,31 @@ def obtener_glow_class(sintesis_texto):
     elif "⚠️" in sintesis_texto: return "glow-yellow"
     else: return "glow-green"
 
-def extraer_datos_tabla(html_tabla):
-    # Extrae filas y columnas de la tabla HTML del Bloque 2
+def parsear_tabla_ia(html_tabla):
     filas = re.findall(r'<tr>(.*?)</tr>', html_tabla, re.DOTALL)
-    data_meds = []
-    # Saltamos la cabecera (primera fila)
-    for fila in filas[1:]:
+    lista_farmacos = []
+    for fila in filas[1:]: # Omitir cabecera
         celdas = re.findall(r'<td.*?>(.*?)</td>', fila, re.DOTALL)
         if len(celdas) >= 12:
-            # Limpiar HTML tags de las celdas
-            clean_celdas = [re.sub(r'<.*?>', '', c).strip() for c in celdas]
-            data_meds.append(clean_celdas)
-    return data_meds
+            clean = [re.sub(r'<.*?>', '', c).strip() for c in celdas]
+            lista_farmacos.append(clean)
+    return lista_farmacos
 
-def extraer_conteo_niveles(data_meds):
-    # Calcula conteos para CG (col 5), MDRD (col 8), CKD (col 11) - Índices 0-based: 5, 8, 11
-    conteos = {
-        "CG": {"1": 0, "2": 0, "3": 0, "4": 0},
-        "MDRD": {"1": 0, "2": 0, "3": 0, "4": 0},
-        "CKD": {"1": 0, "2": 0, "3": 0, "4": 0}
+def procesar_conteos_reales(lista_farmacos):
+    conteo = {
+        "CG": {"1":0, "2":0, "3":0, "4":0},
+        "MDRD": {"1":0, "2":0, "3":0, "4":0},
+        "CKD": {"1":0, "2":0, "3":0, "4":0}
     }
-    for m in data_meds:
-        # Mapeo de niveles según el texto de la categoría (Riesgo en cols 5, 8, 11)
+    # Índices de Riesgo en la tabla: CG=5, MDRD=8, CKD=11
+    for f in lista_farmacos:
         for idx, key in zip([5, 8, 11], ["CG", "MDRD", "CKD"]):
-            val = m[idx]
-            if "4" in val or "crítico" in val.lower(): conteos[key]["4"] += 1
-            elif "3" in val or "grave" in val.lower(): conteos[key]["3"] += 1
-            elif "2" in val or "moderado" in val.lower(): conteos[key]["2"] += 1
-            elif "1" in val or "leve" in val.lower(): conteos[key]["1"] += 1
-    return conteos
+            val = f[idx].lower()
+            if "4" in val or "crítico" in val: conteo[key]["4"] += 1
+            elif "3" in val or "grave" in val: conteo[key]["3"] += 1
+            elif "2" in val or "moderado" in val: conteo[key]["2"] += 1
+            elif "1" in val or "leve" in val: conteo[key]["1"] += 1
+    return conteo
 
 def reset_registro():
     for key in ["reg_centro", "reg_res", "reg_id", "fgl_ckd", "fgl_mdrd", "main_meds"]:
@@ -159,7 +155,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 08 mar 2026 16:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 08 mar 2026 16:30</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -235,42 +231,43 @@ with tabs[0]:
             try:
                 conn = st.connection("gsheets", type=GSheetsConnection)
                 total_meds = len([line for line in st.session_state.main_meds.split('\n') if line.strip()])
-                
-                # Extracción real de la tabla
                 partes = [p.strip() for p in st.session_state.resultado_ia.split("|||") if p.strip()]
-                tabla_html = partes[1]
-                lista_meds = extraer_datos_tabla(tabla_html)
-                cnt_niveles = extraer_conteo_niveles(lista_meds)
+                lista_farmacos = parsear_tabla_ia(partes[1])
+                res_conteos = procesar_conteos_reales(lista_farmacos)
 
-                # 1. Volcado a VALIDACIONES
+                # 1. VALIDACIONES
                 nueva_fila_val = pd.DataFrame([{
                     "FECHA": datetime.now().strftime("%d/%m/%Y"), "CENTRO": st.session_state.reg_centro, 
                     "RESIDENCIA": st.session_state.reg_res, "ID_REGISTRO": st.session_state.reg_id,
                     "EDAD": calc_e, "SEXO": calc_s, "PESO": calc_p, "CREATININA": calc_c,
                     "TOTAL_MEDS_PAC": total_meds,
-                    "FG_CG": valor_fg, "TOT_AFEC_CG": sum(cnt_niveles["CG"].values()), "PRECAU_CG": cnt_niveles["CG"]["1"], "AJUSTE_DOS_CG": cnt_niveles["CG"]["2"], "TOXICID_CG": cnt_niveles["CG"]["3"], "CONTRAIND_CG": cnt_niveles["CG"]["4"],
-                    "FG_MDRD": val_mdrd, "TOT_AFEC_MDRD": sum(cnt_niveles["MDRD"].values()), "PRECAU_MDRD": cnt_niveles["MDRD"]["1"], "AJUSTE_DOS_MDRD": cnt_niveles["MDRD"]["2"], "TOXICID_MDRD": cnt_niveles["MDRD"]["3"], "CONTRAIND_MDRD": cnt_niveles["MDRD"]["4"],
-                    "FG_CKD": val_ckd, "TOT_AFEC_CKD": sum(cnt_niveles["CKD"].values()), "PRECAU_CKD": cnt_niveles["CKD"]["1"], "AJUSTE_DOS_CKD": cnt_niveles["CKD"]["2"], "TOXICID_CKD": cnt_niveles["CKD"]["3"], "CONTRAIND_CKD": cnt_niveles["CKD"]["4"],
-                    "ACEPTACION_MEDICO_GOBAL": "" 
+                    "FG_CG": valor_fg, "TOT_AFEC_CG": sum(res_conteos["CG"].values()), "PRECAU_CG": res_conteos["CG"]["1"], "AJUSTE_DOS_CG": res_conteos["CG"]["2"], "TOXICID_CG": res_conteos["CG"]["3"], "CONTRAIND_CG": res_conteos["CG"]["4"],
+                    "FG_MDRD": val_mdrd, "TOT_AFEC_MDRD": sum(res_conteos["MDRD"].values()), "PRECAU_MDRD": res_conteos["MDRD"]["1"], "AJUSTE_DOS_MDRD": res_conteos["MDRD"]["2"], "TOXICID_MDRD": res_conteos["MDRD"]["3"], "CONTRAIND_MDRD": res_conteos["MDRD"]["4"],
+                    "FG_CKD": val_ckd, "TOT_AFEC_CKD": sum(res_conteos["CKD"].values()), "PRECAU_CKD": res_conteos["CKD"]["1"], "AJUSTE_DOS_CKD": res_conteos["CKD"]["2"], "TOXICID_CKD": res_conteos["CKD"]["3"], "CONTRAIND_CKD": res_conteos["CKD"]["4"],
+                    "ACEPTACION_MEDICO_GOBAL": ""
                 }])
-                df_val = conn.read(worksheet="VALIDACIONES")
-                conn.update(worksheet="VALIDACIONES", data=pd.concat([df_val, nueva_fila_val], ignore_index=True))
+                conn.update(worksheet="VALIDACIONES", data=pd.concat([conn.read(worksheet="VALIDACIONES"), nueva_fila_val], ignore_index=True))
 
-                # 2. Volcado a MEDICAMENTOS (una fila por fármaco)
-                filas_meds = []
-                for m in lista_meds:
-                    filas_meds.append({
+                # 2. MEDICAMENTOS (Volcado individual)
+                if lista_farmacos:
+                    df_meds_nuevos = pd.DataFrame([{
                         "ID_REGISTRO": st.session_state.reg_id, "FECHA": datetime.now().strftime("%d/%m/%Y"),
-                        "FARMACO": m[1], "GRUPO_ATC": m[2],
-                        "CG_CAT": m[4], "CG_RIESGO": m[5],
-                        "MDRD_CAT": m[7], "MDRD_RIESGO": m[8],
-                        "CKD_CAT": m[10], "CKD_RIESGO": m[11]
-                    })
-                if filas_meds:
-                    df_meds = conn.read(worksheet="MEDICAMENTOS")
-                    conn.update(worksheet="MEDICAMENTOS", data=pd.concat([df_meds, pd.DataFrame(filas_meds)], ignore_index=True))
+                        "FARMACO": f[1], "GRUPO_ATC": f[2],
+                        "CG_CAT": f[4], "CG_RIESGO": f[5],
+                        "MDRD_CAT": f[7], "MDRD_RIESGO": f[8],
+                        "CKD_CAT": f[10], "CKD_RIESGO": f[11],
+                        "ACEPTACION_MEDICA": "", "ADECUACION_S_N": ""
+                    } for f in lista_farmacos])
+                    conn.update(worksheet="MEDICAMENTOS", data=pd.concat([conn.read(worksheet="MEDICAMENTOS"), df_meds_nuevos], ignore_index=True))
 
-                st.success(f"✅ Guardado: {len(filas_meds)} fármacos registrados.")
+                # 3. ANALISIS
+                nueva_fila_ana = pd.DataFrame([{
+                    "ID_REGISTRO": st.session_state.reg_id, "FECHA": datetime.now().strftime("%d/%m/%Y"),
+                    "ANALISIS_CLINICO": partes[2].replace('BLOQUE 3: ANALISIS CLINICO', '').strip()
+                }])
+                conn.update(worksheet="ANALISIS", data=pd.concat([conn.read(worksheet="ANALISIS"), nueva_fila_ana], ignore_index=True))
+                
+                st.success(f"✅ Volcado completo realizado a las 3 pestañas para {st.session_state.reg_id}")
             except Exception as e: st.error(f"Error al guardar: {e}")
         else: st.warning("Valida antes de guardar.")
 
@@ -304,4 +301,4 @@ with tabs[2]:
         with d_tab3: st.data_editor(conn.read(worksheet="ANALISIS"), use_container_width=True, key="ed_ana")
     except: st.warning("⚠️ Configura 'Secrets' en Streamlit para visualizar las tablas.")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 08 mar 2026 16:15</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 08 mar 2026 16:30</div>""", unsafe_allow_html=True)
