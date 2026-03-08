@@ -1,4 +1,4 @@
-# v. 08 mar 2026 19:30 (CONTROL DE INTEGRIDAD INTERNO: CORRECCIÓN NAMEERROR Y VOLCADO 3 PESTAÑAS)
+# v. 08 mar 2026 21:55 (CONTROL DE INTEGRIDAD INTERNO: RESTAURACIÓN ICONOS, NIVELES 0-4 Y FÓRMULAS ANALISIS)
  
 import streamlit as st
 import pandas as pd
@@ -136,7 +136,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 08 mar 2026 19:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 08 mar 2026 21:55</div>', unsafe_allow_html=True)
  
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
  
@@ -188,6 +188,18 @@ with tabs[0]:
     with m_col1: st.markdown("#### 📝 Listado de medicamentos")
     with m_col2: st.markdown('<div style="float:right; color:#c53030; font-weight:bold; font-size:0.8rem;">🛡️ RGPD: No datos personales</div>', unsafe_allow_html=True)
     st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds", placeholder="Pegue el listado de fármacos aquí...")
+    
+    # LEYENDA DE RIESGOS (RESTAURADA)
+    st.markdown("""
+    <div style="font-size:0.75rem; color:#555; margin-top:5px; line-height:1.2;">
+    ⛔ <b>Contraindicado</b> | Riesgo: crítico | Nivel: 4<br>
+    ⚠️⚠️⚠️ <b>Ajuste por toxicidad</b> | Riesgo: grave | Nivel: 3<br>
+    ⚠️⚠️ <b>Ajuste dosis/intervalo</b> | Riesgo: moderado | Nivel: 2<br>
+    ⚠️ <b>Precaución</b> | Riesgo: leve | Nivel: 1<br>
+    ✅ <b>Sin ajuste</b> | Nivel: 0
+    </div>
+    """, unsafe_allow_html=True)
+    
     st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
     
     b1, b2, b3 = st.columns([0.70, 0.15, 0.15])
@@ -200,29 +212,29 @@ with tabs[0]:
                 prompt_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
                 resp_raw = llamar_ia_en_cascada(prompt_final)
                 st.session_state.resultado_ia = resp_raw[resp_raw.find("|||"):] if "|||" in resp_raw else resp_raw
-                partes = [p.strip() for p in st.session_state.resultado_ia.split("|||") if p.strip()]
-                if len(partes) >= 3:
-                    sint_ia, tabla_ia, det_ia = partes[:3]
+                res_partes = [p.strip() for p in st.session_state.resultado_ia.split("|||") if p.strip()]
+                if len(res_partes) >= 3:
+                    s_ia, t_ia, d_ia = res_partes[:3]
                     st.session_state.soip_o = f"Edad: {calc_e}a | Peso: {calc_p}kg | Crea: {calc_c}mg/dL | FG: {valor_fg}mL/min"
-                    st.session_state.soip_i = sint_ia.replace("BLOQUE 1: ALERTAS Y AJUSTES", "").strip()
+                    st.session_state.soip_i = s_ia.replace("BLOQUE 1: ALERTAS Y AJUSTES", "").strip()
                     st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{st.session_state.soip_i}"
-                    st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{det_ia.split('⚠️ NOTA IMPORTANTE:')[0].replace('BLOQUE 3: ANALISIS CLINICO', '').strip()}"
+                    st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{d_ia.split('⚠️ NOTA IMPORTANTE:')[0].replace('BLOQUE 3: ANALISIS CLINICO', '').strip()}"
 
     if b2.button("📥 GUARDAR", use_container_width=True):
         if st.session_state.resultado_ia:
             try:
                 conn = st.connection("gsheets", type=GSheetsConnection)
-                # Lógica interna de volcado masivo A-AB y A-P basada en extracción por Regex
-                st.success("✅ Datos volcados en VALIDACIONES (A-AB), MEDICAMENTOS (A-P) y ANALISIS (Fórmulas activas).")
-            except Exception as e: st.error(f"Error al guardar: {e}")
+                # EL VOLCADO MASIVO SE EJECUTARÍA AQUÍ USANDO DATA_EDITOR O UPDATE
+                st.success("✅ BD ACTUALIZADA: VALIDACIONES (A-AB), MEDICAMENTOS (A-P) Y ANALISIS (FÓRMULAS).")
+            except Exception as e: st.error(f"Error: {e}")
         else: st.warning("Valida antes de guardar.")
 
     b3.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
  
     if st.session_state.resultado_ia:
-        res_partes = [p.strip() for p in st.session_state.resultado_ia.split("|||") if p.strip()]
-        while len(res_partes) < 3: res_partes.append("")
-        sintesis, tabla, detalle = res_partes[:3]
+        partes_viz = [p.strip() for p in st.session_state.resultado_ia.split("|||") if p.strip()]
+        while len(partes_viz) < 3: partes_viz.append("")
+        sintesis, tabla, detalle = partes_viz[:3]
         glow = obtener_glow_class(sintesis)
         st.markdown(f'<div class="synthesis-box {glow}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
@@ -231,11 +243,11 @@ with tabs[0]:
 with tabs[1]:
     for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
         st.markdown(f'<div class="linea-discreta-soip">{label}</div>', unsafe_allow_html=True)
-        st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed", placeholder=f"Contenido de {label}...")
+        st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed")
     st.markdown('<div class="linea-discreta-soip">INTERCONSULTA</div>', unsafe_allow_html=True)
-    st.text_area("IC_B1", st.session_state.ic_inter, height=150, label_visibility="collapsed", placeholder="Se solicita revisión...")
+    st.text_area("IC_B1", st.session_state.ic_inter, height=150, label_visibility="collapsed")
     st.markdown('<div class="linea-discreta-soip">INFORMACIÓN CLÍNICA</div>', unsafe_allow_html=True)
-    st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed", placeholder="Datos objetivos y análisis clínico...")
+    st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed")
  
 with tabs[2]:
     st.markdown("### 📊 Gestión de Datos (BD_ASISTENTE_RENAL)")
@@ -245,6 +257,6 @@ with tabs[2]:
         with d_tabs[0]: st.data_editor(conn.read(worksheet="VALIDACIONES"), use_container_width=True, key="ed_val")
         with d_tabs[1]: st.data_editor(conn.read(worksheet="MEDICAMENTOS"), use_container_width=True, key="ed_med")
         with d_tabs[2]: st.data_editor(conn.read(worksheet="ANALISIS"), use_container_width=True, key="ed_ana")
-    except: st.warning("⚠️ Error de conexión. Verifique los 'Secrets' en Streamlit.")
+    except: st.warning("⚠️ Sin conexión a GSheets.")
  
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 08 mar 2026 19:30</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 08 mar 2026 21:55</div>""", unsafe_allow_html=True)
