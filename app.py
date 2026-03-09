@@ -1,4 +1,4 @@
-# v. 09 mar 2026 21:05 (CONTROL DE INTEGRIDAD INTERNO: 198 LÍNEAS)
+# v. 09 mar 2026 21:15 (CONTROL DE INTEGRIDAD INTERNO: 202 LÍNEAS)
  
 import streamlit as st
 import pandas as pd
@@ -48,6 +48,7 @@ if "main_meds" not in st.session_state: st.session_state.main_meds = ""
 if "soip_s" not in st.session_state: st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
 if "soip_p" not in st.session_state: st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
 if "analisis_realizado" not in st.session_state: st.session_state.analisis_realizado = False
+if "resp_ia" not in st.session_state: st.session_state.resp_ia = None
  
 for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
     if key not in st.session_state: st.session_state[key] = ""
@@ -92,6 +93,7 @@ def reset_registro():
     for key in ["calc_e", "calc_p", "calc_c", "calc_s"]: 
         if key in st.session_state: st.session_state[key] = None
     st.session_state.analisis_realizado = False
+    st.session_state.resp_ia = None
  
 def reset_meds():
     st.session_state.main_meds = ""
@@ -99,6 +101,7 @@ def reset_meds():
     st.session_state.soip_o = ""; st.session_state.soip_i = ""; st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
     st.session_state.ic_inter = ""; st.session_state.ic_clinica = ""
     st.session_state.analisis_realizado = False
+    st.session_state.resp_ia = None
  
 def inject_styles():
     st.markdown("""
@@ -126,7 +129,13 @@ def inject_styles():
     .nota-item { margin-bottom: 4px; font-weight: 500; }
     @keyframes blinker { 50% { opacity: 0; } }
     .blink-text { animation: blinker 1s linear infinite; color: #c53030; font-weight: bold; padding: 10px; border: 1px solid #c53030; border-radius: 5px; background: #fff5f5; text-align: center; margin-bottom: 15px; }
-    .stButton > button.blink-btn { animation: blinker 1s linear infinite; background-color: #fff5f5 !important; color: #c53030 !important; border: 2px solid #c53030 !important; font-weight: bold !important; width: 250px; }
+    div[data-testid="stVerticalBlock"] > div:has(button[key="btn_grabar"]) button {
+        animation: blinker 1s linear infinite;
+        background-color: #fff5f5 !important;
+        color: #c53030 !important;
+        border: 2.2px solid #c53030 !important;
+        font-weight: bold !important;
+    }
     </style>
     """, unsafe_allow_html=True)
  
@@ -135,7 +144,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 09 mar 2026 21:05</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 09 mar 2026 21:15</div>', unsafe_allow_html=True)
  
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
  
@@ -203,49 +212,45 @@ with tabs[0]:
         else:
             with st.spinner("Analizando..."):
                 prompt_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
-                resp_raw = llamar_ia_en_cascada(prompt_final)
-                resp = resp_raw[resp_raw.find("|||"):] if "|||" in resp_raw else resp_raw
-                try:
-                    partes = [p.strip() for p in resp.split("|||") if p.strip()]
-                    while len(partes) < 3: partes.append("")
-                    sintesis, tabla, detalle = partes[:3]
-                    glow = obtener_glow_class(sintesis)
-                    st.markdown(f'<div class="synthesis-box {glow}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
-                    st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
-                    st.markdown(f'''<div class="clinical-detail-container">{detalle.replace("\n","<br>")}<div class="nota-importante-box"><div style="font-weight: 800; margin-bottom: 8px;">⚠️ NOTA IMPORTANTE:</div><div class="nota-item">1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</div><div class="nota-item">2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</div><div class="nota-item">3. La decisión final corresponde siempre al prescriptor médico.</div><div class="nota-item">4. Considere la situación clínica global del paciente antes de modificar dosis.</div></div></div>''', unsafe_allow_html=True)
-                    
-                    datos_obj_lista = []
-                    if calc_e: datos_obj_lista.append(f"Edad: {calc_e}a")
-                    if calc_p: datos_obj_lista.append(f"Peso: {calc_p}kg")
-                    if calc_c: datos_obj_lista.append(f"Crea: {calc_c}mg/dL")
-                    if valor_fg: datos_obj_lista.append(f"FG: {valor_fg}mL/min")
-                    
-                    sintesis_limpia = sintesis.replace("BLOQUE 1: ALERTAS Y AJUSTES", "").strip()
-                    detalle_limpio = detalle.split("⚠️ NOTA IMPORTANTE:")[0].replace("BLOQUE 3: ANALISIS CLINICO", "").strip()
-                    
-                    st.session_state.soip_o = " | ".join(datos_obj_lista)
-                    st.session_state.soip_i = sintesis_limpia
-                    st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{sintesis_limpia}"
-                    st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{detalle_limpio}"
-                    st.session_state.analisis_realizado = True
-                except Exception as e: st.error(f"Error: {e}")
+                st.session_state.resp_ia = llamar_ia_en_cascada(prompt_final)
+                st.session_state.analisis_realizado = True
  
-    if st.session_state.analisis_realizado:
-        st.write("")
-        col_btn_center = st.columns([1, 1, 1])
-        with col_btn_center[1]:
-            st.button("💾 GRABAR DATOS", key="btn_grabar", help="Guardar análisis", type="secondary", use_container_width=True)
-            st.markdown('<script>document.querySelector(".stButton button:has-text(\'GRABAR DATOS\')").classList.add("blink-btn");</script>', unsafe_allow_html=True)
-
+    if st.session_state.analisis_realizado and st.session_state.resp_ia:
+        resp = st.session_state.resp_ia[st.session_state.resp_ia.find("|||"):] if "|||" in st.session_state.resp_ia else st.session_state.resp_ia
+        try:
+            partes = [p.strip() for p in resp.split("|||") if p.strip()]
+            while len(partes) < 3: partes.append("")
+            sintesis, tabla, detalle = partes[:3]
+            glow = obtener_glow_class(sintesis)
+            st.markdown(f'<div class="synthesis-box {glow}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
+            st.markdown(f'''<div class="clinical-detail-container">{detalle.replace("\n","<br>")}<div class="nota-importante-box"><div style="font-weight: 800; margin-bottom: 8px;">⚠️ NOTA IMPORTANTE:</div><div class="nota-item">1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</div><div class="nota-item">2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</div><div class="nota-item">3. La decisión final corresponde siempre al prescriptor médico.</div><div class="nota-item">4. Considere la situación clínica global del paciente antes de modificar dosis.</div></div></div>''', unsafe_allow_html=True)
+            
+            # Persistencia de datos en informe
+            datos_obj_lista = []
+            if calc_e: datos_obj_lista.append(f"Edad: {calc_e}a")
+            if calc_p: datos_obj_lista.append(f"Peso: {calc_p}kg")
+            if calc_c: datos_obj_lista.append(f"Crea: {calc_c}mg/dL")
+            if valor_fg: datos_obj_lista.append(f"FG: {valor_fg}mL/min")
+            st.session_state.soip_o = " | ".join(datos_obj_lista)
+            st.session_state.soip_i = sintesis.replace("BLOQUE 1: ALERTAS Y AJUSTES", "").strip()
+            st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{st.session_state.soip_i}"
+            st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{detalle.split('⚠️ NOTA IMPORTANTE:')[0].replace('BLOQUE 3: ANALISIS CLINICO', '').strip()}"
+            
+            st.write("")
+            c_save_1, c_save_2, c_save_3 = st.columns([1, 1, 1])
+            with c_save_2:
+                if st.button("💾 GRABAR DATOS", key="btn_grabar", use_container_width=True):
+                    st.toast("Datos registrados correctamente.")
+        except Exception as e: st.error(f"Error: {e}")
+ 
 with tabs[1]:
     for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
         st.markdown(f'<div class="linea-discreta-soip">{label}</div>', unsafe_allow_html=True)
         st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed", placeholder=f"Contenido de {label}...")
-    
     st.markdown('<div class="linea-discreta-soip">INTERCONSULTA</div>', unsafe_allow_html=True)
     st.text_area("IC_B1", st.session_state.ic_inter, height=150, label_visibility="collapsed", placeholder="Se solicita revisión...")
-    
     st.markdown('<div class="linea-discreta-soip">INFORMACIÓN CLÍNICA</div>', unsafe_allow_html=True)
     st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed", placeholder="Datos objetivos y análisis clínico...")
  
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 09 mar 2026 21:05</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 09 mar 2026 21:15</div>""", unsafe_allow_html=True)
