@@ -50,35 +50,36 @@ BLOQUE 2: TABLA COMPARATIVA
 <th>Valor CKD</th><th>Cat CKD</th><th>Riesgo CKD</th><th>Nivel riesgo CKD</th>
 </tr>
 [FILAS DE FÁRMACOS CON COLORES SEGÚN FÓRMULA]
+
 <tr style="font-weight:bold; background-color:#f2f2f2;">
 <td colspan="3">Total afectados</td>
-<td>[Tot_CG]</td><td>[Tot_CG]</td><td>[Tot_CG]</td><td>[Tot_CG]</td>
-<td>[Tot_MDRD]</td><td>[Tot_MDRD]</td><td>[Tot_MDRD]</td><td>[Tot_MDRD]</td>
-<td>[Tot_CKD]</td><td>[Tot_CKD]</td><td>[Tot_CKD]</td><td>[Tot_CKD]</td>
+<td colspan="4">[Tot_CG]</td>
+<td colspan="4">[Tot_MDRD]</td>
+<td colspan="4">[Tot_CKD]</td>
 </tr>
 <tr>
 <td colspan="3">Nº Contraindicados</td>
-<td>[Contra_CG]</td><td>[Contra_CG]</td><td>[Contra_CG]</td><td>[Contra_CG]</td>
-<td>[Contra_MDRD]</td><td>[Contra_MDRD]</td><td>[Contra_MDRD]</td><td>[Contra_MDRD]</td>
-<td>[Contra_CKD]</td><td>[Contra_CKD]</td><td>[Contra_CKD]</td><td>[Contra_CKD]</td>
+<td colspan="4">[Contra_CG]</td>
+<td colspan="4">[Contra_MDRD]</td>
+<td colspan="4">[Contra_CKD]</td>
 </tr>
 <tr>
 <td colspan="3">N.º ajuste toxicidad</td>
-<td>[Tox_CG]</td><td>[Tox_CG]</td><td>[Tox_CG]</td><td>[Tox_CG]</td>
-<td>[Tox_MDRD]</td><td>[Tox_MDRD]</td><td>[Tox_MDRD]</td><td>[Tox_MDRD]</td>
-<td>[Tox_CKD]</td><td>[Tox_CKD]</td><td>[Tox_CKD]</td><td>[Tox_CKD]</td>
+<td colspan="4">[Tox_CG]</td>
+<td colspan="4">[Tox_MDRD]</td>
+<td colspan="4">[Tox_CKD]</td>
 </tr>
 <tr>
 <td colspan="3">N.º ajuste dosis</td>
-<td>[Dos_CG]</td><td>[Dos_CG]</td><td>[Dos_CG]</td><td>[Dos_CG]</td>
-<td>[Dos_MDRD]</td><td>[Dos_MDRD]</td><td>[Dos_MDRD]</td><td>[Dos_MDRD]</td>
-<td>[Dos_CKD]</td><td>[Dos_CKD]</td><td>[Dos_CKD]</td><td>[Dos_CKD]</td>
+<td colspan="4">[Dos_CG]</td>
+<td colspan="4">[Dos_MDRD]</td>
+<td colspan="4">[Dos_CKD]</td>
 </tr>
 <tr>
 <td colspan="3">N.º precaución</td>
-<td>[Prec_CG]</td><td>[Prec_CG]</td><td>[Prec_CG]</td><td>[Prec_CG]</td>
-<td>[Prec_MDRD]</td><td>[Prec_MDRD]</td><td>[Prec_MDRD]</td><td>[Prec_MDRD]</td>
-<td>[Prec_CKD]</td><td>[Prec_CKD]</td><td>[Prec_CKD]</td><td>[Prec_CKD]</td>
+<td colspan="4">[Prec_CG]</td>
+<td colspan="4">[Prec_MDRD]</td>
+<td colspan="4">[Prec_CKD]</td>
 </tr>
 </table>
 
