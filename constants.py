@@ -51,35 +51,35 @@ BLOQUE 2: TABLA COMPARATIVA
 </tr>
 [FILAS DE FÁRMACOS CON COLORES SEGÚN FÓRMULA]
 
-<tr style="font-weight:bold; background-color:#f2f2f2;">
+<tr style="font-weight:bold; background-color:#f2f2f2; text-align:center;">
 <td colspan="3">Total afectados</td>
-<td colspan="4">[Tot_CG]</td>
-<td colspan="4">[Tot_MDRD]</td>
-<td colspan="4">[Tot_CKD]</td>
+<td colspan="4" style="text-align:center;">[Tot_CG]</td>
+<td colspan="4" style="text-align:center;">[Tot_MDRD]</td>
+<td colspan="4" style="text-align:center;">[Tot_CKD]</td>
 </tr>
-<tr>
+<tr style="text-align:center;">
 <td colspan="3">Nº Contraindicados</td>
-<td colspan="4">[Contra_CG]</td>
-<td colspan="4">[Contra_MDRD]</td>
-<td colspan="4">[Contra_CKD]</td>
+<td colspan="4" style="text-align:center;">[Contra_CG]</td>
+<td colspan="4" style="text-align:center;">[Contra_MDRD]</td>
+<td colspan="4" style="text-align:center;">[Contra_CKD]</td>
 </tr>
-<tr>
+<tr style="text-align:center;">
 <td colspan="3">N.º ajuste toxicidad</td>
-<td colspan="4">[Tox_CG]</td>
-<td colspan="4">[Tox_MDRD]</td>
-<td colspan="4">[Tox_CKD]</td>
+<td colspan="4" style="text-align:center;">[Tox_CG]</td>
+<td colspan="4" style="text-align:center;">[Tox_MDRD]</td>
+<td colspan="4" style="text-align:center;">[Tox_CKD]</td>
 </tr>
-<tr>
+<tr style="text-align:center;">
 <td colspan="3">N.º ajuste dosis</td>
-<td colspan="4">[Dos_CG]</td>
-<td colspan="4">[Dos_MDRD]</td>
-<td colspan="4">[Dos_CKD]</td>
+<td colspan="4" style="text-align:center;">[Dos_CG]</td>
+<td colspan="4" style="text-align:center;">[Dos_MDRD]</td>
+<td colspan="4" style="text-align:center;">[Dos_CKD]</td>
 </tr>
-<tr>
+<tr style="text-align:center;">
 <td colspan="3">N.º precaución</td>
-<td colspan="4">[Prec_CG]</td>
-<td colspan="4">[Prec_MDRD]</td>
-<td colspan="4">[Prec_CKD]</td>
+<td colspan="4" style="text-align:center;">[Prec_CG]</td>
+<td colspan="4" style="text-align:center;">[Prec_MDRD]</td>
+<td colspan="4" style="text-align:center;">[Prec_CKD]</td>
 </tr>
 </table>
 
