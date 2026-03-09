@@ -1,4 +1,4 @@
-# v. 09 mar 2026 09:20 (CONTROL DE INTEGRIDAD INTERNO: 312 LÍNEAS)
+# v. 09 mar 2026 09:45 (CONTROL DE INTEGRIDAD INTERNO: 318 LÍNEAS)
 
 import streamlit as st
 import pandas as pd
@@ -35,7 +35,7 @@ from streamlit_gsheets import GSheetsConnection
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
 #    se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#     sus textos flotantes (placeholders) and los textos predefinidos en
+#     sus textos flotantes (placeholders) y los textos predefinidos en
 #     las secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un
 #     principio blindado; es informativo y no debe impedir la validación.
@@ -94,17 +94,22 @@ def procesar_y_limpiar_meds():
         st.session_state.main_meds = llamar_ia_en_cascada(prompt)
 
 def extraer_metricas_tabla(tabla_html, col_index):
-    """Extrae contadores de riesgo de la tabla para un FG específico (col_index)"""
-    iconos = {"⚠️": 0, "⚠️⚠️": 0, "⚠️⚠️⚠️": 0, "⛔": 0}
-    filas = re.findall(r"<tr>(.*?)</tr>", tabla_html, re.DOTALL)
-    for fila in filas[1:]: # Omitir cabecera
-        celdas = re.findall(r"<td>(.*?)</td>", fila, re.DOTALL)
+    """Extrae contadores de riesgo de la tabla para un FG específico por índice de columna."""
+    iconos_contadores = {"⚠️": 0, "⚠️⚠️": 0, "⚠️⚠️⚠️": 0, "⛔": 0}
+    # Limpiamos el HTML para evitar errores de parseo simples
+    tabla_limpia = tabla_html.replace('\n', '').replace('\t', '')
+    filas = re.findall(r"<tr>(.*?)</tr>", tabla_limpia, re.IGNORECASE)
+    
+    for fila in filas[1:]: # Omitir encabezado
+        celdas = re.findall(r"<td.*?>(.*?)</td>", fila, re.IGNORECASE)
         if len(celdas) > col_index:
-            contenido = celdas[col_index]
-            for icono in iconos.keys():
-                if icono in contenido:
-                    iconos[icono] += 1
-    return iconos
+            contenido = celdas[col_index].strip()
+            # Buscamos coincidencias exactas de mayor a menor riesgo para evitar falsos positivos
+            if "⛔" in contenido: iconos_contadores["⛔"] += 1
+            elif "⚠️⚠️⚠️" in contenido: iconos_contadores["⚠️⚠️⚠️"] += 1
+            elif "⚠️⚠️" in contenido: iconos_contadores["⚠️⚠️"] += 1
+            elif "⚠️" in contenido: iconos_contadores["⚠️"] += 1
+    return iconos_contadores
 
 def reset_registro():
     for key in ["reg_centro", "reg_res", "reg_id", "fgl_ckd", "fgl_mdrd", "main_meds"]:
@@ -153,7 +158,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 09 mar 2026 09:20</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 09 mar 2026 09:45</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -232,7 +237,7 @@ with tabs[0]:
                 partes = [p.strip() for p in st.session_state.resultado_ia.split("|||") if p.strip()]
                 tabla_html = partes[1] if len(partes) > 1 else ""
                 
-                # Extracción de métricas para volcado (G-C col 4, MDRD col 5, CKD col 6 en tabla comparativa)
+                # Mapeo según columnas obligatorias (CG=4, MDRD=5, CKD=6 en la tabla de 12 columnas)
                 met_cg = extraer_metricas_tabla(tabla_html, 4)
                 met_mdrd = extraer_metricas_tabla(tabla_html, 5)
                 met_ckd = extraer_metricas_tabla(tabla_html, 6)
@@ -243,36 +248,20 @@ with tabs[0]:
                     "CENTRO": st.session_state.reg_centro,
                     "RESIDENCIA": st.session_state.reg_res,
                     "ID_REGISTRO": st.session_state.reg_id,
-                    "EDAD": calc_e,
-                    "SEXO": calc_s,
-                    "PESO": calc_p,
-                    "CREATININA": calc_c,
+                    "EDAD": calc_e, "SEXO": calc_s, "PESO": calc_p, "CREATININA": calc_c,
                     "TOTAL_MEDS_PAC": len(st.session_state.main_meds.splitlines()),
                     "FG_CG": valor_fg,
-                    "TOT_AFEC_CG": sum(met_cg.values()),
-                    "PRECAU_CG": met_cg["⚠️"],
-                    "AJUSTE_DOS_CG": met_cg["⚠️⚠️"],
-                    "TOXICID_CG": met_cg["⚠️⚠️⚠️"],
-                    "CONTRAIND_CG": met_cg["⛔"],
+                    "TOT_AFEC_CG": sum(met_cg.values()), "PRECAU_CG": met_cg["⚠️"], "AJUSTE_DOS_CG": met_cg["⚠️⚠️"], "TOXICID_CG": met_cg["⚠️⚠️⚠️"], "CONTRAIND_CG": met_cg["⛔"],
                     "FG_MDRD": val_mdrd if val_mdrd else 0,
-                    "TOT_AFEC_MDRD": sum(met_mdrd.values()),
-                    "PRECAU_MDRD": met_mdrd["⚠️"],
-                    "AJUSTE_DOS_MDRD": met_mdrd["⚠️⚠️"],
-                    "TOXICID_MDRD": met_mdrd["⚠️⚠️⚠️"],
-                    "CONTRAIND_MDRD": met_mdrd["⛔"],
+                    "TOT_AFEC_MDRD": sum(met_mdrd.values()), "PRECAU_MDRD": met_mdrd["⚠️"], "AJUSTE_DOS_MDRD": met_mdrd["⚠️⚠️"], "TOXICID_MDRD": met_mdrd["⚠️⚠️⚠️"], "CONTRAIND_MDRD": met_mdrd["⛔"],
                     "FG_CKD": val_ckd if val_ckd else 0,
-                    "TOT_AFEC_CKD": sum(met_ckd.values()),
-                    "PRECAU_CKD": met_ckd["⚠️"],
-                    "AJUSTE_DOS_CKD": met_ckd["⚠️⚠️"],
-                    "TOXICID_CKD": met_ckd["⚠️⚠️⚠️"],
-                    "CONTRAIND_CKD": met_ckd["⛔"],
-                    "DISCREPANCIA": "", # Manual
-                    "ACEPTACION_MEDICO_GOBAL": "" # Manual
+                    "TOT_AFEC_CKD": sum(met_ckd.values()), "PRECAU_CKD": met_ckd["⚠️"], "AJUSTE_DOS_CKD": met_ckd["⚠️⚠️"], "TOXICID_CKD": met_ckd["⚠️⚠️⚠️"], "CONTRAIND_CKD": met_ckd["⛔"],
+                    "DISCREPANCIA": "", "ACEPTACION_MEDICO_GOBAL": ""
                 }])
                 df_actual = conn.read(worksheet="VALIDACIONES")
                 df_final = pd.concat([df_actual, nueva_fila], ignore_index=True)
                 conn.update(worksheet="VALIDACIONES", data=df_final)
-                st.success("✅ Guardado en la nube (29 columnas mapeadas).")
+                st.success("✅ Volcado realizado con éxito (29 columnas).")
             except Exception as e: st.error(f"Error al guardar: {e}")
         else: st.warning("Valida antes de guardar.")
 
@@ -306,4 +295,4 @@ with tabs[2]:
         with d_tab3: st.data_editor(conn.read(worksheet="ANALISIS"), use_container_width=True, key="ed_ana")
     except: st.warning("⚠️ Configura 'Secrets' en Streamlit para visualizar las tablas.")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 09 mar 2026 09:20</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 09 mar 2026 09:45</div>""", unsafe_allow_html=True)
