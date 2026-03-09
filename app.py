@@ -1,4 +1,4 @@
-# v. 09 mar 2026 09:45 (CONTROL DE INTEGRIDAD INTERNO: 318 LÍNEAS)
+# v. 09 mar 2026 10:45 (CONTROL DE INTEGRIDAD INTERNO: 312 LÍNEAS)
 
 import streamlit as st
 import pandas as pd
@@ -93,23 +93,25 @@ def procesar_y_limpiar_meds():
         prompt = f"Actúa como farmacéutico clínico. Reescribe este listado: [Principio Activo] + [Dosis] + (Marca). Una línea por fármaco. Sin explicaciones:\n{texto}"
         st.session_state.main_meds = llamar_ia_en_cascada(prompt)
 
-def extraer_metricas_tabla(tabla_html, col_index):
-    """Extrae contadores de riesgo de la tabla para un FG específico por índice de columna."""
-    iconos_contadores = {"⚠️": 0, "⚠️⚠️": 0, "⚠️⚠️⚠️": 0, "⛔": 0}
-    # Limpiamos el HTML para evitar errores de parseo simples
+def extraer_metricas_global(tabla_html):
+    """Extrae métricas analizando el contenido de las columnas de riesgo 4, 5 y 6"""
+    data = {
+        "CG": {"⚠️": 0, "⚠️⚠️": 0, "⚠️⚠️⚠️": 0, "⛔": 0},
+        "MDRD": {"⚠️": 0, "⚠️⚠️": 0, "⚠️⚠️⚠️": 0, "⛔": 0},
+        "CKD": {"⚠️": 0, "⚠️⚠️": 0, "⚠️⚠️⚠️": 0, "⛔": 0}
+    }
     tabla_limpia = tabla_html.replace('\n', '').replace('\t', '')
     filas = re.findall(r"<tr>(.*?)</tr>", tabla_limpia, re.IGNORECASE)
-    
-    for fila in filas[1:]: # Omitir encabezado
+    for fila in filas[1:]:
         celdas = re.findall(r"<td.*?>(.*?)</td>", fila, re.IGNORECASE)
-        if len(celdas) > col_index:
-            contenido = celdas[col_index].strip()
-            # Buscamos coincidencias exactas de mayor a menor riesgo para evitar falsos positivos
-            if "⛔" in contenido: iconos_contadores["⛔"] += 1
-            elif "⚠️⚠️⚠️" in contenido: iconos_contadores["⚠️⚠️⚠️"] += 1
-            elif "⚠️⚠️" in contenido: iconos_contadores["⚠️⚠️"] += 1
-            elif "⚠️" in contenido: iconos_contadores["⚠️"] += 1
-    return iconos_contadores
+        if len(celdas) >= 7:
+            for key, col in [("CG", 4), ("MDRD", 5), ("CKD", 6)]:
+                cont = celdas[col]
+                if "⛔" in cont: data[key]["⛔"] += 1
+                elif "⚠️⚠️⚠️" in cont: data[key]["⚠️⚠️⚠️"] += 1
+                elif "⚠️⚠️" in cont: data[key]["⚠️⚠️"] += 1
+                elif "⚠️" in cont: data[key]["⚠️"] += 1
+    return data
 
 def reset_registro():
     for key in ["reg_centro", "reg_res", "reg_id", "fgl_ckd", "fgl_mdrd", "main_meds"]:
@@ -158,14 +160,13 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 09 mar 2026 09:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 09 mar 2026 10:45</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
 with tabs[0]:
     st.markdown("### Registro de Paciente")
     c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1.5, 0.4])
-
     def on_centro_change():
         centro_val = st.session_state.reg_centro.strip().lower()
         if centro_val == "m": st.session_state.reg_centro = "Marín"
@@ -173,7 +174,6 @@ with tabs[0]:
         if st.session_state.reg_centro:
             iniciales = "".join([word[0] for word in st.session_state.reg_centro.split()]).upper()[:3]
             st.session_state.reg_id = f"PAC-{iniciales}{random.randint(10000, 99999)}"
-
     with c1: st.text_input("Centro", placeholder="M / G", key="reg_centro", on_change=on_centro_change)
     with c2: st.selectbox("¿Residencia?", ["No", "Sí"], index=None, placeholder="Sí / No", key="reg_res")
     with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True, placeholder="Fecha")
@@ -236,35 +236,26 @@ with tabs[0]:
             try:
                 partes = [p.strip() for p in st.session_state.resultado_ia.split("|||") if p.strip()]
                 tabla_html = partes[1] if len(partes) > 1 else ""
-                
-                # Mapeo según columnas obligatorias (CG=4, MDRD=5, CKD=6 en la tabla de 12 columnas)
-                met_cg = extraer_metricas_tabla(tabla_html, 4)
-                met_mdrd = extraer_metricas_tabla(tabla_html, 5)
-                met_ckd = extraer_metricas_tabla(tabla_html, 6)
-                
+                mets = extraer_metricas_global(tabla_html)
                 conn = st.connection("gsheets", type=GSheetsConnection)
                 nueva_fila = pd.DataFrame([{
                     "FECHA": datetime.now().strftime("%d/%m/%Y"),
-                    "CENTRO": st.session_state.reg_centro,
-                    "RESIDENCIA": st.session_state.reg_res,
-                    "ID_REGISTRO": st.session_state.reg_id,
-                    "EDAD": calc_e, "SEXO": calc_s, "PESO": calc_p, "CREATININA": calc_c,
-                    "TOTAL_MEDS_PAC": len(st.session_state.main_meds.splitlines()),
-                    "FG_CG": valor_fg,
-                    "TOT_AFEC_CG": sum(met_cg.values()), "PRECAU_CG": met_cg["⚠️"], "AJUSTE_DOS_CG": met_cg["⚠️⚠️"], "TOXICID_CG": met_cg["⚠️⚠️⚠️"], "CONTRAIND_CG": met_cg["⛔"],
+                    "CENTRO": st.session_state.reg_centro, "RESIDENCIA": st.session_state.reg_res,
+                    "ID_REGISTRO": st.session_state.reg_id, "EDAD": calc_e, "SEXO": calc_s, "PESO": calc_p, "CREATININA": calc_c,
+                    "TOTAL_MEDS_PAC": len(st.session_state.main_meds.splitlines()), "FG_CG": valor_fg,
+                    "TOT_AFEC_CG": sum(mets["CG"].values()), "PRECAU_CG": mets["CG"]["⚠️"], "AJUSTE_DOS_CG": mets["CG"]["⚠️⚠️"], "TOXICID_CG": mets["CG"]["⚠️⚠️⚠️"], "CONTRAIND_CG": mets["CG"]["⛔"],
                     "FG_MDRD": val_mdrd if val_mdrd else 0,
-                    "TOT_AFEC_MDRD": sum(met_mdrd.values()), "PRECAU_MDRD": met_mdrd["⚠️"], "AJUSTE_DOS_MDRD": met_mdrd["⚠️⚠️"], "TOXICID_MDRD": met_mdrd["⚠️⚠️⚠️"], "CONTRAIND_MDRD": met_mdrd["⛔"],
+                    "TOT_AFEC_MDRD": sum(mets["MDRD"].values()), "PRECAU_MDRD": mets["MDRD"]["⚠️"], "AJUSTE_DOS_MDRD": mets["MDRD"]["⚠️⚠️"], "TOXICID_MDRD": mets["MDRD"]["⚠️⚠️⚠️"], "CONTRAIND_MDRD": mets["MDRD"]["⛔"],
                     "FG_CKD": val_ckd if val_ckd else 0,
-                    "TOT_AFEC_CKD": sum(met_ckd.values()), "PRECAU_CKD": met_ckd["⚠️"], "AJUSTE_DOS_CKD": met_ckd["⚠️⚠️"], "TOXICID_CKD": met_ckd["⚠️⚠️⚠️"], "CONTRAIND_CKD": met_ckd["⛔"],
+                    "TOT_AFEC_CKD": sum(mets["CKD"].values()), "PRECAU_CKD": mets["CKD"]["⚠️"], "AJUSTE_DOS_CKD": mets["CKD"]["⚠️⚠️"], "TOXICID_CKD": mets["CKD"]["⚠️⚠️⚠️"], "CONTRAIND_CKD": mets["CKD"]["⛔"],
                     "DISCREPANCIA": "", "ACEPTACION_MEDICO_GOBAL": ""
                 }])
-                df_actual = conn.read(worksheet="VALIDACIONES")
+                df_actual = conn.read(worksheet="VALIDACIONES", ttl=0)
                 df_final = pd.concat([df_actual, nueva_fila], ignore_index=True)
                 conn.update(worksheet="VALIDACIONES", data=df_final)
-                st.success("✅ Volcado realizado con éxito (29 columnas).")
-            except Exception as e: st.error(f"Error al guardar: {e}")
+                st.success("✅ Datos sincronizados correctamente.")
+            except Exception as e: st.error(f"Error: {e}")
         else: st.warning("Valida antes de guardar.")
-
     b3.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
 
     if st.session_state.resultado_ia:
@@ -279,20 +270,20 @@ with tabs[0]:
 with tabs[1]:
     for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
         st.markdown(f'<div class="linea-discreta-soip">{label}</div>', unsafe_allow_html=True)
-        st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed", placeholder=f"Contenido de {label}...")
+        st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed")
     st.markdown('<div class="linea-discreta-soip">INTERCONSULTA</div>', unsafe_allow_html=True)
-    st.text_area("IC_B1", st.session_state.ic_inter, height=150, label_visibility="collapsed", placeholder="Se solicita revisión...")
+    st.text_area("IC_B1", st.session_state.ic_inter, height=150, label_visibility="collapsed")
     st.markdown('<div class="linea-discreta-soip">INFORMACIÓN CLÍNICA</div>', unsafe_allow_html=True)
-    st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed", placeholder="Datos objetivos y análisis clínico...")
+    st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed")
 
 with tabs[2]:
     st.markdown("### 📊 Gestión de Datos (BD_ASISTENTE_RENAL)")
     d_tab1, d_tab2, d_tab3 = st.tabs(["📋 VALIDACIONES", "💊 MEDICAMENTOS", "🧪 ANALISIS"])
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        with d_tab1: st.data_editor(conn.read(worksheet="VALIDACIONES"), use_container_width=True, key="ed_val")
-        with d_tab2: st.data_editor(conn.read(worksheet="MEDICAMENTOS"), use_container_width=True, key="ed_med")
-        with d_tab3: st.data_editor(conn.read(worksheet="ANALISIS"), use_container_width=True, key="ed_ana")
-    except: st.warning("⚠️ Configura 'Secrets' en Streamlit para visualizar las tablas.")
+        with d_tab1: st.data_editor(conn.read(worksheet="VALIDACIONES", ttl=0), use_container_width=True, key="ed_val")
+        with d_tab2: st.data_editor(conn.read(worksheet="MEDICAMENTOS", ttl=0), use_container_width=True, key="ed_med")
+        with d_tab3: st.data_editor(conn.read(worksheet="ANALISIS", ttl=0), use_container_width=True, key="ed_ana")
+    except: st.warning("⚠️ Error de conexión.")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 09 mar 2026 09:45</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 09 mar 2026 10:45</div>""", unsafe_allow_html=True)
