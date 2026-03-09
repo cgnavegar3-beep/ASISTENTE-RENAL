@@ -41,13 +41,13 @@ BLOQUE 1: ALERTAS Y AJUSTES
 BLOQUE 2: TABLA COMPARATIVA
 <table style="width:100%; border-collapse: collapse; font-size: 0.8rem; color: #333;">
 <tr style="background-color:#0057b8;color:white;">
-<th></th><th></th><th></th><th colspan="4">FG C-G</th><th colspan="4">FG MDRD-4</th><th colspan="4">FG CKD</th>
+<th></th><th></th><th></th><th colspan="4">FG G-C</th><th colspan="4">FG MDRD-4</th><th colspan="4">FG CKD</th>
 </tr>
 <tr style="background-color:#e9ecef;">
 <th>Icono</th><th>Fármaco</th><th>Grupo terapéutico (ATC)</th>
-<th>Valor g-c</th><th>Cat g-c</th><th>Riesgo g-c</th><th>Nivel riesgo g-c</th>
-<th>Valor mdrd</th><th>Cat mdrd</th><th>Riesgo mdrd</th><th>Nivel riesgo mdrd</th>
-<th>Valor ckd</th><th>Cat ckd</th><th>Riesgo ckd</th><th>Nivel riesgo ckd</th>
+<th>Valor G-C</th><th>Cat G-C</th><th>Riesgo G-C</th><th>Nivel riesgo G-C</th>
+<th>Valor MDRD</th><th>Cat MDRD</th><th>Riesgo MDRD</th><th>Nivel riesgo MDRD</th>
+<th>Valor CKD</th><th>Cat CKD</th><th>Riesgo CKD</th><th>Nivel riesgo CKD</th>
 </tr>
 [FILAS DE FÁRMACOS CON COLORES SEGÚN FÓRMULA]
 <tr style="font-weight:bold; background-color:#f2f2f2;">
