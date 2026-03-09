@@ -1,4 +1,4 @@
-# v. 07 mar 2026 14:15 (CONTROL DE INTEGRIDAD INTERNO: 242 LÍNEAS)
+# v. 09 mar 2026 18:50 (CONTROL DE INTEGRIDAD INTERNO: 245 LÍNEAS - EVOLUCIÓN TABLA MATRIZ)
  
 import streamlit as st
 import pandas as pd
@@ -8,8 +8,8 @@ import google.generativeai as genai
 import random
 import re
 import os
+from streamlit_gsheets import GSheetsConnection  # Nueva dependencia para volcado
 import constants as c 
-from streamlit_gsheets import GSheetsConnection
  
 # =================================================================
 # PRINCIPIOS FUNDAMENTALES (ESCRITOS DE PE A PA - PROHIBIDO ELIMINAR)
@@ -46,11 +46,11 @@ st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_
 # --- INICIALIZACIÓN ---
 if "active_model" not in st.session_state: st.session_state.active_model = "BUSCANDO..."
 if "main_meds" not in st.session_state: st.session_state.main_meds = ""
-if "resultado_ia" not in st.session_state: st.session_state.resultado_ia = None
+if "resultado_ia" not in st.session_state: st.session_state.resultado_ia = ""
 if "soip_s" not in st.session_state: st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
 if "soip_p" not in st.session_state: st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
  
-for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
+for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res", "valor_fg_final"]:
     if key not in st.session_state: st.session_state[key] = ""
  
 # --- CONFIGURACIÓN IA ---
@@ -61,7 +61,17 @@ except:
     API_KEY = None
     st.sidebar.error("API Key no encontrada.")
  
-# --- FUNCIONES ---
+# --- FUNCIONES DE EVOLUCIÓN (EXTRACCIÓN MATRIZ) ---
+def extraer_datos_resumen(html_tabla):
+    datos = {"AFEC": [0,0,0], "CONTRA": [0,0,0], "TOX": [0,0,0], "DOSIS": [0,0,0], "PREC": [0,0,0]}
+    mapeo = {"Total afectados": "AFEC", "Contraindicados": "CONTRA", "toxicidad": "TOX", "ajuste dosis": "DOSIS", "precaucion": "PREC"}
+    for texto, key in mapeo.items():
+        match = re.search(rf"<b>{texto}</b>.*?<td.*?>(.*?)</td>.*?<td.*?>(.*?)</td>.*?<td.*?>(.*?)</td>", html_tabla, re.I | re.S)
+        if match:
+            datos[key] = [int(re.sub(r'\D', '', match.group(i))) if match.group(i).strip() else 0 for i in range(1, 4)]
+    return datos
+
+# --- FUNCIONES ORIGINALES ---
 def llamar_ia_en_cascada(prompt):
     if not API_KEY: return "⚠️ Error: API Key no configurada."
     disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
@@ -89,15 +99,12 @@ def procesar_y_limpiar_meds():
         st.session_state.main_meds = llamar_ia_en_cascada(prompt)
  
 def reset_registro():
-    for key in ["reg_centro", "reg_res", "reg_id", "fgl_ckd", "fgl_mdrd", "main_meds"]:
-        if key in st.session_state: st.session_state[key] = ""
+    for key in ["reg_centro", "reg_res", "reg_id", "fgl_ckd", "fgl_mdrd", "main_meds"]: st.session_state[key] = ""
     for key in ["calc_e", "calc_p", "calc_c", "calc_s"]: 
         if key in st.session_state: st.session_state[key] = None
-    st.session_state.resultado_ia = None
  
 def reset_meds():
     st.session_state.main_meds = ""
-    st.session_state.resultado_ia = None
     st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
     st.session_state.soip_o = ""; st.session_state.soip_i = ""; st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
     st.session_state.ic_inter = ""; st.session_state.ic_clinica = ""
@@ -132,10 +139,11 @@ def inject_styles():
     """, unsafe_allow_html=True)
  
 inject_styles()
+ 
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 07 mar 2026 14:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 09 mar 2026 18:50</div>', unsafe_allow_html=True)
  
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
  
@@ -170,6 +178,7 @@ with tabs[0]:
         st.markdown("#### 💊 Filtrado Glomerular")
         fg_m = st.text_input("Ajuste Manual", placeholder="Fórmula Cockcroft-Gault: entrada manual")
         valor_fg = fg_m if fg_m else fg
+        st.session_state.valor_fg_final = valor_fg
         st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
         st.markdown('<div class="formula-label">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
         st.write(""); l1, l2 = st.columns(2)
@@ -189,48 +198,34 @@ with tabs[0]:
     st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds", placeholder="Pegue el listado de fármacos aquí...")
     st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
     
-    b1, b2, b3 = st.columns([0.70, 0.15, 0.15])
-    if b1.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True):
-        if not st.session_state.main_meds: st.error("Introduce medicamentos.")
+    b1, b2 = st.columns([0.85, 0.15])
+    btn_val = b1.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True)
+    b2.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
+ 
+    if btn_val:
+        faltan_datos = not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s])
+        if faltan_datos:
+            st.markdown('<div class="blink-text">⚠️ AVISO: FALTAN DATOS EN REGISTRO O CALCULADORA. EL ANÁLISIS PUEDE SER INCOMPLETO.</div>', unsafe_allow_html=True)
+        
+        if not st.session_state.main_meds:
+            st.error("Introduce medicamentos.")
         else:
-            if not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s]):
-                st.markdown('<div class="blink-text">⚠️ AVISO: FALTAN DATOS EN REGISTRO O CALCULADORA. EL ANÁLISIS PUEDE SER INCOMPLETO.</div>', unsafe_allow_html=True)
             with st.spinner("Analizando..."):
                 prompt_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
                 resp_raw = llamar_ia_en_cascada(prompt_final)
-                st.session_state.resultado_ia = resp_raw[resp_raw.find("|||"):] if "|||" in resp_raw else resp_raw
-                partes = [p.strip() for p in st.session_state.resultado_ia.split("|||") if p.strip()]
-                if len(partes) >= 3:
+                resp = resp_raw[resp_raw.find("|||"):] if "|||" in resp_raw else resp_raw
+                st.session_state.resultado_ia = resp
+                try:
+                    partes = [p.strip() for p in resp.split("|||") if p.strip()]
+                    while len(partes) < 3: partes.append("")
                     sintesis, tabla, detalle = partes[:3]
-                    st.session_state.soip_o = f"Edad: {calc_e}a | Peso: {calc_p}kg | Crea: {calc_c}mg/dL | FG: {valor_fg}mL/min"
-                    st.session_state.soip_i = sintesis.replace("BLOQUE 1: ALERTAS Y AJUSTES", "").strip()
-                    st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{st.session_state.soip_i}"
-                    st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{detalle.split('⚠️ NOTA IMPORTANTE:')[0].replace('BLOQUE 3: ANALISIS CLINICO', '').strip()}"
-
-    if b2.button("📥 GUARDAR", use_container_width=True):
-        if st.session_state.resultado_ia:
-            try:
-                conn = st.connection("gsheets", type=GSheetsConnection)
-                nueva_fila = pd.DataFrame([{
-                    "FECHA": datetime.now().strftime("%d/%m/%Y"), "ID": st.session_state.reg_id,
-                    "CENTRO": st.session_state.reg_centro, "FG_CG": valor_fg, 
-                    "SINTESIS": st.session_state.soip_i, "ANALISIS": st.session_state.ic_clinica
-                }])
-                df_actual = conn.read(worksheet="VALIDACIONES")
-                df_final = pd.concat([df_actual, nueva_fila], ignore_index=True)
-                conn.update(worksheet="VALIDACIONES", data=df_final)
-                st.success("✅ Guardado en la nube.")
-            except Exception as e: st.error(f"Error al guardar: {e}")
-        else: st.warning("Valida antes de guardar.")
-
-    b3.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
- 
-    if st.session_state.resultado_ia:
-        partes = [p.strip() for p in st.session_state.resultado_ia.split("|||") if p.strip()]
-        while len(partes) < 3: partes.append("")
-        sintesis, tabla, detalle = partes[:3]
-        glow = obtener_glow_class(sintesis)
-        st.markdown(f'<div class="synthesis-box {glow}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
-        st.markdown(f'''<div class="clinical-detail-container">{detalle.replace("\n","<br>")}<div class="nota-importante-box"><div style="font-weight: 800; margin-bottom: 8px;">⚠️ NOTA IMPORTANTE:</div><div class="nota-item">1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</div><div class="nota-item">2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</div><div class="nota-item">3. La decisión final corresponde siempre al prescriptor médico.</div><div class="nota-item">4. Considere la situación clínica global del paciente antes de modificar dosis.</div></div></div>''', unsafe_allow_html=True)
- 
+                    glow = obtener_glow_class(sintesis)
+                    st.markdown(f'<div class="synthesis-box {glow}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
+                    st.markdown(f'''<div class="clinical-detail-container">{detalle.replace("\n","<br>")}<div class="nota-importante-box"><div style="font-weight: 800; margin-bottom: 8px;">⚠️ NOTA IMPORTANTE:</div><div class="nota-item">1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</div><div class="nota-item">2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</div><div class="nota-item">3. La decisión final corresponde siempre al prescriptor médico.</div><div class="nota-item">4. Considere la situación clínica global del paciente antes de modificar dosis.</div></div></div>''', unsafe_allow_html=True)
+                    
+                    datos_obj_lista = []
+                    if calc_e: datos_obj_lista.append(f"Edad: {calc_e}a")
+                    if calc_p: datos_obj_lista.append(f"Peso: {calc_p}kg")
+                    if calc_c: datos_obj_lista.append(f"Crea: {calc_c}mg/dL")
+                    if valor_fg: datos_obj_lista.append(f"FG:
