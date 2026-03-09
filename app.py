@@ -1,4 +1,4 @@
-# v. 09 mar 2026 21:15 (CÓDIGO ÍNTEGRO: FIX TÍTULO CORTADO + BOTÓN PARPADEANTE + SUMATORIOS)
+# v. 09 mar 2026 21:30 (CÓDIGO ÍNTEGRO TOTAL - PE A PA - SIN OMISIONES)
  
 import streamlit as st
 import pandas as pd
@@ -43,7 +43,7 @@ import constants as c
  
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
  
-# --- INICIALIZACIÓN ---
+# --- INICIALIZACIÓN DE ESTADOS ---
 if "active_model" not in st.session_state: st.session_state.active_model = "BUSCANDO..."
 if "main_meds" not in st.session_state: st.session_state.main_meds = ""
 if "resultado_ia" not in st.session_state: st.session_state.resultado_ia = ""
@@ -61,7 +61,7 @@ except:
     API_KEY = None
     st.sidebar.error("API Key no encontrada.")
  
-# --- EXTRACCIÓN Y SUMATORIOS ---
+# --- LÓGICA DE EXTRACCIÓN PARA GRABADO ---
 def extraer_datos_resumen(html_tabla):
     res = {"CONTRA": [0,0,0], "TOX": [0,0,0], "DOSIS": [0,0,0], "PREC": [0,0,0]}
     mapeo = {"Contraindicados": "CONTRA", "toxicidad": "TOX", "ajuste dosis": "DOSIS", "precaucion": "PREC"}
@@ -69,11 +69,10 @@ def extraer_datos_resumen(html_tabla):
         match = re.search(rf"{texto}.*?<td.*?>(.*?)</td>.*?<td.*?>(.*?)</td>.*?<td.*?>(.*?)</td>", html_tabla, re.I | re.S)
         if match:
             res[key] = [int(re.sub(r'\D', '', match.group(i))) if match.group(i).strip() else 0 for i in range(1, 4)]
-    # REGLA SOLICITADA: Total afectados = suma de todas las categorías de riesgo
+    # REGLA: Suma manual para "Total afectados" para corregir errores de la IA
     res["AFEC"] = [sum(res[cat][i] for cat in res) for i in range(3)]
     return res
 
-# --- IA CASCADA ---
 def llamar_ia_en_cascada(prompt):
     if not API_KEY: return "⚠️ Error: API Key no configurada."
     try:
@@ -113,19 +112,27 @@ def inject_styles():
     .block-container { max-width: 100% !important; padding-top: 3.5rem !important; padding-left: 4% !important; padding-right: 4% !important; }
     .black-badge-zona { background-color: #000000; color: #888; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 10px; left: 15px; z-index: 999999; }
     .black-badge-activo { background-color: #000000; color: #00FF00; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 10px; left: 145px; z-index: 999999; text-shadow: 0 0 5px #00FF00; }
-    .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; margin-top: 10px; }
-    .sub-version { text-align: center; font-size: 0.6rem; color: #bbb; margin-top: -5px; margin-bottom: 25px; font-family: monospace; }
+    .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; margin-top: 15px; }
+    .sub-version { text-align: center; font-size: 0.6rem; color: #bbb; margin-top: -5px; margin-bottom: 20px; font-family: monospace; }
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
+    .unit-label { font-size: 0.65rem; color: #888; margin-top: -10px; margin-bottom: 5px; text-align: center; }
     .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; }
     .glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; }
+    .glow-orange { background-color: #fffaf0; color: #c05621; border-color: #fbd38d; }
+    .glow-yellow-dark { background-color: #fff8dc; color: #b36b00; border-color: #ffd27f; }
+    .glow-yellow { background-color: #fffff0; color: #975a16; border-color: #faf089; }
+    .glow-green { background-color: #f0fff4; color: #2f855a; border-color: #9ae6b4; }
     .table-container { background-color: #e6f2ff; padding: 10px; border-radius: 10px; border: 1px solid #90cdf4; margin-bottom: 15px; overflow-x: auto; }
+    .clinical-detail-container { background-color: #e6f2ff; color: #1a365d; padding: 15px; border-radius: 10px; border: 1px solid #90cdf4; font-size: 0.9rem; }
     .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; text-align: center; font-size: 0.85rem; margin-top: 20px; }
+    .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
+    .fg-special-border { border: 1.5px solid #9d00ff !important; border-radius: 5px; }
     @keyframes blinker { 50% { opacity: 0; } }
     .blink-text { animation: blinker 1s linear infinite; color: #c53030; font-weight: bold; padding: 10px; border: 1px solid #c53030; border-radius: 5px; background: #fff5f5; text-align: center; margin-bottom: 15px; }
     /* BOTÓN GRABAR: CENTRADO, PEQUEÑO Y PARPADEANTE */
-    .center-btn-container { display: flex; justify-content: center; margin: 20px 0; }
+    .save-btn-center { display: flex; justify-content: center; margin: 25px 0; }
     div.stButton > button[key="btn_grabar_fgl"] {
-        animation: blinker 1s linear infinite !important;
+        animation: blinker 1.2s linear infinite !important;
         background-color: #2f855a !important;
         color: white !important;
         padding: 6px 22px !important;
@@ -140,7 +147,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 09 mar 2026 21:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 09 mar 2026 21:30</div>', unsafe_allow_html=True)
  
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
  
@@ -178,11 +185,18 @@ with tabs[0]:
         st.session_state.valor_fg_final = valor_fg
         st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
         st.write(""); l1, l2 = st.columns(2)
-        with l1: val_mdrd = st.number_input("MDRD-4", value=None, key="fgl_mdrd")
-        with l2: val_ckd = st.number_input("CKD-EPI", value=None, key="fgl_ckd")
+        with l1:
+            st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
+            val_mdrd = st.number_input("MDRD-4", value=None, key="fgl_mdrd", label_visibility="collapsed")
+            st.markdown('</div><div class="unit-label">mL/min/1,73m²</div>', unsafe_allow_html=True)
+        with l2:
+            st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
+            val_ckd = st.number_input("CKD-EPI", value=None, key="fgl_ckd", label_visibility="collapsed")
+            st.markdown('</div><div class="unit-label">mL/min/1,73m²</div>', unsafe_allow_html=True)
  
     st.write(""); st.markdown("---")
-    st.text_area("Listado de medicamentos", height=150, key="main_meds", placeholder="Pegue el listado aquí...")
+    st.markdown("#### 📝 Listado de medicamentos")
+    st.text_area("Listado", height=150, key="main_meds", label_visibility="collapsed")
     st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
     
     b1, b2 = st.columns([0.85, 0.15])
@@ -201,14 +215,22 @@ with tabs[0]:
     if st.session_state.resultado_ia:
         try:
             partes = st.session_state.resultado_ia.split("|||")
-            if len(partes) >= 3:
+            if len(partes) >= 4:
                 glow = obtener_glow_class(partes[1])
                 st.markdown(f'<div class="synthesis-box {glow}">{partes[1]}</div>', unsafe_allow_html=True)
                 st.markdown(f'<div class="table-container">{partes[2]}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="clinical-detail-container">{partes[3]}</div>', unsafe_allow_html=True)
+                
+                # Sincronización con Informe
+                datos_obj = [f"Edad: {calc_e}a", f"Peso: {calc_p}kg", f"Crea: {calc_c}mg/dL", f"FG: {valor_fg}mL/min"]
+                st.session_state.soip_o = " | ".join([d for d in datos_obj if d])
+                st.session_state.soip_i = partes[1].replace("BLOQUE 1: ALERTAS Y AJUSTES", "").strip()
+                st.session_state.ic_inter = f"Se solicita revisión de:\n{st.session_state.soip_i}"
+                st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{partes[3].replace('BLOQUE 3: ANALISIS CLINICO', '').strip()}"
         except: pass
 
-        # BOTÓN GRABAR CENTRADO Y PARPADEANTE
-        st.markdown('<div class="center-btn-container">', unsafe_allow_html=True)
+        # BOTÓN GRABAR: CENTRADO, PEQUEÑO Y PARPADEANTE
+        st.markdown('<div class="save-btn-center">', unsafe_allow_html=True)
         if st.button("📥 GRABAR DATOS EN NUBE", key="btn_grabar_fgl"):
             try:
                 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -228,12 +250,19 @@ with tabs[0]:
             except Exception as e: st.error(f"Error: {e}")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo farmacoterapéutico.</b></div>', unsafe_allow_html=True)
-    st.markdown(f'<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace;">v. 09 mar 2026 21:15</div>', unsafe_allow_html=True)
+    st.markdown('<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 09 mar 2026 21:30</div>', unsafe_allow_html=True)
 
 with tabs[1]:
     st.markdown("### 📄 Informe Farmacéutico")
-    # [Campos S-O-I-P e Interconsulta aquí]
+    for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
+        st.markdown(f'<div class="linea-discreta-soip">{label}</div>', unsafe_allow_html=True)
+        st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed")
+    
+    st.markdown('<div class="linea-discreta-soip">INTERCONSULTA</div>', unsafe_allow_html=True)
+    st.text_area("IC_B1", st.session_state.ic_inter, height=150, label_visibility="collapsed")
+    st.markdown('<div class="linea-discreta-soip">INFORMACIÓN CLÍNICA</div>', unsafe_allow_html=True)
+    st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed")
 
 with tabs[2]:
     st.markdown("### 📊 Espejo de Datos (Google Sheets)")
@@ -243,6 +272,10 @@ with tabs[2]:
             conn = st.connection("gsheets", type=GSheetsConnection)
             df = conn.read(worksheet="VALIDACIONES")
             st.dataframe(df, use_container_width=True, hide_index=True)
-        except: st.info("Cargue la hoja de Google Sheets para visualizar.")
-    with sub_tabs[1]: st.info("Pestaña de Interconsultas vacía.")
-    with sub_tabs[2]: st.info("Histórico de auditoría.")
+        except: st.info("Cargue la hoja de Google Sheets para visualizar datos.")
+    with sub_tabs[1]:
+        try:
+            df_ic = conn.read(worksheet="INTERCONSULTAS")
+            st.dataframe(df_ic, use_container_width=True, hide_index=True)
+        except: st.info("Sección de Interconsultas vacía o sin conexión.")
+    with sub_tabs[2]: st.write("Histórico de auditoría y actividad general.")
