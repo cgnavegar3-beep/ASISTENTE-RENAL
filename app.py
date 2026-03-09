@@ -1,4 +1,4 @@
-# v. 09 mar 2026 18:50 (CONTROL DE INTEGRIDAD INTERNO: 245 LÍNEAS - EVOLUCIÓN TABLA MATRIZ)
+# v. 09 mar 2026 18:55 (CONTROL DE INTEGRIDAD INTERNO: 245 LÍNEAS - CORRECCIÓN SYNTAX)
  
 import streamlit as st
 import pandas as pd
@@ -8,7 +8,7 @@ import google.generativeai as genai
 import random
 import re
 import os
-from streamlit_gsheets import GSheetsConnection  # Nueva dependencia para volcado
+from streamlit_gsheets import GSheetsConnection 
 import constants as c 
  
 # =================================================================
@@ -143,7 +143,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 09 mar 2026 18:50</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 09 mar 2026 18:55</div>', unsafe_allow_html=True)
  
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
  
@@ -228,4 +228,51 @@ with tabs[0]:
                     if calc_e: datos_obj_lista.append(f"Edad: {calc_e}a")
                     if calc_p: datos_obj_lista.append(f"Peso: {calc_p}kg")
                     if calc_c: datos_obj_lista.append(f"Crea: {calc_c}mg/dL")
-                    if valor_fg: datos_obj_lista.append(f"FG:
+                    if valor_fg: datos_obj_lista.append(f"FG: {valor_fg}mL/min")
+                    
+                    sintesis_limpia = sintesis.replace("BLOQUE 1: ALERTAS Y AJUSTES", "").strip()
+                    detalle_limpio = detalle.split("⚠️ NOTA IMPORTANTE:")[0].replace("BLOQUE 3: ANALISIS CLINICO", "").strip()
+                    
+                    st.session_state.soip_o = " | ".join(datos_obj_lista)
+                    st.session_state.soip_i = sintesis_limpia
+                    st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{sintesis_limpia}"
+                    st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{detalle_limpio}"
+                except Exception as e: st.error(f"Error: {e}")
+ 
+with tabs[1]:
+    for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
+        st.markdown(f'<div class="linea-discreta-soip">{label}</div>', unsafe_allow_html=True)
+        st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed", placeholder=f"Contenido de {label}...")
+    
+    st.markdown('<div class="linea-discreta-soip">INTERCONSULTA</div>', unsafe_allow_html=True)
+    st.text_area("IC_B1", st.session_state.ic_inter, height=150, label_visibility="collapsed", placeholder="Se solicita revisión...")
+    
+    st.markdown('<div class="linea-discreta-soip">INFORMACIÓN CLÍNICA</div>', unsafe_allow_html=True)
+    st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed", placeholder="Datos objetivos y análisis clínico...")
+
+with tabs[2]:
+    st.markdown("### 📊 Gestión de Datos Nube")
+    if st.button("📥 GUARDAR PACIENTE EN NUBE", use_container_width=True):
+        if st.session_state.resultado_ia:
+            try:
+                conn = st.connection("gsheets", type=GSheetsConnection)
+                res = extraer_datos_resumen(st.session_state.resultado_ia)
+                nueva_f = {
+                    "FECHA": datetime.now().strftime("%d/%m/%Y"), "ID": st.session_state.reg_id,
+                    "CENTRO": st.session_state.reg_centro, "RESIDENCIA": st.session_state.reg_res,
+                    "EDAD": st.session_state.calc_e, "PESO": st.session_state.calc_p, "CREA": st.session_state.calc_c,
+                    "FG_CG": st.session_state.valor_fg_final, "Nº_TOT_AFEC_CG": res["AFEC"][0], "Nº_PRECAU_CG": res["PREC"][0],
+                    "Nº_AJUSTE_DOS_CG": res["DOSIS"][0], "Nº_TOXICID_CG": res["TOX"][0], "Nº_CONTRAIND_CG": res["CONTRA"][0],
+                    "FG_MDRD": st.session_state.fgl_mdrd, "Nº_TOT_AFEC_MDRD": res["AFEC"][1], "Nº_PRECAU_MDRD": res["PREC"][1],
+                    "Nº_AJUSTE_DOS_MDRD": res["DOSIS"][1], "Nº_TOXICID_MDRD": res["TOX"][1], "Nº_CONTRAIND_MDRD": res["CONTRA"][1],
+                    "FG_CKD": st.session_state.fgl_ckd, "Nº_TOT_AFEC_CKD": res["AFEC"][2], "Nº_PRECAU_CKD": res["PREC"][2],
+                    "Nº_AJUSTE_DOS_CKD": res["DOSIS"][2], "Nº_TOXICID_CKD": res["TOX"][2], "Nº_CONTRAIND_CKD": res["CONTRA"][2]
+                }
+                df_act = conn.read(worksheet="VALIDACIONES")
+                df_final = pd.concat([df_act, pd.DataFrame([nueva_f])], ignore_index=True)
+                conn.update(worksheet="VALIDACIONES", data=df_final)
+                st.success("✅ Datos volcados a Excel correctamente.")
+            except Exception as e: st.error(f"Error en volcado: {e}")
+        else: st.warning("Primero debes validar una medicación.")
+ 
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 09 mar 2026 18:55</div>""", unsafe_allow_html=True)
