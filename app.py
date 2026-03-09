@@ -1,4 +1,4 @@
-# v. 09 mar 2026 10:45 (CONTROL DE INTEGRIDAD INTERNO: 312 LÍNEAS)
+# v. 09 mar 2026 11:15 (CONTROL DE INTEGRIDAD INTERNO: 312 LÍNEAS)
 
 import streamlit as st
 import pandas as pd
@@ -94,7 +94,7 @@ def procesar_y_limpiar_meds():
         st.session_state.main_meds = llamar_ia_en_cascada(prompt)
 
 def extraer_metricas_global(tabla_html):
-    """Extrae métricas analizando el contenido de las columnas de riesgo 4, 5 y 6"""
+    """Analiza la tabla comparativa buscando iconos en las columnas 4, 5 y 6"""
     data = {
         "CG": {"⚠️": 0, "⚠️⚠️": 0, "⚠️⚠️⚠️": 0, "⛔": 0},
         "MDRD": {"⚠️": 0, "⚠️⚠️": 0, "⚠️⚠️⚠️": 0, "⛔": 0},
@@ -160,7 +160,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 09 mar 2026 10:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 09 mar 2026 11:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -253,7 +253,7 @@ with tabs[0]:
                 df_actual = conn.read(worksheet="VALIDACIONES", ttl=0)
                 df_final = pd.concat([df_actual, nueva_fila], ignore_index=True)
                 conn.update(worksheet="VALIDACIONES", data=df_final)
-                st.success("✅ Datos sincronizados correctamente.")
+                st.success("✅ Sincronización completa.")
             except Exception as e: st.error(f"Error: {e}")
         else: st.warning("Valida antes de guardar.")
     b3.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
@@ -286,4 +286,4 @@ with tabs[2]:
         with d_tab3: st.data_editor(conn.read(worksheet="ANALISIS", ttl=0), use_container_width=True, key="ed_ana")
     except: st.warning("⚠️ Error de conexión.")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 09 mar 2026 10:45</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 09 mar 2026 11:15</div>""", unsafe_allow_html=True)
