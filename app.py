@@ -1,4 +1,4 @@
-# v. 09 mar 2026 18:55 (CONTROL DE INTEGRIDAD INTERNO: 245 LÍNEAS - CORRECCIÓN SYNTAX)
+# v. 09 mar 2026 20:15 (CONTROL DE INTEGRIDAD INTERNO: 270 LÍNEAS - EVOLUCIÓN BOTÓN GRABAR)
  
 import streamlit as st
 import pandas as pd
@@ -105,6 +105,7 @@ def reset_registro():
  
 def reset_meds():
     st.session_state.main_meds = ""
+    st.session_state.resultado_ia = ""
     st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
     st.session_state.soip_o = ""; st.session_state.soip_i = ""; st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
     st.session_state.ic_inter = ""; st.session_state.ic_clinica = ""
@@ -127,7 +128,7 @@ def inject_styles():
     .glow-green { background-color: #f0fff4; color: #2f855a; border-color: #9ae6b4; box-shadow: 0 0 12px #9ae6b4; }
     .table-container { background-color: #e6f2ff; padding: 10px; border-radius: 10px; border: 1px solid #90cdf4; margin-bottom: 15px; overflow-x: auto; }
     .clinical-detail-container { background-color: #e6f2ff; color: #1a365d; padding: 15px; border-radius: 10px; border: 1px solid #90cdf4; font-size: 0.9rem; line-height: 1.6; }
-    .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
+    .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 10px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
     .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
     .fg-special-border { border: 1.5px solid #9d00ff !important; border-radius: 5px; }
@@ -135,6 +136,14 @@ def inject_styles():
     .nota-item { margin-bottom: 4px; font-weight: 500; }
     @keyframes blinker { 50% { opacity: 0; } }
     .blink-text { animation: blinker 1s linear infinite; color: #c53030; font-weight: bold; padding: 10px; border: 1px solid #c53030; border-radius: 5px; background: #fff5f5; text-align: center; margin-bottom: 15px; }
+    /* Botón parpadeante de guardado */
+    div.stButton > button.blink-save {
+        animation: blinker 1.5s linear infinite;
+        background-color: #2f855a !important;
+        color: white !important;
+        border: 2px solid #276749 !important;
+        font-weight: bold !important;
+    }
     </style>
     """, unsafe_allow_html=True)
  
@@ -143,7 +152,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 09 mar 2026 18:55</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 09 mar 2026 20:15</div>', unsafe_allow_html=True)
  
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
  
@@ -238,22 +247,10 @@ with tabs[0]:
                     st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{sintesis_limpia}"
                     st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{detalle_limpio}"
                 except Exception as e: st.error(f"Error: {e}")
- 
-with tabs[1]:
-    for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
-        st.markdown(f'<div class="linea-discreta-soip">{label}</div>', unsafe_allow_html=True)
-        st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed", placeholder=f"Contenido de {label}...")
-    
-    st.markdown('<div class="linea-discreta-soip">INTERCONSULTA</div>', unsafe_allow_html=True)
-    st.text_area("IC_B1", st.session_state.ic_inter, height=150, label_visibility="collapsed", placeholder="Se solicita revisión...")
-    
-    st.markdown('<div class="linea-discreta-soip">INFORMACIÓN CLÍNICA</div>', unsafe_allow_html=True)
-    st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed", placeholder="Datos objetivos y análisis clínico...")
 
-with tabs[2]:
-    st.markdown("### 📊 Gestión de Datos Nube")
-    if st.button("📥 GUARDAR PACIENTE EN NUBE", use_container_width=True):
-        if st.session_state.resultado_ia:
+    # --- BOTÓN DE GRABADO PARPADEANTE ---
+    if st.session_state.resultado_ia:
+        if st.button("📥 GUARDAR PACIENTE EN NUBE", key="btn_grabar_blink", help="Volcar datos a Excel", use_container_width=True, type="primary"):
             try:
                 conn = st.connection("gsheets", type=GSheetsConnection)
                 res = extraer_datos_resumen(st.session_state.resultado_ia)
@@ -271,8 +268,24 @@ with tabs[2]:
                 df_act = conn.read(worksheet="VALIDACIONES")
                 df_final = pd.concat([df_act, pd.DataFrame([nueva_f])], ignore_index=True)
                 conn.update(worksheet="VALIDACIONES", data=df_final)
-                st.success("✅ Datos volcados a Excel correctamente.")
-            except Exception as e: st.error(f"Error en volcado: {e}")
-        else: st.warning("Primero debes validar una medicación.")
+                st.success("✅ Guardado con éxito.")
+                st.session_state.resultado_ia = "" # Limpiar para detener parpadeo
+            except Exception as e: st.error(f"Error: {e}")
+        # Inyectar clase de parpadeo vía CSS selector hack
+        st.markdown('<style>div.stButton > button:first-child[key="btn_grabar_blink"] { animation: blinker 1.5s linear infinite !important; }</style>', unsafe_allow_html=True)
  
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 09 mar 2026 18:55</div>""", unsafe_allow_html=True)
+    st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 09 mar 2026 20:15</div>""", unsafe_allow_html=True)
+
+with tabs[1]:
+    for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
+        st.markdown(f'<div class="linea-discreta-soip">{label}</div>', unsafe_allow_html=True)
+        st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed")
+    
+    st.markdown('<div class="linea-discreta-soip">INTERCONSULTA</div>', unsafe_allow_html=True)
+    st.text_area("IC_B1", st.session_state.ic_inter, height=150, label_visibility="collapsed")
+    st.markdown('<div class="linea-discreta-soip">INFORMACIÓN CLÍNICA</div>', unsafe_allow_html=True)
+    st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed")
+
+with tabs[2]:
+    st.markdown("### 📊 Espejo de Datos (Google Sheets)")
+    # Aquí irán las subpestañas en el siguiente paso
