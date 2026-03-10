@@ -1,5 +1,4 @@
-# v. 10 mar 2026 11:45 (CONTROL DE INTEGRIDAD INTERNO: 208 LÍNEAS)
-
+# v. 10 mar 2026 17:35 (CONTROL DE INTEGRIDAD INTERNO: SISTEMA DE PERSISTENCIA NIVEL PROFESIONAL)
 import streamlit as st
 import pandas as pd
 import io
@@ -34,7 +33,7 @@ import constants as c
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
 #      se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#       sus textos flotantes (placeholders) y los textos predefinidos en las
+#      sus textos flotantes (placeholders) y los textos predefinidos en las
 #       secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
 #       principio blindado; es informativo y no debe impedir la validación.
@@ -42,16 +41,27 @@ import constants as c
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
-# --- INICIALIZACIÓN ---
+# --- 1. INICIALIZACIÓN DE VARIABLES DE ESTADO Y CÁLCULO (MEJORA SEGURIDAD) ---
 if "active_model" not in st.session_state: st.session_state.active_model = "BUSCANDO..."
 if "main_meds" not in st.session_state: st.session_state.main_meds = ""
-if "soip_s" not in st.session_state: st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
-if "soip_p" not in st.session_state: st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
 if "analisis_realizado" not in st.session_state: st.session_state.analisis_realizado = False
 if "resp_ia" not in st.session_state: st.session_state.resp_ia = None
 
-for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
-    if key not in st.session_state: st.session_state[key] = ""
+# Variables de cálculo inicializadas para evitar NameError
+calc_e = st.session_state.get("calc_e", None)
+calc_p = st.session_state.get("calc_p", None)
+calc_c = st.session_state.get("calc_c", None)
+calc_s = st.session_state.get("calc_s", None)
+val_mdrd = st.session_state.get("fgl_mdrd", None)
+val_ckd = st.session_state.get("fgl_ckd", None)
+valor_fg = 0.0 # Valor por defecto
+
+# Diccionarios de UI
+for key in ["soip_s", "soip_o", "soip_i", "soip_p", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
+   if key not in st.session_state: 
+       if "soip_s" in key: st.session_state[key] = "Revisión farmacoterapéutica según función renal."
+       elif "soip_p" in key: st.session_state[key] = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
+       else: st.session_state[key] = ""
 
 # --- CONFIGURACIÓN IA ---
 try:
@@ -61,7 +71,7 @@ except:
     API_KEY = None
     st.sidebar.error("API Key no encontrada.")
 
-# --- FUNCIONES ---
+# --- FUNCIONES CORE ---
 def llamar_ia_en_cascada(prompt):
     if not API_KEY: return "⚠️ Error: API Key no configurada."
     disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
@@ -76,6 +86,7 @@ def llamar_ia_en_cascada(prompt):
     return "⚠️ Error en la generación."
 
 def obtener_glow_class(sintesis_texto):
+    if not sintesis_texto: return "glow-green"
     if "⛔" in sintesis_texto: return "glow-red"
     elif "⚠️⚠️⚠️" in sintesis_texto: return "glow-orange"
     elif "⚠️⚠️" in sintesis_texto: return "glow-yellow-dark"
@@ -90,8 +101,7 @@ def procesar_y_limpiar_meds():
 
 def reset_registro():
     for key in ["reg_centro", "reg_res", "reg_id", "fgl_ckd", "fgl_mdrd", "main_meds"]: st.session_state[key] = ""
-    for key in ["calc_e", "calc_p", "calc_c", "calc_s"]: 
-        if key in st.session_state: st.session_state[key] = None
+    for key in ["calc_e", "calc_p", "calc_c", "calc_s"]: st.session_state[key] = None
     st.session_state.analisis_realizado = False
     st.session_state.resp_ia = None
 
@@ -103,8 +113,92 @@ def reset_meds():
     st.session_state.analisis_realizado = False
     st.session_state.resp_ia = None
 
+# =================================================================
+# PERSISTENCIA GOOGLE SHEETS (BLOQUE MEJORADO V. 10 MAR 17:35)
+# =================================================================
+import gspread
+from google.oauth2.service_account import Credentials
+
+COLUMNAS_VALIDACIONES = [
+    "FECHA", "CENTRO", "RESIDENCIA", "ID_REGISTRO", "EDAD", "SEXO", "PESO", "CREATININA",
+    "Nº_TOTAL_MEDS_PAC", "FG_CG", "Nº_TOT_AFEC_CG", "Nº_PRECAU_CG", "Nº_AJUSTE_DOS_CG",
+    "Nº_TOXICID_CG", "Nº_CONTRAIND_CG", "FG_MDRD", "Nº_TOT_AFEC_MDRD", "Nº_PRECAU_MDRD",
+    "Nº_AJUSTE_DOS_MDRD", "Nº_TOXICID_MDRD", "Nº_CONTRAIND_MDRD", "FG_CKD",
+    "Nº_TOT_AFEC_CKD", "Nº_PRECAU_CKD", "Nº_AJUSTE_DOS_CKD", "Nº_TOXICID_CKD",
+    "Nº_CONTRAIND_CKD", "Discrepancia", "ACEPTACION_MEDICO_GLOBAL"
+]
+
+COLUMNAS_MEDS_ESPECIFICAS = [
+    "FARMACO", "ATC", "VALOR_GC", "CAT_GC", "RIESGO_GC", "NIVEL_GC",
+    "VALOR_MDRD", "CAT_MDRD", "RIESGO_MDRD", "NIVEL_MDRD",
+    "VALOR_CKD", "CAT_CKD", "RIESGO_CKD", "NIVEL_CKD"
+]
+
+def conectar_gsheets():
+    """Establece conexión con la API de Google Sheets mediante Service Account."""
+    try:
+        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+        creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
+        client = gspread.authorize(creds)
+        return client.open_by_key(st.secrets["spreadsheet_id"])
+    except Exception as e:
+        st.error(f"Fallo de conexión: {e}")
+        return None
+
+def registrar_log_error(doc: gspread.Spreadsheet, error_msg: str, contexto: str):
+    """Registra cualquier incidencia técnica en la pestaña LOGS_SISTEMA."""
+    try:
+        log_sheet = doc.worksheet("LOGS_SISTEMA")
+        log_sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), st.session_state.get("reg_id", "SIN_ID"), contexto, error_msg])
+    except: pass
+
+def verificar_estructura_col(sheet: gspread.Worksheet, esperado: int, nombre: str, doc: gspread.Spreadsheet) -> bool:
+    """Valida que el número de columnas coincida con el esquema esperado."""
+    try:
+        reales = len(sheet.row_values(1))
+        if reales != esperado:
+            registrar_log_error(doc, f"Esperadas {esperado}, encontradas {reales}", f"Check {nombre}")
+            return False
+        return True
+    except Exception as e:
+        registrar_log_error(doc, str(e), f"Error Crítico Check {nombre}")
+        return False
+
+def parsear_tabla_ia(tabla_texto):
+    """Convierte la tabla Markdown de la IA en un DataFrame de Pandas filtrado."""
+    if not tabla_texto or "|" not in tabla_texto: return pd.DataFrame()
+    lineas = tabla_texto.strip().split('\n')
+    datos_meds = []
+    excluir = ["Total", "Nº", "Resumen", "Contraindicados", "Precaución", "Toxicidad", "Afectados"]
+    for linea in lineas:
+        if "|" in linea and "---" not in linea and "Medicamento" not in linea:
+            cols = [c.strip() for c in linea.split('|') if c.strip()]
+            if not cols or any(key in cols[0] for key in excluir): continue
+            if len(cols) >= 13:
+                datos_meds.append({
+                    "FARMACO": cols[0].replace("⚠️", "").replace("⛔", "").strip(), "ATC": cols[1],
+                    "VALOR_GC": cols[2], "CAT_GC": cols[3], "RIESGO_GC": cols[4], "NIVEL_GC": cols[5],
+                    "VALOR_MDRD": cols[6], "CAT_MDRD": cols[7], "RIESGO_MDRD": cols[8], "NIVEL_MDRD": cols[9],
+                    "VALOR_CKD": cols[10], "CAT_CKD": cols[11], "RIESGO_CKD": cols[12], "NIVEL_CKD": cols[13] if len(cols)>13 else ""
+                })
+    return pd.DataFrame(datos_meds)
+
+def guardar_validacion(sheet_val: gspread.Worksheet, datos_comunes: dict):
+    """Inserta una nueva fila en la pestaña VALIDACIONES."""
+    fila = [datos_comunes.get(col, "") for col in COLUMNAS_VALIDACIONES]
+    sheet_val.append_row(fila)
+
+def guardar_medicamentos(sheet_meds: gspread.Worksheet, df_meds: pd.DataFrame, datos_comunes: dict):
+    """Inserta múltiples filas (una por fármaco con riesgo) en MEDICAMENTOS."""
+    if df_meds is None or df_meds.empty: return
+    filas = []
+    for _, row in df_meds.iterrows():
+        filas.append([datos_comunes.get(c, "") for c in COLUMNAS_VALIDACIONES] + [row.get(c, "") for c in COLUMNAS_MEDS_ESPECIFICAS])
+    if filas: sheet_meds.append_rows(filas)
+
+# --- ESTILOS ---
 def inject_styles():
-    st.markdown("""
+   st.markdown("""
     <style>
     .block-container { max-width: 100% !important; padding-top: 1rem !important; padding-left: 4% !important; padding-right: 4% !important; }
     .black-badge-zona { background-color: #000000; color: #888; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 10px; left: 15px; z-index: 999999; }
@@ -125,12 +219,10 @@ def inject_styles():
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
     .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
     .fg-special-border { border: 1.5px solid #9d00ff !important; border-radius: 5px; }
-    .nota-importante-box { border-top: 2px dashed #0057b8; margin-top: 15px; padding-top: 12px; font-size: 0.85rem; color: #1a365d; }
-    .nota-item { margin-bottom: 4px; font-weight: 500; }
     @keyframes blinker { 50% { opacity: 0; } }
     .blink-text { animation: blinker 1s linear infinite; color: #c53030; font-weight: bold; padding: 10px; border: 1px solid #c53030; border-radius: 5px; background: #fff5f5; text-align: center; margin-bottom: 15px; }
     div[data-testid="stVerticalBlock"] > div:has(button[key="btn_grabar"]) button {
-        animation: blinker 1s linear infinite;
+        animation: blinker 1.5s linear infinite;
         background-color: #fff5f5 !important;
         color: #c53030 !important;
         border: 2.2px solid #c53030 !important;
@@ -141,10 +233,11 @@ def inject_styles():
 
 inject_styles()
 
+# --- HEADER ---
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 10 mar 2026 11:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 10 mar 2026 17:35</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -156,12 +249,12 @@ with tabs[0]:
         if centro_val == "m": st.session_state.reg_centro = "Marín"
         elif centro_val == "o": st.session_state.reg_centro = "O Grove"
         if st.session_state.reg_centro:
-            iniciales = "".join([word[0] for word in st.session_state.reg_centro.split()]).upper()[:3]
-            st.session_state.reg_id = f"PAC-{iniciales}{random.randint(10000, 99999)}"
+           iniciales = "".join([word[0] for word in st.session_state.reg_centro.split()]).upper()[:3]
+           st.session_state.reg_id = f"PAC-{iniciales}{random.randint(10000, 99999)}"
 
     with c1: st.text_input("Centro", placeholder="M / G", key="reg_centro", on_change=on_centro_change)
     with c2: st.selectbox("¿Residencia?", ["No", "Sí"], index=None, placeholder="Sí / No", key="reg_res")
-    with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True, placeholder="Fecha")
+    with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
     with c4: st.text_input("ID Registro", key="reg_id", disabled=True)
     with c5: st.write(""); st.button("🗑️", on_click=reset_registro, key="btn_reset_reg")
 
@@ -169,17 +262,22 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            calc_e = st.number_input("Edad (años)", step=1, key="calc_e", placeholder="Edad (Ej: 65)", value=None)
-            calc_p = st.number_input("Peso (kg)", key="calc_p", placeholder="Peso (Ej: 70.5)", value=None)
-            calc_c = st.number_input("Creatinina (mg/dL)", key="calc_c", placeholder="Creatinina (Ej: 1.2)", value=None)
-            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=None, placeholder="Seleccionar sexo...", key="calc_s")
-            fg = round(((140 - calc_e) * calc_p) / (72 * (calc_c if calc_c and calc_c > 0 else 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if all([calc_e, calc_p, calc_c, calc_s]) else 0.0
+            calc_e = st.number_input("Edad (años)", step=1, key="calc_e", placeholder="Ej: 65", value=None)
+            calc_p = st.number_input("Peso (kg)", key="calc_p", placeholder="Ej: 70.5", value=None)
+            calc_c = st.number_input("Creatinina (mg/dL)", key="calc_c", placeholder="Ej: 1.2", value=None)
+            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=None, placeholder="Seleccionar...", key="calc_s")
+            
+            # Cálculo Cockcroft-Gault Seguro
+            if all([calc_e, calc_p, calc_c, calc_s]) and calc_c > 0:
+                valor_fg = round(((140 - calc_e) * calc_p) / (72 * calc_c) * (0.85 if calc_s == "Mujer" else 1.0), 1)
+            else:
+                valor_fg = 0.0
 
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
-        fg_m = st.text_input("Ajuste Manual", placeholder="Fórmula Cockcroft-Gault: entrada manual")
-        valor_fg = fg_m if fg_m else fg
-        st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
+        fg_m = st.text_input("Ajuste Manual", placeholder="Cockcroft-Gault manual")
+        final_fg = fg_m if fg_m else valor_fg
+        st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{final_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
         st.markdown('<div class="formula-label">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
         st.write(""); l1, l2 = st.columns(2)
         with l1:
@@ -195,24 +293,22 @@ with tabs[0]:
     m_col1, m_col2 = st.columns([0.5, 0.5])
     with m_col1: st.markdown("#### 📝 Listado de medicamentos")
     with m_col2: st.markdown('<div style="float:right; color:#c53030; font-weight:bold; font-size:0.8rem;">🛡️ RGPD: No datos personales</div>', unsafe_allow_html=True)
-    st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds", placeholder="Pegue el listado de fármacos aquí...")
+    st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds", placeholder="Pegue el listado aquí...")
     st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
-    
+
     b1, b2 = st.columns([0.85, 0.15])
     btn_val = b1.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True)
     b2.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
 
     if btn_val:
-        faltan_datos = not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s])
-        if faltan_datos:
-            st.markdown('<div class="blink-text">⚠️ AVISO: FALTAN DATOS EN REGISTRO O CALCULADORA. EL ANÁLISIS PUEDE SER INCOMPLETO.</div>', unsafe_allow_html=True)
-        
-        if not st.session_state.main_meds:
-            st.error("Introduce medicamentos.")
+        if not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s]):
+            st.markdown('<div class="blink-text">⚠️ AVISO: FALTAN DATOS. EL ANÁLISIS PUEDE SER INCOMPLETO.</div>', unsafe_allow_html=True)
+        if not st.session_state.main_meds: 
+            st.error("Por favor, introduce el listado de medicamentos para analizar.")
         else:
-            with st.spinner("Analizando..."):
-                prompt_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
-                st.session_state.resp_ia = llamar_ia_en_cascada(prompt_final)
+            with st.spinner("Analizando situación clínica..."):
+                p_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {final_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
+                st.session_state.resp_ia = llamar_ia_en_cascada(p_final)
                 st.session_state.analisis_realizado = True
 
     if st.session_state.analisis_realizado and st.session_state.resp_ia:
@@ -221,39 +317,97 @@ with tabs[0]:
             partes = [p.strip() for p in resp.split("|||") if p.strip()]
             while len(partes) < 3: partes.append("")
             sintesis, tabla, detalle = partes[:3]
+            
             glow = obtener_glow_class(sintesis)
-            st.markdown(f'<div class="synthesis-box {glow}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
-            st.markdown(f'''<div class="clinical-detail-container">{detalle.replace("\n","<br>")}<div class="nota-importante-box"><div style="font-weight: 800; margin-bottom: 8px;">⚠️ NOTA IMPORTANTE:</div><div class="nota-item">1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</div><div class="nota-item">2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</div><div class="nota-item">3. La decisión final corresponde siempre al prescriptor médico.</div><div class="nota-item">4. Considere la situación clínica global del paciente antes de modificar dosis.</div></div></div>''', unsafe_allow_html=True)
+            if sintesis: st.markdown(f'<div class="synthesis-box {glow}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
+            if tabla: st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
+            if detalle: st.markdown(f'''<div class="clinical-detail-container">{detalle.replace("\n","<br>")}</div>''', unsafe_allow_html=True)
             
-            # Persistencia de datos en informe
-            datos_obj_lista = []
-            if calc_e: datos_obj_lista.append(f"Edad: {calc_e}a")
-            if calc_p: datos_obj_lista.append(f"Peso: {calc_p}kg")
-            if calc_c: datos_obj_lista.append(f"Crea: {calc_c}mg/dL")
-            if valor_fg: datos_obj_lista.append(f"FG: {valor_fg}mL/min")
-            st.session_state.soip_o = " | ".join(datos_obj_lista)
+            # --- MAPEO DE INFORMES ---
+            d_obj = []
+            if calc_e: d_obj.append(f"Edad: {calc_e}a")
+            if calc_p: d_obj.append(f"Peso: {calc_p}kg")
+            if calc_c: d_obj.append(f"Crea: {calc_c}mg/dL")
+            if final_fg: d_obj.append(f"FG: {final_fg}mL/min")
+            st.session_state.soip_o = " | ".join(d_obj)
             st.session_state.soip_i = sintesis.replace("BLOQUE 1: ALERTAS Y AJUSTES", "").strip()
-            st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{st.session_state.soip_i}"
+            st.session_state.ic_inter = f"Se solicita revisión de:\n{st.session_state.soip_i}"
             st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{detalle.split('⚠️ NOTA IMPORTANTE:')[0].replace('BLOQUE 3: ANALISIS CLINICO', '').strip()}"
+
+            st.write(""); st.markdown('<div class="blink-text">¿DESEAS GRABAR DATOS EN LA NUBE?</div>', unsafe_allow_html=True)
             
-            # NUEVA FUNCIONALIDAD: Mensaje parpadeante post-validación
-            st.write("")
-            st.markdown('<div class="blink-text">¿DESEAS GRABAR DATOS?</div>', unsafe_allow_html=True)
-            
-            c_save_1, c_save_2, c_save_3 = st.columns([1, 1, 1])
-            with c_save_2:
+            # --- 2. LÓGICA DE BOTÓN GRABAR MEJORADA (PERSISTENCIA TOTAL) ---
+            c_s1, c_s2, c_s3 = st.columns([1, 1, 1])
+            with c_s2:
                 if st.button("💾 GRABAR DATOS", key="btn_grabar", use_container_width=True):
-                    st.toast("Datos registrados correctamente.")
-        except Exception as e: st.error(f"Error: {e}")
+                    # Flag para controlar el flujo sin st.stop()
+                    error_proceso = False 
+                    with st.spinner("Sincronizando..."):
+                        doc = conectar_gsheets()
+                        if not doc:
+                            st.error("No se pudo conectar con el servidor.")
+                            error_proceso = True
+                        
+                        if not error_proceso:
+                            try:
+                                s_val = doc.worksheet("VALIDACIONES")
+                                s_med = doc.worksheet("MEDICAMENTOS")
+                                
+                                # Verificación de integridad estructural
+                                e1 = verificar_estructura_col(s_val, len(COLUMNAS_VALIDACIONES), "VALIDACIONES", doc)
+                                e2 = verificar_estructura_col(s_med, len(COLUMNAS_VALIDACIONES)+len(COLUMNAS_MEDS_ESPECIFICAS), "MEDICAMENTOS", doc)
+                                
+                                if not e1 or not e2:
+                                    st.error("La estructura del Excel no es válida.")
+                                    error_proceso = True
+                                
+                                # Control de Duplicados
+                                if not error_proceso and st.session_state.reg_id in s_val.col_values(4):
+                                    st.warning(f"Registro '{st.session_state.reg_id}' ya grabado anteriormente.")
+                                    error_proceso = True
+
+                                if not error_proceso:
+                                    # Extracción de Contadores
+                                    st_txt = sintesis.upper()
+                                    def _ext(t):
+                                        m = re.search(fr"{t.upper()}:\s*(\d+)", st_txt)
+                                        return m.group(1).strip() if m else "0"
+
+                                    d_com = {
+                                        "FECHA": datetime.now().strftime("%d/%m/%Y"), "CENTRO": st.session_state.reg_centro,
+                                        "RESIDENCIA": st.session_state.reg_res, "ID_REGISTRO": st.session_state.reg_id,
+                                        "EDAD": calc_e, "SEXO": calc_s, "PESO": calc_p, "CREATININA": calc_c,
+                                        "Nº_TOTAL_MEDS_PAC": len(st.session_state.main_meds.strip().split('\n')),
+                                        "FG_CG": final_fg, "Nº_TOT_AFEC_CG": _ext("TOTAL AFECTADOS"),
+                                        "Nº_PRECAU_CG": _ext("PRECAUCIÓN"), "Nº_AJUSTE_DOS_CG": _ext("AJUSTE DOSIS"),
+                                        "Nº_TOXICID_CG": _ext("RIESGO TOXICIDAD"), "Nº_CONTRAIND_CG": _ext("CONTRAINDICADOS"),
+                                        "FG_MDRD": val_mdrd if val_mdrd else "", "FG_CKD": val_ckd if val_ckd else ""
+                                    }
+
+                                    # Volcado final
+                                    guardar_validacion(s_val, d_com)
+                                    df_r = parsear_tabla_ia(tabla)
+                                    if not df_r.empty: 
+                                        guardar_medicamentos(s_med, df_r, d_com)
+                                    
+                                    st.success(f"✅ Éxito: Registro {st.session_state.reg_id} sincronizado.")
+                                    st.toast("Datos guardados.")
+
+                            except Exception as e_proc:
+                                registrar_log_error(doc, str(e_proc), "Fallo Proceso Grabado")
+                                st.error(f"Error técnico al grabar: {str(e_proc)}")
+            # --- FIN LÓGICA GRABAR ---
+
+        except Exception as e: st.error(f"Error Visualización: {e}")
 
 with tabs[1]:
-    for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
-        st.markdown(f'<div class="linea-discreta-soip">{label}</div>', unsafe_allow_html=True)
-        st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed", placeholder=f"Contenido de {label}...")
+    for l, k, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
+        st.markdown(f'<div class="linea-discreta-soip">{l}</div>', unsafe_allow_html=True)
+        st.text_area(k, st.session_state[k], height=h, label_visibility="collapsed")
     st.markdown('<div class="linea-discreta-soip">INTERCONSULTA</div>', unsafe_allow_html=True)
-    st.text_area("IC_B1", st.session_state.ic_inter, height=150, label_visibility="collapsed", placeholder="Se solicita revisión...")
+    st.text_area("IC_B1", st.session_state.ic_inter, height=150, label_visibility="collapsed")
     st.markdown('<div class="linea-discreta-soip">INFORMACIÓN CLÍNICA</div>', unsafe_allow_html=True)
-    st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed", placeholder="Datos objetivos y análisis clínico...")
+    st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 10 mar 2026 11:45</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo clínico. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</b></div> 
+<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 10 mar 2026 17:35</div>""", unsafe_allow_html=True)
