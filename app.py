@@ -34,7 +34,7 @@ import constants as c
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
 #      se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#       sus textos flotantes (placeholders) y los textos predefinidos en las
+#       sus textos flotantes (placeholders) and los textos predefinidos en las
 #       secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
 #       principio blindado; es informativo y no debe impedir la validación.
@@ -106,47 +106,47 @@ def reset_meds():
     st.session_state.analisis_realizado = False
     st.session_state.resp_ia = None
 
-def volcar_a_sheets(tabla_html, paciente_data, meds_raw):
+def volcar_a_sheets(tabla_html, p_data, meds_raw):
     try:
         soup = BeautifulSoup(tabla_html, 'html.parser')
-        filas = soup.find_all('tr')[1:] # Saltar cabecera
-        data_meds = []
-        
-        # Contadores para VALIDACIONES
+        filas = soup.find_all('tr')[1:]
+        new_meds_rows = []
         stats = {k: 0 for k in ["tot_af_cg", "p_cg", "a_cg", "t_cg", "c_cg", "tot_af_mdrd", "p_mdrd", "a_mdrd", "t_mdrd", "c_mdrd", "tot_af_ckd", "p_ckd", "a_ckd", "t_ckd", "c_ckd"]}
 
         for fila in filas:
             cols = [c.get_text(strip=True) for c in fila.find_all('td')]
             if len(cols) < 12: continue
             
-            # Mapeo Riesgos (Col 5=CG, Col 9=MDRD, Col 13=CKD aprox según 12 cols prompt)
+            # Parsing Riesgos (Asumiendo 12 columnas: 0=Nombre, 1=Grupo, 4=Cat_CG, 5=Riesgo_CG, 8=Cat_MDRD, 9=Riesgo_MDRD, 12=Cat_CKD, 13=Riesgo_CKD)
             r_cg = int(re.search(r'\d', cols[5]).group()) if re.search(r'\d', cols[5]) else 0
             r_mdrd = int(re.search(r'\d', cols[9]).group()) if re.search(r'\d', cols[9]) else 0
-            r_ckd = int(re.search(r'\d', cols[13]).group()) if re.search(r'\d', cols[13]) else 0 # Ajuste según tabla real
+            r_ckd = int(re.search(r'\d', cols[13]).group()) if re.search(r'\d', cols[13]) else 0
 
-            # Lógica contadores (Simplificada: 1=P, 2=A, 3=T, 4=C)
+            # Contadores CG
             if r_cg > 0: stats["tot_af_cg"] += 1
             if r_cg == 1: stats["p_cg"] += 1
             elif r_cg == 2: stats["a_cg"] += 1
             elif r_cg == 3: stats["t_cg"] += 1
             elif r_cg == 4: stats["c_cg"] += 1
-            
-            # (Repetir lógica para MDRD y CKD...)
-            
-            data_meds.append([paciente_data['id'], cols[0], cols[1], paciente_data['fg_cg'], cols[4], r_cg, cols[6], paciente_data['fg_mdrd'], cols[8], r_mdrd, cols[10], paciente_data['fg_ckd'], cols[12], r_ckd, cols[14]])
 
-        # 1. Pestaña MEDICAMENTOS
-        df_meds = pd.DataFrame(data_meds)
-        conn.create(worksheet="MEDICAMENTOS", data=df_meds)
+            # Registro individual Medicamento
+            new_meds_rows.append([p_data['id'], cols[0], cols[1], p_data['fg_cg'], cols[4], r_cg, cols[6], p_data['fg_mdrd'], cols[8], r_mdrd, cols[10], p_data['fg_ckd'], cols[12], r_ckd, cols[14]])
 
-        # 2. Pestaña VALIDACIONES
-        n_meds = len(meds_raw.split('\n'))
-        df_val = pd.DataFrame([[datetime.now().strftime("%d/%m/%Y"), paciente_data['centro'], paciente_data['res'], paciente_data['id'], paciente_data['edad'], paciente_data['sexo'], paciente_data['peso'], paciente_data['crea'], n_meds, paciente_data['fg_cg'], stats["tot_af_cg"], stats["p_cg"], stats["a_cg"], stats["t_cg"], stats["c_cg"], paciente_data['fg_mdrd'], 0,0,0,0,0, paciente_data['fg_ckd'], 0,0,0,0,0]])
-        conn.create(worksheet="VALIDACIONES", data=df_val)
+        # Volcado MEDICAMENTOS (Append)
+        df_meds_old = conn.read(worksheet="MEDICAMENTOS")
+        df_meds_final = pd.concat([df_meds_old, pd.DataFrame(new_meds_rows, columns=df_meds_old.columns)], ignore_index=True)
+        conn.update(worksheet="MEDICAMENTOS", data=df_meds_final)
+
+        # Volcado VALIDACIONES (Append)
+        df_val_old = conn.read(worksheet="VALIDACIONES")
+        n_meds = len([l for l in meds_raw.split('\n') if l.strip()])
+        new_val = [datetime.now().strftime("%d/%m/%Y"), p_data['centro'], p_data['res'], p_data['id'], p_data['edad'], p_data['sexo'], p_data['peso'], p_data['crea'], n_meds, p_data['fg_cg'], stats["tot_af_cg"], stats["p_cg"], stats["a_cg"], stats["t_cg"], stats["c_cg"], p_data['fg_mdrd'], 0,0,0,0,0, p_data['fg_ckd'], 0,0,0,0,0]
+        df_val_final = pd.concat([df_val_old, pd.DataFrame([new_val], columns=df_val_old.columns)], ignore_index=True)
+        conn.update(worksheet="VALIDACIONES", data=df_val_final)
         
-        st.success("Sincronización con nube completada.")
+        st.toast("✅ Sincronización con nube completada.")
     except Exception as e:
-        st.error(f"Error volcado: {e}")
+        st.error(f"Error de escritura: Asegúrate de que las pestañas VALIDACIONES y MEDICAMENTOS tengan cabeceras. Detalle: {e}")
 
 def inject_styles():
     st.markdown("""
@@ -189,7 +189,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 10 mar 2026 10:35</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 10 mar 2026 10:55</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -271,23 +271,12 @@ with tabs[0]:
             st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
             st.markdown(f'''<div class="clinical-detail-container">{detalle.replace("\n","<br>")}<div class="nota-importante-box"><div style="font-weight: 800; margin-bottom: 8px;">⚠️ NOTA IMPORTANTE:</div><div class="nota-item">1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</div><div class="nota-item">2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</div><div class="nota-item">3. La decisión final corresponde siempre al prescriptor médico.</div><div class="nota-item">4. Considere la situación clínica global del paciente antes de modificar dosis.</div></div></div>''', unsafe_allow_html=True)
             
-            # Persistencia de datos en informe
-            datos_obj_lista = []
-            if calc_e: datos_obj_lista.append(f"Edad: {calc_e}a")
-            if calc_p: datos_obj_lista.append(f"Peso: {calc_p}kg")
-            if calc_c: datos_obj_lista.append(f"Crea: {calc_c}mg/dL")
-            if valor_fg: datos_obj_lista.append(f"FG: {valor_fg}mL/min")
-            st.session_state.soip_o = " | ".join(datos_obj_lista)
-            st.session_state.soip_i = sintesis.replace("BLOQUE 1: ALERTAS Y AJUSTES", "").strip()
-            st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{st.session_state.soip_i}"
-            st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{detalle.split('⚠️ NOTA IMPORTANTE:')[0].replace('BLOQUE 3: ANALISIS CLINICO', '').strip()}"
-            
             st.write("")
             c_save_1, c_save_2, c_save_3 = st.columns([1, 1, 1])
             with c_save_2:
                 if st.button("💾 GRABAR DATOS", key="btn_grabar", use_container_width=True):
-                    p_data = {'id': st.session_state.reg_id, 'centro': st.session_state.reg_centro, 'res': st.session_state.reg_res, 'edad': calc_e, 'sexo': calc_s, 'peso': calc_p, 'crea': calc_c, 'fg_cg': valor_fg, 'fg_mdrd': val_mdrd, 'fg_ckd': val_ckd}
-                    volcar_a_sheets(tabla, p_data, st.session_state.main_meds)
+                    p_info = {'id': st.session_state.reg_id, 'centro': st.session_state.reg_centro, 'res': st.session_state.reg_res, 'edad': calc_e, 'sexo': calc_s, 'peso': calc_p, 'crea': calc_c, 'fg_cg': valor_fg, 'fg_mdrd': val_mdrd, 'fg_ckd': val_ckd}
+                    volcar_a_sheets(tabla, p_info, st.session_state.main_meds)
         except Exception as e: st.error(f"Error: {e}")
 
 with tabs[1]:
@@ -304,11 +293,6 @@ with tabs[2]:
     try:
         df_cloud = conn.read(worksheet="VALIDACIONES")
         st.dataframe(df_cloud, use_container_width=True)
-    except: st.info("Conecte Google Sheets para ver los datos.")
+    except: st.info("Conecte Google Sheets para ver los datos históricos.")
 
-with tabs[3]:
-    st.markdown("### Análisis Clínico Dinámico")
-    # Aquí se implementarían las fórmulas solicitadas leyendo de VALIDACIONES y MEDICAMENTOS
-    st.info("Gráficos y métricas dinámicas disponibles al sincronizar datos.")
-
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 10 mar 2026 10:35</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 10 mar 2026 10:55</div>""", unsafe_allow_html=True)
