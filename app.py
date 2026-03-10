@@ -1,4 +1,4 @@
-# v. 10 mar 2026 20:15 (CONTROL DE INTEGRIDAD INTERNO: SISTEMA DE PERSISTENCIA INTEGRAL)
+# v. 10 mar 2026 20:45 (CONTROL DE INTEGRIDAD: REFUERZO DE PARSING Y MAPEO MEDICAMENTOS)
 import streamlit as st
 import pandas as pd
 import io
@@ -35,7 +35,7 @@ import constants as c
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
 #       se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#       sus textos flotantes (placeholders) y los textos predefinidos en las
+#       sus textos flotantes (placeholders) and los textos predefinidos en las
 #       secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
 #       principio blindado; es informativo y no debe impedir la validación.
@@ -44,19 +44,12 @@ import constants as c
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
 # --- INICIALIZACIÓN DE SESSION_STATE ---
-if "active_model" not in st.session_state:
-    st.session_state.active_model = "BUSCANDO..."
-if "main_meds" not in st.session_state:
-    st.session_state.main_meds = ""
-if "soip_s" not in st.session_state:
-    st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
-if "soip_p" not in st.session_state:
-    st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
-if "analisis_realizado" not in st.session_state:
-    st.session_state.analisis_realizado = False
-if "resp_ia" not in st.session_state:
-    st.session_state.resp_ia = None
-
+if "active_model" not in st.session_state: st.session_state.active_model = "BUSCANDO..."
+if "main_meds" not in st.session_state: st.session_state.main_meds = ""
+if "soip_s" not in st.session_state: st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
+if "soip_p" not in st.session_state: st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
+if "analisis_realizado" not in st.session_state: st.session_state.analisis_realizado = False
+if "resp_ia" not in st.session_state: st.session_state.resp_ia = None
 for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res", "tabla_actual"]:
     if key not in st.session_state: st.session_state[key] = ""
 
@@ -66,54 +59,54 @@ try:
     genai.configure(api_key=API_KEY)
 except:
     API_KEY = None
-    st.sidebar.error("API Key no encontrada.")
 
 # --- CONEXIÓN GOOGLE SHEETS ---
 def conectar_sheets():
     try:
         scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
         creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
-        client = gspread.authorize(creds)
-        return client.open_by_key(st.secrets["spreadsheet_id"])
-    except Exception as e:
-        return None
+        return gspread.authorize(creds).open_by_key(st.secrets["spreadsheet_id"])
+    except: return None
 
 def log_error_sheets(mensaje):
     try:
         sh = conectar_sheets()
-        if sh:
-            log_sheet = sh.worksheet("LOGS")
-            log_sheet.append_row([str(datetime.now()), st.session_state.get('reg_id', 'N/A'), mensaje])
+        if sh: sh.worksheet("LOGS").append_row([str(datetime.now()), st.session_state.get('reg_id', 'N/A'), mensaje])
     except: pass
 
-# --- FUNCIONES DE PARSEADO ---
+# --- FUNCIONES DE PARSEADO REFORZADAS ---
 def parsear_tabla_ia_completa(texto_tabla):
     lineas = [l.strip() for l in texto_tabla.strip().split('\n') if '|' in l and '---' not in l]
     if len(lineas) < 2: return [], {}
     
     meds_rows = []
     dict_totales = {}
+    # Palabras clave normalizadas (sin emojis ni mayúsculas)
     mapeo_claves = {
-        "AFECTADOS": "TOT_AFEC", "PRECAUCIÓN": "PRECAU", "AJUSTE DOSIS": "AJUSTE_DOS",
-        "TOXICIDAD": "TOXICID", "CONTRAINDICADOS": "CONTRAIND"
+        "afectados": "TOT_AFEC", "precau": "PRECAU", "ajuste": "AJUSTE_DOS",
+        "toxicid": "TOXICID", "contraindicado": "CONTRAIND"
     }
 
     for l in lineas[1:]:
         cols = [c.strip() for c in l.split('|') if c.strip()]
         if not cols: continue
-        primer_col = cols[0].upper()
+        
+        # Normalizamos la primera columna para la búsqueda
+        cell_0 = re.sub(r'[^\w\s]', '', cols[0].lower())
         
         es_resumen = False
         for kw, clave in mapeo_claves.items():
-            if kw in primer_col:
-                dict_totales[f"{clave}_CG"] = cols[1] if len(cols) > 1 else "0"
-                dict_totales[f"{clave}_MDRD"] = cols[2] if len(cols) > 2 else "0"
-                dict_totales[f"{clave}_CKD"] = cols[3] if len(cols) > 3 else "0"
+            if kw in cell_0:
+                # Extraemos valores numéricos de las celdas para evitar texto residual
+                dict_totales[f"{clave}_CG"] = re.sub(r'\D', '', cols[1]) if len(cols) > 1 else "0"
+                dict_totales[f"{clave}_MDRD"] = re.sub(r'\D', '', cols[2]) if len(cols) > 2 else "0"
+                dict_totales[f"{clave}_CKD"] = re.sub(r'\D', '', cols[3]) if len(cols) > 3 else "0"
                 es_resumen = True
                 break
         
-        if not es_resumen:
+        if not es_resumen and len(cols) >= 3:
             meds_rows.append(cols)
+            
     return meds_rows, dict_totales
 
 # --- FUNCIONES LÓGICA ---
@@ -147,16 +140,15 @@ def reset_registro():
     for key in ["reg_centro", "reg_res", "reg_id", "fgl_ckd", "fgl_mdrd", "main_meds"]: st.session_state[key] = ""
     for key in ["calc_e", "calc_p", "calc_c", "calc_s"]: 
         if key in st.session_state: st.session_state[key] = None
-    st.session_state.analisis_realizado = False
-    st.session_state.resp_ia = None
+    st.session_state.analisis_realizado = False; st.session_state.resp_ia = None
 
 def reset_meds():
     st.session_state.main_meds = ""
     st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
-    st.session_state.soip_o = ""; st.session_state.soip_i = ""; st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
+    st.session_state.soip_o = ""; st.session_state.soip_i = ""
+    st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
     st.session_state.ic_inter = ""; st.session_state.ic_clinica = ""
-    st.session_state.analisis_realizado = False
-    st.session_state.resp_ia = None
+    st.session_state.analisis_realizado = False; st.session_state.resp_ia = None
 
 def inject_styles():
     st.markdown("""
@@ -178,13 +170,11 @@ def inject_styles():
     .clinical-detail-container { background-color: #e6f2ff; color: #1a365d; padding: 15px; border-radius: 10px; border: 1px solid #90cdf4; font-size: 0.9rem; line-height: 1.6; }
     .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
-    .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
     .fg-special-border { border: 1.5px solid #9d00ff !important; border-radius: 5px; }
     @keyframes blinker { 50% { opacity: 0; } }
     .blink-text { animation: blinker 1s linear infinite; color: #c53030; font-weight: bold; padding: 10px; border: 1px solid #c53030; border-radius: 5px; background: #fff5f5; text-align: center; margin-bottom: 15px; }
     div[data-testid="stVerticalBlock"] > div:has(button[key="btn_grabar"]) button {
-        animation: blinker 1s linear infinite;
-        background-color: #fff5f5 !important; color: #c53030 !important; border: 2.2px solid #c53030 !important; font-weight: bold !important;
+        animation: blinker 1s linear infinite; background-color: #fff5f5 !important; color: #c53030 !important; border: 2.2px solid #c53030 !important; font-weight: bold !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -195,7 +185,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 10 mar 2026 20:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 10 mar 2026 20:45</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -252,9 +242,7 @@ with tabs[0]:
     if btn_val:
         if not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s]):
             st.markdown('<div class="blink-text">⚠️ AVISO: FALTAN DATOS. EL ANÁLISIS PUEDE SER INCOMPLETO.</div>', unsafe_allow_html=True)
-        
-        if not st.session_state.main_meds:
-            st.error("Introduce medicamentos.")
+        if not st.session_state.main_meds: st.error("Introduce medicamentos.")
         else:
             with st.spinner("Analizando..."):
                 p_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
@@ -281,10 +269,10 @@ with tabs[0]:
                         sh = conectar_sheets()
                         if sh:
                             try:
-                                meds_rows, t = parsear_tabla_ia_completa(st.session_state.tabla_actual)
+                                m_rows, t = parsear_tabla_ia_completa(st.session_state.tabla_actual)
                                 r_val = [
                                     datetime.now().strftime("%d/%m/%Y %H:%M"), st.session_state.reg_centro, st.session_state.reg_res,
-                                    st.session_state.reg_id, calc_e, calc_s, calc_p, calc_c, len(meds_rows), valor_fg,
+                                    st.session_state.reg_id, calc_e, calc_s, calc_p, calc_c, len(m_rows), valor_fg,
                                     t.get("TOT_AFEC_CG","0"), t.get("PRECAU_CG","0"), t.get("AJUSTE_DOS_CG","0"), t.get("TOXICID_CG","0"), t.get("CONTRAIND_CG","0"),
                                     val_mdrd, t.get("TOT_AFEC_MDRD","0"), t.get("PRECAU_MDRD","0"), t.get("AJUSTE_DOS_MDRD","0"), t.get("TOXICID_MDRD","0"), t.get("CONTRAIND_MDRD","0"),
                                     val_ckd, t.get("TOT_AFEC_CKD","0"), t.get("PRECAU_CKD","0"), t.get("AJUSTE_DOS_CKD","0"), t.get("TOXICID_CKD","0"), t.get("CONTRAIND_CKD","0"),
@@ -292,13 +280,21 @@ with tabs[0]:
                                 ]
                                 sh.worksheet("VALIDACIONES").append_row(r_val)
                                 m_sheet = sh.worksheet("MEDICAMENTOS")
-                                for mr in meds_rows:
-                                    r_med = r_val[:27] + [mr[0], mr[1] if len(mr)>1 else "", mr[3] if len(mr)>3 else "", mr[4] if len(mr)>4 else "", mr[5] if len(mr)>5 else "", mr[6] if len(mr)>6 else "", mr[7] if len(mr)>7 else "", mr[8] if len(mr)>8 else "", mr[9] if len(mr)>9 else "", mr[10] if len(mr)>10 else "", mr[11] if len(mr)>11 else "", "", ""]
-                                    m_sheet.append_row(r_med)
+                                for mr in m_rows:
+                                    # Mapeo exacto: Columnas Paciente (A-AA) + Medicamento (AB-AN)
+                                    # mr[0]: Med, mr[1]: Grupo, mr[2]: FG, mr[3]: Cat, mr[4]: Riesgo, mr[5]: Nivel
+                                    row_m = r_val[:27] + [
+                                        mr[0], mr[1] if len(mr)>1 else "", mr[3] if len(mr)>3 else "", mr[4] if len(mr)>4 else "", mr[5] if len(mr)>5 else "",
+                                        mr[6] if len(mr)>6 else "", mr[7] if len(mr)>7 else "", mr[8] if len(mr)>8 else "",
+                                        mr[9] if len(mr)>9 else "", mr[10] if len(mr)>10 else "", mr[11] if len(mr)>11 else "",
+                                        "", ""
+                                    ]
+                                    m_sheet.append_row(row_m)
                                 st.success("✅ Grabado completado.")
                             except Exception as e:
-                                log_error_sheets(f"Error: {e}"); st.error(f"Error: {e}")
-        except Exception as e: st.error(f"Error: {e}")
+                                log_error_sheets(f"Error: {e}"); st.error(f"Error al grabar: {e}")
+                        else: st.error("No se pudo conectar a Google Sheets.")
+        except Exception as e: st.error(f"Error de procesamiento: {e}")
 
 with tabs[1]:
     for l, k, h in [("Subjetivo", "soip_s", 70), ("Objetivo", "soip_o", 70), ("Interpretación", "soip_i", 120), ("Plan", "soip_p", 100)]:
@@ -314,4 +310,4 @@ with tabs[2]:
             st.dataframe(df, use_container_width=True)
         except: st.info("Sin datos.")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión. Verifique con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 10 mar 2026 20:15</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión. Verifique con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 10 mar 2026 20:45</div>""", unsafe_allow_html=True)
