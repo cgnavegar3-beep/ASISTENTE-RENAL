@@ -1,10 +1,12 @@
-# v. 10 mar 2026 15:40 (CONTROL DE INTEGRIDAD INTERNO: 262 LÍNEAS)
+# v. 10 mar 2026 21:45 (CONTROL DE INTEGRIDAD INTERNO: 295 LÍNEAS)
 
 import streamlit as st
 import pandas as pd
 import io
 from datetime import datetime
 import google.generativeai as genai
+import gspread
+from google.oauth2.service_account import Credentials
 import random
 import re
 import os
@@ -59,13 +61,19 @@ if "resp_ia" not in st.session_state:
 for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
     if key not in st.session_state: st.session_state[key] = ""
 
-# --- CONFIGURACIÓN IA ---
+# --- CONFIGURACIÓN IA Y GOOGLE SHEETS ---
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=API_KEY)
-except:
+    
+    # Credenciales Google Sheets
+    scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+    creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
+    client = gspread.authorize(creds)
+    SHEET_ID = st.secrets["GOOGLE_SHEET_ID"]
+except Exception as e:
     API_KEY = None
-    st.sidebar.error("API Key no encontrada.")
+    st.sidebar.error(f"Error de configuración: {e}")
 
 # --- FUNCIONES ---
 def llamar_ia_en_cascada(prompt):
@@ -111,46 +119,29 @@ def reset_meds():
     st.session_state.resp_ia = None
 
 def preparar_datos_exportacion(texto_tabla, pac_info, fgs):
-    """Procesa la tabla de la IA en formato matricial para Sheets."""
     lineas = [l.strip() for l in texto_tabla.strip().split('\n') if '|' in l and '---' not in l]
     matriz = []
     for l in lineas:
         cols = [c.strip() for c in l.split('|') if c.strip()]
         if cols: matriz.append(cols)
-    
-    # Identificar bloques: Encabezado (0), Medicamentos (1:-5), Resumen (-5:)
     resumen = matriz[-5:] if len(matriz) >= 5 else [["0"]*4 for _ in range(5)]
     filas_meds = matriz[1:-5] if len(matriz) > 5 else []
-
     def clean_val(v): return re.sub(r'[^\d]', '', str(v)) if v else "0"
 
-    # 1. PESTAÑA VALIDACIONES (Fila A-AA)
+    # VALIDACIONES (A-AA)
     v_row = [None] * 27
-    v_row[0:10] = pac_info # A-J (Paciente)
-    # G-C (K-O)
-    v_row[10] = clean_val(resumen[0][1]); v_row[11] = clean_val(resumen[1][1]); v_row[12] = clean_val(resumen[2][1])
-    v_row[13] = clean_val(resumen[3][1]); v_row[14] = clean_val(resumen[4][1])
-    v_row[15] = fgs[0] # P (Valor G-C)
-    # MDRD (Q-U)
-    v_row[16] = clean_val(resumen[0][2]); v_row[17] = clean_val(resumen[1][2]); v_row[18] = clean_val(resumen[2][2])
-    v_row[19] = clean_val(resumen[3][2]); v_row[20] = clean_val(resumen[4][2])
-    v_row[21] = fgs[1] # V (Valor MDRD)
-    # CKD (W-AA)
-    v_row[22] = clean_val(resumen[0][3]); v_row[23] = clean_val(resumen[1][3]); v_row[24] = clean_val(resumen[2][3])
-    v_row[25] = clean_val(resumen[3][3]); v_row[26] = clean_val(resumen[4][3])
+    v_row[0:10] = pac_info
+    v_row[10:15] = [clean_val(r[1]) for r in resumen] # G-C K-O
+    v_row[15] = fgs[0] # P
+    v_row[16:21] = [clean_val(r[2]) for r in resumen] # MDRD Q-U
+    v_row[21] = fgs[1] # V
+    v_row[22:27] = [clean_val(r[3]) for r in resumen] # CKD W-AA
 
-    # 2. PESTAÑA MEDICAMENTOS (Filas A-AN)
+    # MEDICAMENTOS (A-AN)
     m_rows = []
     for f in filas_meds:
-        # Extraer columnas AB-AN según orden de la tabla IA (excluyendo FGs intermedios)
-        det_farma = [
-            f[0], f[1],                # AB: Fármaco, AC: ATC
-            f[3], f[4], f[5], f[6],    # AD: Valor G-C, AE: Cat G-C, AF: Riesgo G-C, AG: Nivel
-            f[8], f[9], f[10], f[11],  # AH: Valor MDRD, AI: Cat MDRD, AJ: Riesgo MDRD, AK: Nivel
-            f[13], f[14], f[15], f[16] # AL: Valor CKD, AM: Cat CKD, AN: Riesgo CKD, AO: Nivel
-        ] if len(f) >= 17 else [f[0]] + [""]*13
+        det_farma = [f[0], f[1], f[3], f[4], f[5], f[6], f[8], f[9], f[10], f[11], f[13], f[14], f[15], f[16]] if len(f) >= 17 else [f[0]] + [""]*13
         m_rows.append(v_row + det_farma)
-        
     return v_row, m_rows
 
 def inject_styles():
@@ -194,7 +185,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 10 mar 2026 15:40</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 10 mar 2026 21:45</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -256,7 +247,6 @@ with tabs[0]:
         faltan_datos = not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s])
         if faltan_datos:
             st.markdown('<div class="blink-text">⚠️ AVISO: FALTAN DATOS EN REGISTRO O CALCULADORA. EL ANÁLISIS PUEDE SER INCOMPLETO.</div>', unsafe_allow_html=True)
-        
         if not st.session_state.main_meds:
             st.error("Introduce medicamentos.")
         else:
@@ -276,49 +266,31 @@ with tabs[0]:
             st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
             st.markdown(f'''<div class="clinical-detail-container">{detalle.replace("\n","<br>")}<div class="nota-importante-box"><div style="font-weight: 800; margin-bottom: 8px;">⚠️ NOTA IMPORTANTE:</div><div class="nota-item">1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</div><div class="nota-item">2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</div><div class="nota-item">3. La decisión final corresponde siempre al prescriptor médico.</div><div class="nota-item">4. Considere la situación clínica global del paciente antes de modificar dosis.</div></div></div>''', unsafe_allow_html=True)
             
-            # Persistencia de datos en informe
-            datos_obj_lista = []
-            if calc_e: datos_obj_lista.append(f"Edad: {calc_e}a")
-            if calc_p: datos_obj_lista.append(f"Peso: {calc_p}kg")
-            if calc_c: datos_obj_lista.append(f"Crea: {calc_c}mg/dL")
-            if valor_fg: datos_obj_lista.append(f"FG: {valor_fg}mL/min")
-            st.session_state.soip_o = " | ".join(datos_obj_lista)
-            st.session_state.soip_i = sintesis.replace("BLOQUE 1: ALERTAS Y AJUSTES", "").strip()
-            st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{st.session_state.soip_i}"
-            st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{detalle.split('⚠️ NOTA IMPORTANTE:')[0].replace('BLOQUE 3: ANALISIS CLINICO', '').strip()}"
-            
-            # NUEVA FUNCIONALIDAD: Mensaje parpadeante post-validación
             st.write("")
             st.markdown('<div class="blink-text">¿DESEAS GRABAR DATOS?</div>', unsafe_allow_html=True)
             
             c_save_1, c_save_2, c_save_3 = st.columns([1, 1, 1])
             with c_save_2:
                 if st.button("💾 GRABAR DATOS", key="btn_grabar", use_container_width=True):
-                    # PREPARACIÓN MATRICIAL DE DATOS PARA SHEETS
-                    pac_data = [
-                        st.session_state.reg_id, st.session_state.reg_centro, 
-                        st.session_state.reg_res, datetime.now().strftime("%d/%m/%Y"),
-                        calc_e, calc_p, calc_c, calc_s, "N/A", "N/A" # A-J
-                    ]
-                    fgs_actuales = [valor_fg, val_mdrd, val_ckd]
-                    
-                    fila_v, filas_m = preparar_datos_exportacion(tabla, pac_data, fgs_actuales)
-                    
-                    # Log de depuración técnica (opcional para el desarrollador)
-                    # st.write("Fila Validación:", fila_v)
-                    # st.write("Filas Medicamentos:", len(filas_m))
-                    
-                    st.toast("Estructura de datos preparada para Google Sheets.")
-                    st.success("Datos listos para volcado matricial.")
-        except Exception as e: st.error(f"Error: {e}")
+                    with st.spinner("Grabando en Google Sheets..."):
+                        pac_data = [st.session_state.reg_id, st.session_state.reg_centro, st.session_state.reg_res, datetime.now().strftime("%d/%m/%Y"), calc_e, calc_p, calc_c, calc_s, "N/A", "N/A"]
+                        fgs_actuales = [valor_fg, val_mdrd, val_ckd]
+                        fila_v, filas_m = preparar_datos_exportacion(tabla, pac_data, fgs_actuales)
+                        
+                        sh = client.open_by_key(SHEET_ID)
+                        sh.worksheet("VALIDACIONES").append_row(fila_v)
+                        sh.worksheet("MEDICAMENTOS").append_rows(filas_m)
+                        st.toast("Datos grabados correctamente en Google Sheets.")
+                        st.success("¡Éxito! Registro completado.")
+        except Exception as e: st.error(f"Error al grabar: {e}")
 
 with tabs[1]:
     for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
         st.markdown(f'<div class="linea-discreta-soip">{label}</div>', unsafe_allow_html=True)
-        st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed", placeholder=f"Contenido de {label}...")
+        st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed")
     st.markdown('<div class="linea-discreta-soip">INTERCONSULTA</div>', unsafe_allow_html=True)
-    st.text_area("IC_B1", st.session_state.ic_inter, height=150, label_visibility="collapsed", placeholder="Se solicita revisión...")
+    st.text_area("IC_B1", st.session_state.ic_inter, height=150, label_visibility="collapsed")
     st.markdown('<div class="linea-discreta-soip">INFORMACIÓN CLÍNICA</div>', unsafe_allow_html=True)
-    st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed", placeholder="Datos objetivos y análisis clínico...")
+    st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 10 mar 2026 15:40</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 10 mar 2026 21:45</div>""", unsafe_allow_html=True)
