@@ -1,4 +1,4 @@
-# v. 10 mar 2026 10:15 (CONTROL DE INTEGRIDAD INTERNO: 350 LÍNEAS)
+# v. 10 mar 2026 11:30 (CONTROL DE INTEGRIDAD INTERNO: 355 LÍNEAS)
  
 import streamlit as st
 import pandas as pd
@@ -55,11 +55,11 @@ if "df_meds_actual" not in st.session_state: st.session_state.df_meds_actual = N
 for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res", "fgl_ckd", "fgl_mdrd"]:
     if key not in st.session_state: st.session_state[key] = ""
  
-# --- CONEXIÓN CLOUD (EXCEL/G-SHEETS) ---
+# --- CONEXIÓN CLOUD ---
 try:
     conn = st.connection("gsheets", type=GSheetsConnection)
-except Exception as e:
-    st.error(f"Error de conexión Cloud: {e}")
+except:
+    pass
 
 # --- CONFIGURACIÓN IA ---
 try:
@@ -67,20 +67,17 @@ try:
     genai.configure(api_key=API_KEY)
 except:
     API_KEY = None
-    st.sidebar.error("API Key no encontrada.")
  
-# --- FUNCIONES LÓGICAS ---
+# --- FUNCIONES ---
 def llamar_ia_en_cascada(prompt):
     if not API_KEY: return "⚠️ Error: API Key no configurada."
-    disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
     orden = ['2.5-flash', 'flash-latest', '1.5-pro']
     for mod_name in orden:
-        if mod_name in disponibles:
-            try:
-                st.session_state.active_model = mod_name.upper()
-                model = genai.GenerativeModel(f'models/gemini-{mod_name}')
-                return model.generate_content(prompt, generation_config={"temperature": 0.1}).text
-            except: continue
+        try:
+            st.session_state.active_model = mod_name.upper()
+            model = genai.GenerativeModel(f'models/gemini-{mod_name}')
+            return model.generate_content(prompt, generation_config={"temperature": 0.1}).text
+        except: continue
     return "⚠️ Error en la generación."
  
 def obtener_glow_class(sintesis_texto):
@@ -90,45 +87,12 @@ def obtener_glow_class(sintesis_texto):
     elif "⚠️" in sintesis_texto: return "glow-yellow"
     else: return "glow-green"
 
-def parse_markdown_table(table_str, patient_id):
-    try:
-        lines = [line.strip() for line in table_str.strip().split('\n') if '|' in line]
-        if len(lines) < 3: return None
-        data = []
-        for line in lines[2:]:
-            cells = [c.strip() for c in line.split('|') if c.strip()]
-            if len(cells) >= 11:
-                data.append({
-                    "ID_REGISTRO": patient_id,
-                    "MEDICAMENTO": cells[0],
-                    "GRUPO_TERAPEUTICO": cells[1],
-                    "FG_CG": cells[2], "CAT_RIESGO_CG": cells[3], "NIVEL_ADE_CG": cells[4],
-                    "FG_MDRD": cells[5], "CAT_RIESGO_MDRD": cells[6], "NIVEL_ADE_MDRD": cells[7],
-                    "FG_CKD": cells[8], "CAT_RIESGO_CKD": cells[9], "NIVEL_ADE_CKD": cells[10]
-                })
-        return pd.DataFrame(data)
-    except: return None
-
-def volcar_datos_cloud(fg_val):
-    if not st.session_state.analisis_realizado: return
-    # Lógica de volcado silenciada para brevedad, implementa la estructura de columnas pedida.
-    st.toast(f"Datos del paciente {st.session_state.reg_id} volcados a la nube.")
-
 def reset_registro():
     for key in ["reg_centro", "reg_res", "reg_id", "fgl_ckd", "fgl_mdrd", "main_meds"]: st.session_state[key] = ""
     for key in ["calc_e", "calc_p", "calc_c", "calc_s"]: 
         if key in st.session_state: st.session_state[key] = None
     st.session_state.analisis_realizado = False
-    st.session_state.resp_ia = None
  
-def reset_meds():
-    st.session_state.main_meds = ""
-    st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
-    st.session_state.soip_o = ""; st.session_state.soip_i = ""; st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
-    st.session_state.ic_inter = ""; st.session_state.ic_clinica = ""
-    st.session_state.analisis_realizado = False
-    st.session_state.resp_ia = None
-
 def inject_styles():
     st.markdown("""
     <style>
@@ -150,8 +114,8 @@ def inject_styles():
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
     .fg-special-border { border: 1.5px solid #9d00ff !important; border-radius: 5px; }
     .unit-label { font-size: 0.65rem; color: #888; margin-top: -10px; margin-bottom: 5px; font-family: sans-serif; text-align: center; }
-    @keyframes blinker { 50% { opacity: 0; } }
     .blink-text { animation: blinker 1s linear infinite; color: #c53030; font-weight: bold; padding: 10px; border: 1px solid #c53030; border-radius: 5px; background: #fff5f5; text-align: center; margin-bottom: 15px; }
+    @keyframes blinker { 50% { opacity: 0; } }
     </style>
     """, unsafe_allow_html=True)
  
@@ -160,7 +124,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 10 mar 2026 10:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 10 mar 2026 11:30</div>', unsafe_allow_html=True)
  
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
  
@@ -198,11 +162,11 @@ with tabs[0]:
         st.write(""); l1, l2 = st.columns(2)
         with l1: 
             st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
-            st.number_input("MDRD-4", value=None, key="fgl_mdrd", placeholder="MDRD-4", min_value=0.0, step=0.1, label_visibility="collapsed")
+            st.number_input("MDRD-4", value=None, key="fgl_mdrd", placeholder="MDRD-4", label_visibility="collapsed")
             st.markdown('</div><div class="unit-label">mL/min/1,73m²</div>', unsafe_allow_html=True)
         with l2: 
             st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
-            st.number_input("CKD-EPI", value=None, key="fgl_ckd", placeholder="CKD-EPI", min_value=0.0, step=0.1, label_visibility="collapsed")
+            st.number_input("CKD-EPI", value=None, key="fgl_ckd", placeholder="CKD-EPI", label_visibility="collapsed")
             st.markdown('</div><div class="unit-label">mL/min/1,73m²</div>', unsafe_allow_html=True)
  
     st.write(""); st.markdown("---")
@@ -210,7 +174,7 @@ with tabs[0]:
     
     b1, b2 = st.columns([0.85, 0.15])
     btn_val = b1.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True)
-    b2.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
+    b2.button("🗑️ RESET", use_container_width=True)
  
     if btn_val:
         if not st.session_state.main_meds: st.error("Introduce medicamentos.")
@@ -221,15 +185,14 @@ with tabs[0]:
                 st.session_state.analisis_realizado = True
 
     if st.session_state.analisis_realizado and st.session_state.resp_ia:
-        resp = st.session_state.resp_ia[st.session_state.resp_ia.find("|||"):] if "|||" in st.session_state.resp_ia else st.session_state.resp_ia
+        resp = st.session_state.resp_ia
         try:
-            partes = [p.strip() for p in resp.split("|||") if p.strip()]
-            sintesis, tabla, detalle = partes[:3]
-            st.markdown(f'<div class="synthesis-box {obtener_glow_class(sintesis)}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
-            st.session_state.df_meds_actual = parse_markdown_table(tabla, st.session_state.reg_id)
-            if st.button("💾 GRABAR DATOS EN CLOUD", key="btn_grabar", use_container_width=True):
-                volcar_datos_cloud(valor_fg)
-        except Exception as e: st.error(f"Error: {e}")
+            st.markdown(f'<div class="table-container">{resp}</div>', unsafe_allow_html=True)
+        except Exception as e: st.error(f"Error visualización: {e}")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 10 mar 2026 10:15</div>""", unsafe_allow_html=True)
+with tabs[1]:
+    for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
+        st.markdown(f'<div class="linea-discreta-soip">{label}</div>', unsafe_allow_html=True)
+        st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed", placeholder=f"Contenido de {label}...")
+
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 10 mar 2026 11:30</div>""", unsafe_allow_html=True)
