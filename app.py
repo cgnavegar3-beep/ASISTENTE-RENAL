@@ -1,4 +1,4 @@
-# v. 11 mar 2026 16:45 (ESTRUCTURA BLINDADA - MAPEO POR DELIMITADORES ABSOLUTOS)
+# v. 11 mar 2026 17:15 (CORRECCIÓN ERROR TRUNCADO L-239 - ESTRUCTURA BLINDADA)
 
 import streamlit as st
 import pandas as pd
@@ -117,12 +117,10 @@ def reset_meds():
     st.session_state.resp_ia = None
 
 def preparar_datos_exportacion(texto_tabla, pac_info, fgs):
-    # Extracción bruta de filas que contienen datos
     lineas = [l.strip() for l in texto_tabla.split('\n') if '|' in l and '---' not in l]
     matriz = []
     for l in lineas:
         partes = [p.strip() for p in l.split('|')]
-        # Limpiamos celdas vacías laterales del Markdown
         if partes[0] == "": partes.pop(0)
         if partes and partes[-1] == "": partes.pop(-1)
         matriz.append(partes)
@@ -131,7 +129,6 @@ def preparar_datos_exportacion(texto_tabla, pac_info, fgs):
         n = re.findall(r'\d+', str(v))
         return n[0] if n else "0"
 
-    # LOCALIZAR RESUMEN (Últimas 5 filas de la tabla)
     res_final = [["0","0","0"] for _ in range(5)]
     if len(matriz) >= 5:
         filas_res = matriz[-5:]
@@ -140,42 +137,31 @@ def preparar_datos_exportacion(texto_tabla, pac_info, fgs):
             while len(nums_en_fila) < 3: nums_en_fila.append("0")
             res_final[idx] = nums_en_fila[:3]
 
-    # FILA VALIDACIÓN (A-AA)
     v_row = [""] * 27
-    v_row[0] = datetime.now().strftime("%d/%m/%Y") # A: Fecha
-    v_row[1] = pac_info[1] # B: Centro
-    v_row[2] = pac_info[2] # C: Residencia
-    v_row[3] = pac_info[0] # D: ID_Registro
-    v_row[4] = pac_info[4] # E: Edad
-    v_row[5] = pac_info[7] # F: Sexo
-    v_row[6] = pac_info[5] # G: Peso
-    v_row[7] = pac_info[6] # H: Creatinina
-    v_row[8] = "N/A" # I
+    v_row[0] = datetime.now().strftime("%d/%m/%Y")
+    v_row[1] = pac_info[1]
+    v_row[2] = pac_info[2]
+    v_row[3] = pac_info[0]
+    v_row[4] = pac_info[4]
+    v_row[5] = pac_info[7]
+    v_row[6] = pac_info[5]
+    v_row[7] = pac_info[6]
+    v_row[8] = "N/A"
     
-    # Inyección de totales (K-O, Q-U, W-AA)
     for i in range(5):
-        v_row[10+i] = res_final[i][0] # G-C (K-O)
-        v_row[16+i] = res_final[i][1] # MDRD (Q-U)
-        v_row[22+i] = res_final[i][2] # CKD (W-AA)
+        v_row[10+i] = res_final[i][0]
+        v_row[16+i] = res_final[i][1]
+        v_row[22+i] = res_final[i][2]
     
-    v_row[15] = fgs[0] # P: FG G-C
-    v_row[21] = fgs[1] # V: FG MDRD
+    v_row[15] = fgs[0]
+    v_row[21] = fgs[1]
 
-    # FILAS MEDICAMENTOS (A-AN)
     m_rows = []
-    # Seleccionamos filas que no sean encabezado ni resumen
     filas_meds = [f for f in matriz if len(f) >= 14 and not any(x in f[0] for x in ["Icono", "Total", "Nº"])]
     for f in filas_meds:
-        f_ext = f + [""] * 10 # Asegurar longitud
-        # AB-AN: Orden de la tabla omitiendo icono y FGs internos
-        det_farma = [
-            f_ext[1], f_ext[2],             # AB: Fármaco, AC: ATC
-            f_ext[3], f_ext[4], f_ext[5], f_ext[6], # AD-AG (G-C)
-            f_ext[7], f_ext[8], f_ext[9], f_ext[10], # AH-AK (MDRD)
-            f_ext[11], f_ext[12], f_ext[13], f_ext[14] # AL-AO (CKD)
-        ]
+        f_ext = f + [""] * 10
+        det_farma = [f_ext[1], f_ext[2], f_ext[3], f_ext[4], f_ext[5], f_ext[6], f_ext[7], f_ext[8], f_ext[9], f_ext[10], f_ext[11], f_ext[12], f_ext[13], f_ext[14]]
         m_rows.append(v_row + det_farma)
-    
     return v_row, m_rows
 
 def inject_styles():
@@ -187,7 +173,6 @@ def inject_styles():
     .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; margin-top: 20px; }
     .sub-version { text-align: center; font-size: 0.6rem; color: #bbb; margin-top: -5px; margin-bottom: 20px; font-family: monospace; }
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
-    .unit-label { font-size: 0.65rem; color: #888; margin-top: -10px; margin-bottom: 5px; font-family: sans-serif; text-align: center; }
     .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; line-height: 1.6; }
     .glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; box-shadow: 0 0 12px #feb2b2; }
     .glow-orange { background-color: #fffaf0; color: #c05621; border-color: #fbd38d; box-shadow: 0 0 12px #fbd38d; }
@@ -200,17 +185,8 @@ def inject_styles():
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
     .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
     .fg-special-border { border: 1.5px solid #9d00ff !important; border-radius: 5px; }
-    .nota-importante-box { border-top: 2px dashed #0057b8; margin-top: 15px; padding-top: 12px; font-size: 0.85rem; color: #1a365d; }
-    .nota-item { margin-bottom: 4px; font-weight: 500; }
     @keyframes blinker { 50% { opacity: 0; } }
     .blink-text { animation: blinker 1s linear infinite; color: #c53030; font-weight: bold; padding: 10px; border: 1px solid #c53030; border-radius: 5px; background: #fff5f5; text-align: center; margin-bottom: 15px; }
-    div[data-testid="stVerticalBlock"] > div:has(button[key="btn_grabar"]) button {
-        animation: blinker 1s linear infinite;
-        background-color: #fff5f5 !important;
-        color: #c53030 !important;
-        border: 2.2px solid #c53030 !important;
-        font-weight: bold !important;
-    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -219,7 +195,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 11 mar 2026 16:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 11 mar 2026 17:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -236,4 +212,80 @@ with tabs[0]:
 
     with c1: st.text_input("Centro", placeholder="M / G", key="reg_centro", on_change=on_centro_change)
     with c2: st.selectbox("¿Residencia?", ["No", "Sí"], index=None, placeholder="Sí / No", key="reg_res")
-    with c3: st.text_
+    with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True, placeholder="Fecha", key="reg_fecha")
+    with c4: st.text_input("ID Registro", key="reg_id", disabled=True)
+    with c5: st.write(""); st.button("🗑️", on_click=reset_registro, key="btn_reset_reg")
+
+    col_izq, col_der = st.columns(2, gap="large")
+    with col_izq:
+        st.markdown("#### 📋 Calculadora")
+        with st.container(border=True):
+            calc_e = st.number_input("Edad (años)", step=1, key="calc_e", placeholder="Edad (Ej: 65)", value=None)
+            calc_p = st.number_input("Peso (kg)", key="calc_p", placeholder="Peso (Ej: 70.5)", value=None)
+            calc_c = st.number_input("Creatinina (mg/dL)", key="calc_c", placeholder="Creatinina (Ej: 1.2)", value=None)
+            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=None, placeholder="Seleccionar sexo...", key="calc_s")
+            fg = round(((140 - calc_e) * calc_p) / (72 * (calc_c if calc_c and calc_c > 0 else 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if all([calc_e, calc_p, calc_c, calc_s]) else 0.0
+
+    with col_der:
+        st.markdown("#### 💊 Filtrado Glomerular")
+        fg_m = st.text_input("Ajuste Manual", placeholder="Fórmula Cockcroft-Gault: entrada manual")
+        valor_fg = fg_m if fg_m else fg
+        st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
+        st.write(""); l1, l2 = st.columns(2)
+        with l1:
+            st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
+            val_mdrd = st.number_input("MDRD-4", value=None, placeholder="MDRD-4", label_visibility="collapsed", key="fgl_mdrd")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with l2:
+            st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
+            val_ckd = st.number_input("CKD-EPI", value=None, placeholder="CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    st.write(""); st.markdown("---")
+    st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds", placeholder="Pegue el listado de fármacos aquí...")
+    st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
+    
+    b1, b2 = st.columns([0.85, 0.15])
+    btn_val = b1.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True)
+    b2.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
+
+    if btn_val:
+        if not st.session_state.main_meds: st.error("Introduce medicamentos.")
+        else:
+            with st.spinner("Analizando..."):
+                prompt_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
+                st.session_state.resp_ia = llamar_ia_en_cascada(prompt_final)
+                if st.session_state.resp_ia:
+                    st.session_state.soip_o = f"FG (C-G): {valor_fg} mL/min. MDRD: {val_mdrd}. CKD-EPI: {val_ckd}."
+                    st.session_state.soip_i = st.session_state.resp_ia
+                    st.session_state.ic_inter = st.session_state.resp_ia
+                    st.session_state.ic_clinica = f"Análisis fármaco-renal para Paciente {st.session_state.reg_id}. FG: {valor_fg}."
+                st.session_state.analisis_realizado = True
+
+    if st.session_state.analisis_realizado and st.session_state.resp_ia:
+        resp = st.session_state.resp_ia[st.session_state.resp_ia.find("|||"):] if "|||" in st.session_state.resp_ia else st.session_state.resp_ia
+        partes = [p.strip() for p in resp.split("|||") if p.strip()]
+        if len(partes) >= 3:
+            sintesis, tabla, detalle = partes[:3]
+            st.markdown(f'<div class="synthesis-box {obtener_glow_class(sintesis)}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="clinical-detail-container">{detalle.replace("\n","<br>")}</div>', unsafe_allow_html=True)
+            if st.button("💾 GRABAR DATOS", key="btn_grabar"):
+                with st.spinner("Grabando..."):
+                    pac_data = [st.session_state.reg_id, st.session_state.reg_centro, st.session_state.reg_res, "", calc_e, calc_p, calc_c, calc_s]
+                    fila_v, filas_m = preparar_datos_exportacion(tabla, pac_data, [valor_fg, val_mdrd, val_ckd])
+                    sh = client.open_by_key(SHEET_ID)
+                    sh.worksheet("VALIDACIONES").append_row(fila_v)
+                    sh.worksheet("MEDICAMENTOS").append_rows(filas_m)
+                    st.toast("Grabado correctamente.")
+
+with tabs[1]:
+    for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
+        st.markdown(f'<div class="linea-discreta-soip">{label}</div>', unsafe_allow_html=True)
+        st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed")
+    st.markdown('<div class="linea-discreta-soip">INTERCONSULTA</div>', unsafe_allow_html=True)
+    st.text_area("IC_B1", st.session_state.ic_inter, height=150, label_visibility="collapsed")
+    st.markdown('<div class="linea-discreta-soip">INFORMACIÓN CLÍNICA</div>', unsafe_allow_html=True)
+    st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed")
+
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 11 mar 2026 17:15</div>""", unsafe_allow_html=True)
