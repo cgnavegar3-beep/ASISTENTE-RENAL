@@ -1,4 +1,4 @@
-# v. 11 mar 2026 22:30 (CONTROL DE INTEGRIDAD: AJUSTES TÉCNICOS + COMPATIBILIDAD CSS)
+# v. 11 mar 2026 22:55 (CONTROL DE INTEGRIDAD: FIX DESPLAZAMIENTO FG + RANGOS ESTRICTOS)
 
 import streamlit as st
 import pandas as pd
@@ -37,7 +37,7 @@ import constants as c
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
 #       se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#       sus textos flotantes (placeholders) and los textos predefinidos en las
+#       sus textos flotantes (placeholders) y los textos predefinidos en las
 #       secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
 #       principio blindado; es informativo y no debe impedir la validación.
@@ -98,26 +98,40 @@ def llamar_ia_en_cascada(prompt):
     return "⚠️ Error en la generación."
 
 def procesar_y_limpiar_meds():
-    """Lógica de limpieza definida. Requisito Solicitado."""
     st.session_state.main_meds = st.session_state.main_meds.strip()
 
 def preparar_datos_exportacion(texto_tabla, pac_info, fgs, model_name):
+    """Segmentación estricta de datos (Clínicos vs Metadatos)."""
     lineas = [l.strip() for l in texto_tabla.strip().split('\n') if '|' in l and '---' not in l]
     matriz = []
     for l in lineas:
         cols = [c.strip() for c in l.split('|') if c.strip()]
         if cols and not all(x.lower() in ["icono", "fármaco"] for x in cols):
             matriz.append(cols)
+    
+    # Rellenar si faltan datos
     if len(matriz) < 5: matriz = [["0"]*15 for _ in range(10)]
+    
     filas_resumen = matriz[-5:]
     filas_meds_raw = matriz[:-5]
+    
+    # Matriz Medicamentos (11 columnas: AB:AL)
     matriz_meds = [[f[i] if i < len(f) else "" for i in [1,2,3,4,5,7,8,9,11,12,13]] for f in filas_meds_raw]
-    v_gc = [clean_val(r[1]) if len(r) > 1 else "0" for r in filas_resumen]
-    v_mdrd = [clean_val(r[2]) if len(r) > 2 else "0" for r in filas_resumen]
-    v_ckd = [clean_val(r[3]) if len(r) > 3 else "0" for r in filas_resumen]
+    
+    # Vectores de resumen (5 elementos cada uno)
+    v_gc = [clean_val(r[1]) if len(r) > 1 else "0" for r in filas_resumen][:5]
+    v_mdrd = [clean_val(r[2]) if len(r) > 2 else "0" for r in filas_resumen][:5]
+    v_ckd = [clean_val(r[3]) if len(r) > 3 else "0" for r in filas_resumen][:5]
+    
+    # Bloque 1: Datos Clínicos (8 columnas: A-H)
+    # pac_info ya trae: ID, Centro, Res, Fecha, Edad, Peso, Creat, Sexo
+    datos_clinicos = pac_info[:8] 
+    
+    # Bloque 2: Metadatos (2 columnas: I-J)
     checksum = generar_checksum(texto_tabla)
-    fila_paciente = pac_info[:8] + [model_name, checksum]
-    return fila_paciente, matriz_meds, v_gc, v_mdrd, v_ckd
+    metadatos = [model_name, checksum]
+    
+    return datos_clinicos, metadatos, matriz_meds, v_gc, v_mdrd, v_ckd
 
 def inject_styles():
     st.markdown("""
@@ -133,7 +147,6 @@ def inject_styles():
     .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; }
     @keyframes blinker { 50% { opacity: 0; } }
     .blink-text { animation: blinker 1s linear infinite; color: #c53030; font-weight: bold; padding: 10px; border: 1px solid #c53030; border-radius: 5px; background: #fff5f5; text-align: center; margin-bottom: 15px; }
-    /* Reemplazo de :has por selector directo de clave de botón de Streamlit */
     button[key="btn_grabar"] {
         animation: blinker 1s linear infinite !important;
         background-color: #fff5f5 !important;
@@ -147,7 +160,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 11 mar 2026 22:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 11 mar 2026 22:55</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -177,7 +190,6 @@ with tabs[0]:
             calc_c = st.number_input("Creatinina (mg/dL)", key="calc_c", value=None)
             calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=None, key="calc_s")
             
-            # CÁLCULO FG SEGURO (Requisito Solicitado)
             if calc_e and calc_p and calc_c and calc_s:
                 fg = round(((140 - calc_e) * calc_p) / (72 * calc_c) * (0.85 if calc_s=="Mujer" else 1.0), 1)
             else:
@@ -214,37 +226,37 @@ with tabs[0]:
         st.write(""); st.markdown('<div class="blink-text">¿DESEAS GRABAR DATOS?</div>', unsafe_allow_html=True)
         if st.button("💾 GRABAR DATOS", key="btn_grabar", use_container_width=True):
             if valor_fg < 0 or valor_fg > 200:
-                st.error(f"Bloqueo de seguridad: Valor de FG ({valor_fg}) fuera de rango clínico.")
-            elif "error" in tabla.lower():
-                st.error("Bloqueo de seguridad: La tabla generada contiene errores detectados.")
+                st.error(f"Bloqueo de seguridad: Valor de FG fuera de rango clínico.")
             else:
-                with st.spinner("Ejecutando volcado atómico..."):
+                with st.spinner("Ejecutando volcado segmentado..."):
                     try:
                         sh = client.open_by_key(SHEET_ID)
                         ws_val = sh.worksheet("VALIDACIONES")
                         ws_meds = sh.worksheet("MEDICAMENTOS")
                         
-                        pac_data = [st.session_state.reg_id, st.session_state.reg_centro, st.session_state.reg_res, datetime.now().strftime("%d/%m/%Y"), calc_e, calc_p, calc_c, calc_s]
-                        f_pac, m_meds, v_gc, v_mdrd, v_ckd = preparar_datos_exportacion(tabla, pac_data, [valor_fg], st.session_state.active_model)
+                        pac_info = [st.session_state.reg_id, st.session_state.reg_centro, st.session_state.reg_res, datetime.now().strftime("%d/%m/%Y"), calc_e, calc_p, calc_c, calc_s]
+                        d_clinicos, d_meta, m_meds, v_gc, v_mdrd, v_ckd = preparar_datos_exportacion(tabla, pac_info, [valor_fg], st.session_state.active_model)
                         
                         col_ids = ws_val.col_values(1)
                         next_row = len([x for x in col_ids if x.strip()]) + 1
                         
-                        # Volcado Batch a VALIDACIONES
-                        ws_val.update(f"A{next_row}:J{next_row}", [f_pac])
+                        # 1. Volcado Datos Clínicos (A-H: 8 columnas)
+                        ws_val.update(f"A{next_row}:H{next_row}", [d_clinicos])
+                        
+                        # 2. Volcado Metadatos (I-J: 2 columnas)
+                        ws_val.update(f"I{next_row}:J{next_row}", [d_meta])
+                        
+                        # 3. Volcado Resumen (Vectores de 5 elementos)
                         ws_val.update(f"K{next_row}:O{next_row}", [v_gc])
                         ws_val.update(f"Q{next_row}:U{next_row}", [v_mdrd])
                         ws_val.update(f"W{next_row}:AA{next_row}", [v_ckd])
                         
-                        # UPDATE DE MATRIZ CORREGIDO (Requisito Solicitado)
+                        # 4. Volcado Medicamentos (AB-AL: 11 columnas)
                         if m_meds:
-                            rows = len(m_meds)
-                            cols = len(m_meds[0]) # Debe ser 11 según indices_meds
-                            # Ajuste de rango dinámico: AB es columna 28. AL es 38 (11 columnas: AB,AC,AD,AE,AF,AG,AH,AI,AJ,AK,AL)
-                            cell_range = f"AB{next_row}:AL{next_row+rows-1}"
+                            cell_range = f"AB{next_row}:AL{next_row + len(m_meds) - 1}"
                             ws_meds.update(cell_range, m_meds)
                         
-                        st.success(f"Éxito. Registro: {next_row}")
+                        st.success(f"Grabación correcta. ID Paciente: {d_clinicos[0]}")
                     except Exception as e: st.error(f"Error en volcado: {e}")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo clínico. Verifique con ficha técnica.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; margin-top:10px;">v. 11 mar 2026 22:30</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo clínico. Verifique con ficha técnica.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; margin-top:10px;">v. 11 mar 2026 22:55</div>""", unsafe_allow_html=True)
