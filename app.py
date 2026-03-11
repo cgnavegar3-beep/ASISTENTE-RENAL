@@ -10,8 +10,8 @@ from google.oauth2.service_account import Credentials
 import random
 import re
 import os
-import constants as c 
 import time
+import constants as c 
 
 # =================================================================
 # PRINCIPIOS FUNDAMENTALES (ESCRITOS DE PE A PA - PROHIBIDO ELIMINAR)
@@ -60,56 +60,74 @@ if "resp_ia" not in st.session_state:
     st.session_state.resp_ia = None
 
 for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
-    if key not in st.session_state: st.session_state[key] = ""
+    if key not in st.session_state:
+        st.session_state[key] = ""
 
 # --- CONFIGURACIÓN IA Y GOOGLE SHEETS ---
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=API_KEY)
-    
-    scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+
+    scope = ["https://www.googleapis.com/auth/spreadsheets","https://www.googleapis.com/auth/drive"]
     creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
     client = gspread.authorize(creds)
     SHEET_ID = st.secrets["GOOGLE_SHEET_ID"]
+
 except Exception as e:
     API_KEY = None
     st.sidebar.error(f"Error de configuración: {e}")
 
-# --- FUNCIONES ---
+# --- FUNCIONES IA ---
 
 def llamar_ia_en_cascada(prompt):
-    if not API_KEY: return "⚠️ Error: API Key no configurada."
-    disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-    orden = ['2.5-flash', 'flash-latest', '1.5-pro']
+
+    if not API_KEY:
+        return "⚠️ Error: API Key no configurada."
+
+    disponibles = [m.name.replace('models/','').replace('gemini-','') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+
+    orden = ['2.5-flash','flash-latest','1.5-pro']
+
     for mod_name in orden:
+
         if mod_name in disponibles:
+
             try:
                 st.session_state.active_model = mod_name.upper()
+
                 model = genai.GenerativeModel(f'models/gemini-{mod_name}')
-                return model.generate_content(prompt, generation_config={"temperature": 0.1}).text
+
+                return model.generate_content(
+                    prompt,
+                    generation_config={"temperature":0.1}
+                ).text
+
             except:
                 continue
+
     return "⚠️ Error en la generación."
+
+# --- FUNCION EXPORTACION CORREGIDA ---
 
 def preparar_datos_exportacion(texto_tabla, pac_info, fgs):
 
-    lineas = [l.strip() for l in texto_tabla.strip().split('\n') if '|' in l and '---' not in l]
+    lineas=[l.strip() for l in texto_tabla.strip().split('\n') if '|' in l and '---' not in l]
 
-    matriz = []
+    matriz=[]
     for l in lineas:
-        cols = [c.strip() for c in l.split('|') if c.strip()]
+        cols=[c.strip() for c in l.split('|') if c.strip()]
         if cols:
             matriz.append(cols)
 
-    resumen = matriz[-5:] if len(matriz) >= 5 else [["0"]*4 for _ in range(5)]
-    filas_meds = matriz[1:-5] if len(matriz) > 5 else []
+    resumen = matriz[-5:] if len(matriz)>=5 else [["0"]*4 for _ in range(5)]
+    filas_meds = matriz[1:-5] if len(matriz)>5 else []
 
     def clean_val(v):
-        return re.sub(r'[^\d]', '', str(v)) if v else "0"
+        return re.sub(r'[^\d]','',str(v)) if v else "0"
 
-    fecha = datetime.now().strftime("%d/%m/%Y")
+    fecha=datetime.now().strftime("%d/%m/%Y")
 
-    base = [
+    base=[
         fecha,
         pac_info[1],
         pac_info[2],
@@ -122,32 +140,32 @@ def preparar_datos_exportacion(texto_tabla, pac_info, fgs):
         fgs[0]
     ]
 
-    cg = [clean_val(r[1]) for r in resumen]
-    mdrd = [clean_val(r[2]) for r in resumen]
-    ckd = [clean_val(r[3]) for r in resumen]
+    cg=[clean_val(r[1]) for r in resumen]
+    mdrd=[clean_val(r[2]) for r in resumen]
+    ckd=[clean_val(r[3]) for r in resumen]
 
     v_row = base + cg + [fgs[1]] + mdrd + [fgs[2]] + ckd
 
-    m_rows = []
+    m_rows=[]
 
     for f in filas_meds:
 
-        med = f[0] if len(f) > 0 else ""
-        grupo = f[1] if len(f) > 1 else ""
+        med=f[0] if len(f)>0 else ""
+        grupo=f[1] if len(f)>1 else ""
 
-        cat_cg = f[3] if len(f) > 3 else ""
-        riesgo_cg = f[4] if len(f) > 4 else ""
-        nivel_cg = f[5] if len(f) > 5 else ""
+        cat_cg=f[3] if len(f)>3 else ""
+        riesgo_cg=f[4] if len(f)>4 else ""
+        nivel_cg=f[5] if len(f)>5 else ""
 
-        cat_mdrd = f[8] if len(f) > 8 else ""
-        riesgo_mdrd = f[9] if len(f) > 9 else ""
-        nivel_mdrd = f[10] if len(f) > 10 else ""
+        cat_mdrd=f[8] if len(f)>8 else ""
+        riesgo_mdrd=f[9] if len(f)>9 else ""
+        nivel_mdrd=f[10] if len(f)>10 else ""
 
-        cat_ckd = f[13] if len(f) > 13 else ""
-        riesgo_ckd = f[14] if len(f) > 14 else ""
-        nivel_ckd = f[15] if len(f) > 15 else ""
+        cat_ckd=f[13] if len(f)>13 else ""
+        riesgo_ckd=f[14] if len(f)>14 else ""
+        nivel_ckd=f[15] if len(f)>15 else ""
 
-        fila = v_row + [
+        fila=v_row + [
             med,
             grupo,
             cat_cg,
@@ -163,4 +181,53 @@ def preparar_datos_exportacion(texto_tabla, pac_info, fgs):
 
         m_rows.append(fila)
 
-    return v_row, m_rows
+    return v_row,m_rows
+# --- FUNCIONES RESET ---
+
+def reset_registro():
+
+    for key in ["reg_centro","reg_res","reg_id","fgl_ckd","fgl_mdrd","main_meds"]:
+        st.session_state[key]=""
+
+    for key in ["calc_e","calc_p","calc_c","calc_s"]:
+        if key in st.session_state:
+            st.session_state[key]=None
+
+    st.session_state.analisis_realizado=False
+    st.session_state.resp_ia=None
+
+
+def reset_meds():
+
+    st.session_state.main_meds=""
+
+    st.session_state.soip_s="Revisión farmacoterapéutica según función renal."
+    st.session_state.soip_o=""
+    st.session_state.soip_i=""
+    st.session_state.soip_p="Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
+
+    st.session_state.ic_inter=""
+    st.session_state.ic_clinica=""
+
+    st.session_state.analisis_realizado=False
+    st.session_state.resp_ia=None
+
+
+# --- GRABACIÓN SEGURA GOOGLE SHEETS ---
+
+def grabar_seguro(sh,fila_v,filas_m):
+
+    for _ in range(3):
+
+        try:
+
+            sh.worksheet("VALIDACIONES").append_row(fila_v)
+            sh.worksheet("MEDICAMENTOS").append_rows(filas_m)
+
+            return True
+
+        except:
+
+            time.sleep(1)
+
+    return False
