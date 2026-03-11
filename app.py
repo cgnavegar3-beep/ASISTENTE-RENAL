@@ -1,4 +1,4 @@
-# v. 11 mar 2026 12:45 (CONTROL DE INTEGRIDAD INTERNO: 315 LÍNEAS)
+# v. 11 mar 2026 13:15 (CONTROL DE INTEGRIDAD INTERNO: 325 LÍNEAS)
 
 import streamlit as st
 import pandas as pd
@@ -136,31 +136,29 @@ def preparar_datos_exportacion(texto_tabla, pac_info, fgs):
         while len(nums) < 3: nums.append("0")
         resumen_procesado.append(nums[:3])
 
-    v_row = [None] * 27
-    v_row[0:10] = pac_info
-    
+    # BLINDAJE DE SEGURIDAD PARA RESUMEN (Asegura longitud 5 para evitar Error de Índice)
     cg_vals = [clean_val(r[0]) for r in resumen_procesado]
     mdrd_vals = [clean_val(r[1]) for r in resumen_procesado]
     ckd_vals = [clean_val(r[2]) for r in resumen_procesado]
-    
-    v_row[10:15] = cg_vals
+
+    for val_list in [cg_vals, mdrd_vals, ckd_vals]:
+        while len(val_list) < 5: val_list.append("0")
+
+    v_row = [None] * 27
+    v_row[0:10] = pac_info
+    v_row[10:15] = cg_vals[:5]
     v_row[15] = fgs[0]
-    v_row[16:21] = mdrd_vals
+    v_row[16:21] = mdrd_vals[:5]
     v_row[21] = fgs[1]
-    v_row[22:27] = ckd_vals
+    v_row[22:27] = ckd_vals[:5]
 
     filas_meds_raw = [f for f in matriz if len(f) > 10]
     m_rows = []
     for f in filas_meds_raw:
-        # EVOLUCIÓN: Safe-Indexing (Relleno de seguridad para evitar IndexError)
         f_safe = f + [""] * (20 - len(f)) 
-        
         det_farma = [
-            f_safe[0],  # AB: Fármaco
-            f_safe[1],  # AC: ATC
-            f_safe[3], f_safe[4], f_safe[5],   # AD-AF: Cat, Riesgo, Nivel G-C
-            f_safe[7], f_safe[8], f_safe[9],   # AG-AI: Cat, Riesgo, Nivel MDRD
-            f_safe[11], f_safe[12], f_safe[13] # AJ-AL: Cat, Riesgo, Nivel CKD
+            f_safe[0], f_safe[1], f_safe[3], f_safe[4], f_safe[5], 
+            f_safe[7], f_safe[8], f_safe[9], f_safe[11], f_safe[12], f_safe[13]
         ]
         m_rows.append(v_row + det_farma)
 
@@ -207,7 +205,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 11 mar 2026 12:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 11 mar 2026 13:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -275,6 +273,10 @@ with tabs[0]:
             with st.spinner("Analizando..."):
                 prompt_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
                 st.session_state.resp_ia = llamar_ia_en_cascada(prompt_final)
+                # VOLCADO AUTOMÁTICO A SOIP E INTERCONSULTA DESDE LA RESPUESTA DE LA IA
+                if st.session_state.resp_ia:
+                    st.session_state.soip_o = f"FG (C-G): {valor_fg} mL/min. MDRD: {val_mdrd}. CKD-EPI: {val_ckd}."
+                    st.session_state.soip_i = st.session_state.resp_ia
                 st.session_state.analisis_realizado = True
 
     if st.session_state.analisis_realizado and st.session_state.resp_ia:
@@ -298,7 +300,6 @@ with tabs[0]:
                         pac_data = [st.session_state.reg_id, st.session_state.reg_centro, st.session_state.reg_res, datetime.now().strftime("%d/%m/%Y"), calc_e, calc_p, calc_c, calc_s, "N/A", "N/A"]
                         fgs_actuales = [valor_fg, val_mdrd, val_ckd]
                         fila_v, filas_m = preparar_datos_exportacion(tabla, pac_data, fgs_actuales)
-                        
                         sh = client.open_by_key(SHEET_ID)
                         sh.worksheet("VALIDACIONES").append_row(fila_v)
                         sh.worksheet("MEDICAMENTOS").append_rows(filas_m)
@@ -315,4 +316,4 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">INFORMACIÓN CLÍNICA</div>', unsafe_allow_html=True)
     st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 11 mar 2026 12:45</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 11 mar 2026 13:15</div>""", unsafe_allow_html=True)
