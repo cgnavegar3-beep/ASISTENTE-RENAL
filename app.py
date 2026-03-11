@@ -1,4 +1,4 @@
-# v. 11 mar 2026 17:15 (CORRECCIÓN ERROR TRUNCADO L-239 - ESTRUCTURA BLINDADA)
+# v. 11 mar 2026 18:45 (MAPEO POR COORDENADAS DE CELDA 1-15 - BLINDAJE TOTAL)
 
 import streamlit as st
 import pandas as pd
@@ -45,18 +45,12 @@ import constants as c
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
 # --- INICIALIZACIÓN ---
-if "active_model" not in st.session_state:
-    st.session_state.active_model = "BUSCANDO..."
-if "main_meds" not in st.session_state:
-    st.session_state.main_meds = ""
-if "soip_s" not in st.session_state:
-    st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
-if "soip_p" not in st.session_state:
-    st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
-if "analisis_realizado" not in st.session_state:
-    st.session_state.analisis_realizado = False
-if "resp_ia" not in st.session_state:
-    st.session_state.resp_ia = None
+if "active_model" not in st.session_state: st.session_state.active_model = "BUSCANDO..."
+if "main_meds" not in st.session_state: st.session_state.main_meds = ""
+if "soip_s" not in st.session_state: st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
+if "soip_p" not in st.session_state: st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
+if "analisis_realizado" not in st.session_state: st.session_state.analisis_realizado = False
+if "resp_ia" not in st.session_state: st.session_state.resp_ia = None
 
 for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
     if key not in st.session_state: st.session_state[key] = ""
@@ -76,15 +70,13 @@ except Exception as e:
 # --- FUNCIONES ---
 def llamar_ia_en_cascada(prompt):
     if not API_KEY: return "⚠️ Error: API Key no configurada."
-    disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
     orden = ['2.5-flash', 'flash-latest', '1.5-pro']
     for mod_name in orden:
-        if mod_name in disponibles:
-            try:
-                st.session_state.active_model = mod_name.upper()
-                model = genai.GenerativeModel(f'models/gemini-{mod_name}')
-                return model.generate_content(prompt, generation_config={"temperature": 0.1}).text
-            except: continue
+        try:
+            st.session_state.active_model = mod_name.upper()
+            model = genai.GenerativeModel(f'models/gemini-{mod_name}')
+            return model.generate_content(prompt, generation_config={"temperature": 0.1}).text
+        except: continue
     return "⚠️ Error en la generación."
 
 def obtener_glow_class(sintesis_texto):
@@ -117,6 +109,7 @@ def reset_meds():
     st.session_state.resp_ia = None
 
 def preparar_datos_exportacion(texto_tabla, pac_info, fgs):
+    # 1. Parsing de la tabla IA
     lineas = [l.strip() for l in texto_tabla.split('\n') if '|' in l and '---' not in l]
     matriz = []
     for l in lineas:
@@ -129,39 +122,50 @@ def preparar_datos_exportacion(texto_tabla, pac_info, fgs):
         n = re.findall(r'\d+', str(v))
         return n[0] if n else "0"
 
+    # 2. Captura de Resumen (Últimas 5 filas por posición)
     res_final = [["0","0","0"] for _ in range(5)]
     if len(matriz) >= 5:
         filas_res = matriz[-5:]
         for idx, f in enumerate(filas_res):
-            nums_en_fila = [solo_num(celda) for celda in f if any(c.isdigit() for c in str(celda))]
-            while len(nums_en_fila) < 3: nums_en_fila.append("0")
-            res_final[idx] = nums_en_fila[:3]
+            nums = [solo_num(c) for c in f if any(char.isdigit() for char in str(c))]
+            while len(nums) < 3: nums.append("0")
+            res_final[idx] = nums[:3]
 
+    # 3. Fila de Validación (Columnas A-AA)
     v_row = [""] * 27
-    v_row[0] = datetime.now().strftime("%d/%m/%Y")
-    v_row[1] = pac_info[1]
-    v_row[2] = pac_info[2]
-    v_row[3] = pac_info[0]
-    v_row[4] = pac_info[4]
-    v_row[5] = pac_info[7]
-    v_row[6] = pac_info[5]
-    v_row[7] = pac_info[6]
-    v_row[8] = "N/A"
-    
+    v_row[0] = datetime.now().strftime("%d/%m/%Y") # A
+    v_row[1] = pac_info[1] # B
+    v_row[2] = pac_info[2] # C
+    v_row[3] = pac_info[0] # D (ID)
+    v_row[4] = pac_info[4] # E
+    v_row[5] = pac_info[7] # F
+    v_row[6] = pac_info[5] # G
+    v_row[7] = pac_info[6] # H
+    # Totales K-O, Q-U, W-AA
     for i in range(5):
-        v_row[10+i] = res_final[i][0]
-        v_row[16+i] = res_final[i][1]
-        v_row[22+i] = res_final[i][2]
-    
-    v_row[15] = fgs[0]
-    v_row[21] = fgs[1]
+        v_row[10+i] = res_final[i][0] # G-C
+        v_row[16+i] = res_final[i][1] # MDRD
+        v_row[22+i] = res_final[i][2] # CKD
+    v_row[15] = fgs[0] # P (FG G-C)
+    v_row[21] = fgs[1] # V (FG MDRD)
 
+    # 4. Filas de Medicamentos (Columnas AB-AN) - MAPEO POR CELDA
     m_rows = []
+    # Filtrar solo filas que parecen medicamentos (mínimo 14 celdas y no son resumen)
     filas_meds = [f for f in matriz if len(f) >= 14 and not any(x in f[0] for x in ["Icono", "Total", "Nº"])]
+    
     for f in filas_meds:
-        f_ext = f + [""] * 10
-        det_farma = [f_ext[1], f_ext[2], f_ext[3], f_ext[4], f_ext[5], f_ext[6], f_ext[7], f_ext[8], f_ext[9], f_ext[10], f_ext[11], f_ext[12], f_ext[13], f_ext[14]]
+        # AB hasta AN usando el índice exacto de la tabla IA
+        # f[1]=Fármaco, f[2]=ATC, f[3]=Val G-C, f[4]=Cat G-C, etc.
+        f_ext = f + [""] * 20 
+        det_farma = [
+            f_ext[1], f_ext[2],  # AB, AC
+            f_ext[3], f_ext[4], f_ext[5], f_ext[6], # AD, AE, AF, AG (G-C)
+            f_ext[7], f_ext[8], f_ext[9], f_ext[10], # AH, AI, AJ, AK (MDRD)
+            f_ext[11], f_ext[12], f_ext[13], f_ext[14] # AL, AM, AN, AO (CKD)
+        ]
         m_rows.append(v_row + det_farma)
+    
     return v_row, m_rows
 
 def inject_styles():
@@ -183,7 +187,6 @@ def inject_styles():
     .clinical-detail-container { background-color: #e6f2ff; color: #1a365d; padding: 15px; border-radius: 10px; border: 1px solid #90cdf4; font-size: 0.9rem; line-height: 1.6; }
     .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
-    .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
     .fg-special-border { border: 1.5px solid #9d00ff !important; border-radius: 5px; }
     @keyframes blinker { 50% { opacity: 0; } }
     .blink-text { animation: blinker 1s linear infinite; color: #c53030; font-weight: bold; padding: 10px; border: 1px solid #c53030; border-radius: 5px; background: #fff5f5; text-align: center; margin-bottom: 15px; }
@@ -195,7 +198,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 11 mar 2026 17:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 11 mar 2026 18:45</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -212,7 +215,7 @@ with tabs[0]:
 
     with c1: st.text_input("Centro", placeholder="M / G", key="reg_centro", on_change=on_centro_change)
     with c2: st.selectbox("¿Residencia?", ["No", "Sí"], index=None, placeholder="Sí / No", key="reg_res")
-    with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True, placeholder="Fecha", key="reg_fecha")
+    with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True, key="reg_fecha")
     with c4: st.text_input("ID Registro", key="reg_id", disabled=True)
     with c5: st.write(""); st.button("🗑️", on_click=reset_registro, key="btn_reset_reg")
 
@@ -220,29 +223,29 @@ with tabs[0]:
     with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            calc_e = st.number_input("Edad (años)", step=1, key="calc_e", placeholder="Edad (Ej: 65)", value=None)
-            calc_p = st.number_input("Peso (kg)", key="calc_p", placeholder="Peso (Ej: 70.5)", value=None)
-            calc_c = st.number_input("Creatinina (mg/dL)", key="calc_c", placeholder="Creatinina (Ej: 1.2)", value=None)
-            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=None, placeholder="Seleccionar sexo...", key="calc_s")
+            calc_e = st.number_input("Edad (años)", step=1, key="calc_e", placeholder="Edad", value=None)
+            calc_p = st.number_input("Peso (kg)", key="calc_p", placeholder="Peso", value=None)
+            calc_c = st.number_input("Creatinina (mg/dL)", key="calc_c", placeholder="Creatinina", value=None)
+            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=None, placeholder="Sexo...", key="calc_s")
             fg = round(((140 - calc_e) * calc_p) / (72 * (calc_c if calc_c and calc_c > 0 else 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if all([calc_e, calc_p, calc_c, calc_s]) else 0.0
 
     with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
-        fg_m = st.text_input("Ajuste Manual", placeholder="Fórmula Cockcroft-Gault: entrada manual")
+        fg_m = st.text_input("Ajuste Manual", placeholder="FG entrada manual")
         valor_fg = fg_m if fg_m else fg
         st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
         st.write(""); l1, l2 = st.columns(2)
         with l1:
             st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
-            val_mdrd = st.number_input("MDRD-4", value=None, placeholder="MDRD-4", label_visibility="collapsed", key="fgl_mdrd")
+            val_mdrd = st.number_input("MDRD-4", value=None, placeholder="MDRD", label_visibility="collapsed", key="fgl_mdrd")
             st.markdown('</div>', unsafe_allow_html=True)
         with l2:
             st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
-            val_ckd = st.number_input("CKD-EPI", value=None, placeholder="CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
+            val_ckd = st.number_input("CKD-EPI", value=None, placeholder="CKD", label_visibility="collapsed", key="fgl_ckd")
             st.markdown('</div>', unsafe_allow_html=True)
 
     st.write(""); st.markdown("---")
-    st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds", placeholder="Pegue el listado de fármacos aquí...")
+    st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds", placeholder="Listado de fármacos...")
     st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
     
     b1, b2 = st.columns([0.85, 0.15])
@@ -270,7 +273,8 @@ with tabs[0]:
             st.markdown(f'<div class="synthesis-box {obtener_glow_class(sintesis)}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="clinical-detail-container">{detalle.replace("\n","<br>")}</div>', unsafe_allow_html=True)
-            if st.button("💾 GRABAR DATOS", key="btn_grabar"):
+            st.write(""); st.markdown('<div class="blink-text">¿GRABAR DATOS?</div>', unsafe_allow_html=True)
+            if st.button("💾 GRABAR DATOS", key="btn_grabar", use_container_width=True):
                 with st.spinner("Grabando..."):
                     pac_data = [st.session_state.reg_id, st.session_state.reg_centro, st.session_state.reg_res, "", calc_e, calc_p, calc_c, calc_s]
                     fila_v, filas_m = preparar_datos_exportacion(tabla, pac_data, [valor_fg, val_mdrd, val_ckd])
@@ -288,4 +292,4 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">INFORMACIÓN CLÍNICA</div>', unsafe_allow_html=True)
     st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 11 mar 2026 17:15</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 11 mar 2026 18:45</div>""", unsafe_allow_html=True)
