@@ -1,4 +1,4 @@
-# v. 11 mar 2026 14:15 (CONTROL DE INTEGRIDAD INTERNO: MAPEO ABSOLUTO COLUMNAS)
+# v. 11 mar 2026 15:30 (CONTROL DE INTEGRIDAD: MAPEO LITERAL A-AN Y VOLCADO IC)
 
 import streamlit as st
 import pandas as pd
@@ -120,49 +120,57 @@ def preparar_datos_exportacion(texto_tabla, pac_info, fgs):
     lineas = [l.strip() for l in texto_tabla.strip().split('\n') if '|' in l and '---' not in l]
     matriz = []
     for l in lineas:
-        cols = [c.strip() for c in l.split('|')]
-        if cols[0] == "": cols.pop(0)
-        if cols and cols[-1] == "": cols.pop(-1)
+        cols = [c.strip() for c in l.split('|') if c.strip() or '|' in l]
+        if cols and cols[0] == "": cols.pop(0)
         matriz.append(cols)
     
-    def clean_val(v): return re.sub(r'[^\d]', '', str(v)) if v else "0"
+    def clean_val(v): 
+        nums = re.findall(r'\d+\.?\d*', str(v))
+        return nums[0] if nums else "0"
 
-    # 1. EXTRACCIÓN LITERAL DEL RESUMEN (Últimas 5 filas)
-    resumen_raw = matriz[-5:] if len(matriz) >= 5 else [["0","0","0"]]*5
-    resumen_final = []
-    for fila in resumen_raw:
-        nums = re.findall(r'\d+', " ".join(fila))
+    # 1. EXTRACCIÓN DEL RESUMEN (Últimas 5 filas)
+    resumen_filas = [f for f in matriz if any(x in f[0] for x in ["Total", "Nº"])]
+    res_vals = [] # Guardará [G-C, MDRD, CKD] por cada una de las 5 categorías
+    for r in resumen_filas[-5:]:
+        nums = [clean_val(c) for c in r if any(char.isdigit() for char in str(c))]
         while len(nums) < 3: nums.append("0")
-        resumen_final.append(nums[:3])
+        res_vals.append(nums[:3])
+    while len(res_vals) < 5: res_vals.append(["0","0","0"])
 
-    # 2. CONSTRUCCIÓN DE FILA DE VALIDACIÓN (A-AA)
-    v_row = [None] * 27
-    v_row[0:10] = pac_info # A-J
-    
-    # Distribución K-AA según mapeo solicitado
-    v_row[10] = resumen_final[0][0]; v_row[16] = resumen_final[0][1]; v_row[22] = resumen_final[0][2] # Total Afectados
-    v_row[11] = resumen_final[1][0]; v_row[17] = resumen_final[1][1]; v_row[23] = resumen_final[1][2] # Contraindicados
-    v_row[12] = resumen_final[2][0]; v_row[18] = resumen_final[2][1]; v_row[24] = resumen_final[2][2] # Toxicidad
-    v_row[13] = resumen_final[3][0]; v_row[19] = resumen_final[3][1]; v_row[25] = resumen_final[3][2] # Dosis
-    v_row[14] = resumen_final[4][0]; v_row[20] = resumen_final[4][1]; v_row[26] = resumen_final[4][2] # Precaución
-    v_row[15] = fgs[0] # P (FG C-G)
-    v_row[21] = fgs[1] # V (FG MDRD) - CKD se usa en el resumen K-AA pero no tiene columna individual de FG sola
+    # 2. CONSTRUCCIÓN FILA VALIDACIÓN (A-AA)
+    v_row = [""] * 27
+    v_row[0] = pac_info[3] # A: Fecha
+    v_row[1] = pac_info[1] # B: Centro
+    v_row[2] = pac_info[2] # C: Residencia
+    v_row[3] = pac_info[0] # D: ID_Registro
+    v_row[4] = pac_info[4] # E: Edad
+    v_row[5] = pac_info[7] # F: Sexo
+    v_row[6] = pac_info[5] # G: Peso
+    v_row[7] = pac_info[6] # H: Creatinina
+    v_row[8] = pac_info[8] # I: Nº Total Meds (N/A)
+    # K-O (G-C)
+    v_row[10] = res_vals[0][0]; v_row[11] = res_vals[1][0]; v_row[12] = res_vals[2][0]; v_row[13] = res_vals[3][0]; v_row[14] = res_vals[4][0]
+    v_row[15] = fgs[0] # P: FG G-C
+    # Q-U (MDRD)
+    v_row[16] = res_vals[0][1]; v_row[17] = res_vals[1][1]; v_row[18] = res_vals[2][1]; v_row[19] = res_vals[3][1]; v_row[20] = res_vals[4][1]
+    v_row[21] = fgs[1] # V: FG MDRD
+    # W-AA (CKD)
+    v_row[22] = res_vals[0][2]; v_row[23] = res_vals[1][2]; v_row[24] = res_vals[2][2]; v_row[25] = res_vals[3][2]; v_row[26] = res_vals[4][2]
 
-    # 3. CONSTRUCCIÓN DE FILAS DE MEDICAMENTOS (A-AN)
-    filas_meds_raw = [f for f in matriz if len(f) >= 14 and "Icono" not in f and "Total" not in f[0]]
+    # 3. CONSTRUCCIÓN FILAS MEDICAMENTOS (A-AN)
+    meds_raw = [f for f in matriz if len(f) >= 14 and not any(x in f[0] for x in ["Icono", "Total", "Nº"])]
     m_rows = []
-    for f in filas_meds_raw:
-        # Fármaco está en col 1 (f[1]), ATC en col 2 (f[2]), etc.
-        # Quitamos iconos y FG de los datos de fármaco para AB-AN
-        f_ext = f + [""] * 20
+    for f in meds_raw:
+        # AB-AN (Mapeo literal de columnas de tabla de fármacos)
+        # Saltamos Icono (f[0]) y capturamos desde Fármaco (f[1])
+        f_safe = f + [""] * 15
         det_farma = [
-            f_ext[1], f_ext[2],  # AB: Fármaco, AC: ATC
-            f_ext[3], f_ext[4], f_ext[5], f_ext[6], # AD-AG: G-C
-            f_ext[7], f_ext[8], f_ext[9], f_ext[10], # AH-AK: MDRD
-            f_ext[11], f_ext[12], f_ext[13], f_ext[14] # AL-AO: CKD
+            f_safe[1], f_safe[2],  # AB: Fármaco, AC: ATC
+            f_safe[3], f_safe[4], f_safe[5], f_safe[6], # AD: Val, AE: Cat, AF: Ries, AG: Niv (G-C)
+            f_safe[7], f_safe[8], f_safe[9], f_safe[10], # AH: Val, AI: Cat, AJ: Ries, AK: Niv (MDRD)
+            f_safe[11], f_safe[12], f_safe[13], f_safe[14] # AL: Val, AM: Cat, AN: Ries, AO: Niv (CKD)
         ]
         m_rows.append(v_row + det_farma)
-
     return v_row, m_rows
 
 def inject_styles():
@@ -206,7 +214,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 11 mar 2026 14:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 11 mar 2026 15:30</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -277,6 +285,9 @@ with tabs[0]:
                 if st.session_state.resp_ia:
                     st.session_state.soip_o = f"FG (C-G): {valor_fg} mL/min. MDRD: {val_mdrd}. CKD-EPI: {val_ckd}."
                     st.session_state.soip_i = st.session_state.resp_ia
+                    # RESTAURACIÓN VOLCADO IC
+                    st.session_state.ic_inter = st.session_state.resp_ia
+                    st.session_state.ic_clinica = f"Análisis fármaco-renal para Paciente {st.session_state.reg_id}. FG: {valor_fg}."
                 st.session_state.analisis_realizado = True
 
     if st.session_state.analisis_realizado and st.session_state.resp_ia:
@@ -316,4 +327,4 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">INFORMACIÓN CLÍNICA</div>', unsafe_allow_html=True)
     st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 11 mar 2026 14:15</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 11 mar 2026 15:30</div>""", unsafe_allow_html=True)
