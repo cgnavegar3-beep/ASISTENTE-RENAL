@@ -1,13 +1,15 @@
-# v. 11 mar 2026 22:50 (FIX: NotFound Model Error + INTEGRIDAD A-AL)
+# v. 10 mar 2026 21:45 (CONTROL DE INTEGRIDAD INTERNO: 295 LÍNEAS)
 
 import streamlit as st
 import pandas as pd
+import io
 from datetime import datetime
 import google.generativeai as genai
 import gspread
 from google.oauth2.service_account import Credentials
 import random
 import re
+import os
 import constants as c 
 
 # =================================================================
@@ -25,9 +27,9 @@ import constants as c
 #       - Barra dual de validación (VALIDAR / RESET).
 #       - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#     "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#      "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#      principios antes y después de cada cambio. No se simplifican líneas.
+#       principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
 #       ubicarse en la esquina superior izquierda (estilo v. 2.5).
@@ -42,160 +44,253 @@ import constants as c
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
-# --- ESTRUCTURA DE COLUMNAS A-AL (SIN DUPLICADOS) ---
-C_PAC = ["FECHA", "CENTRO", "RESIDENCIA", "ID_REGISTRO", "EDAD", "SEXO", "PESO", "CREATININA", "Nº_TOTAL_MEDS_PAC"]
-C_RES_CG = ["Nº_TOT_AFEC_CG", "Nº_CONTRAIND_CG", "Nº_TOX_CG", "Nº_AJ_DOS_CG", "Nº_PREC_CG"]
-C_FG_CG = ["FG_CG"]
-C_RES_MDRD = ["Nº_TOT_AFEC_MDRD", "Nº_CONTRAIND_MDRD", "Nº_TOX_MDRD", "Nº_AJ_DOS_MDRD", "Nº_PREC_MDRD"]
-C_FG_MDRD = ["FG_MDRD"]
-C_RES_CKD = ["Nº_TOT_AFEC_CKD", "Nº_CONTRAIND_CKD", "Nº_TOX_CKD", "Nº_AJ_DOS_CKD", "Nº_PREC_CKD"]
-C_FG_CKD = ["FG_CKD"]
+# --- INICIALIZACIÓN ---
+if "active_model" not in st.session_state:
+    st.session_state.active_model = "BUSCANDO..."
+if "main_meds" not in st.session_state:
+    st.session_state.main_meds = ""
+if "soip_s" not in st.session_state:
+    st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
+if "soip_p" not in st.session_state:
+    st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
+if "analisis_realizado" not in st.session_state:
+    st.session_state.analisis_realizado = False
+if "resp_ia" not in st.session_state:
+    st.session_state.resp_ia = None
 
-COLS_VALIDACION = C_PAC + C_RES_CG + C_FG_CG + C_RES_MDRD + C_FG_MDRD + C_RES_CKD + C_FG_CKD
-COLS_MEDS_DETALLE = ["MEDICAMENTO", "GRUPO_TERAPEUTICO", "CAT_RIESGO_CG", "RIESGO_CG", "NIVEL_ADE_CG", "CAT_RIESGO_MDRD", "RIESGO_MDRD", "NIVEL_ADE_MDRD", "CAT_RIESGO_CKD", "RIESGO_CKD", "NIVEL_ADE_CKD"]
+for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
+    if key not in st.session_state: st.session_state[key] = ""
 
-# --- ESTADO DE SESIÓN ---
-if "active_model" not in st.session_state: st.session_state.active_model = "BUSCANDO..."
-if "df_val" not in st.session_state: st.session_state.df_val = pd.DataFrame(columns=COLS_VALIDACION)
-if "df_meds" not in st.session_state: st.session_state.df_meds = pd.DataFrame(columns=COLS_VALIDACION + COLS_MEDS_DETALLE)
-if "analisis_realizado" not in st.session_state: st.session_state.analisis_realizado = False
-if "resp_ia" not in st.session_state: st.session_state.resp_ia = None
-
-for key in ["main_meds", "soip_s", "soip_p", "reg_id", "reg_centro", "reg_res"]:
-   if key not in st.session_state: st.session_state[key] = ""
-
-# --- CONFIGURACIÓN GOOGLE ---
+# --- CONFIGURACIÓN IA Y GOOGLE SHEETS ---
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=API_KEY)
+    
+    # Credenciales Google Sheets
     scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
     client = gspread.authorize(creds)
     SHEET_ID = st.secrets["GOOGLE_SHEET_ID"]
 except Exception as e:
-    st.error(f"Error de Configuración Inicial: {e}")
+    API_KEY = None
+    st.sidebar.error(f"Error de configuración: {e}")
 
-# --- MOTOR DE LLAMADA IA (CORREGIDO) ---
-def llamar_ia(prompt):
-    try:
-        # Intentamos con la nomenclatura más estándar
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        st.session_state.active_model = "GEMINI 1.5 FLASH"
-        response = model.generate_content(prompt, generation_config={"temperature": 0.1})
-        return response.text
-    except Exception as e:
-        st.error(f"Error al conectar con el modelo: {e}")
-        return None
-
-# --- MOTOR DE PARSEO ---
-def parsear_a_dataframes_v5(texto_ia, pac_info, fgs):
-    lineas = [l.strip() for l in texto_ia.strip().split('\n') if '|' in l and '---' not in l]
-    matriz = [[c.strip() for c in l.split('|') if c.strip()] for l in lineas]
-    
-    res_keys = {"afectados": 0, "contraindicados": 1, "toxicidad": 2, "dosis": 3, "precaución": 4}
-    v_cg, v_mdrd, v_ckd = ["0"]*5, ["0"]*5, ["0"]*5
-    for f in matriz:
-        t = f[0].lower()
-        for k, idx in res_keys.items():
-            if k in t and len(f) >= 4:
-                v_cg[idx], v_mdrd[idx], v_ckd[idx] = re.sub(r'[^\d.]', '', f[1]), re.sub(r'[^\d.]', '', f[2]), re.sub(r'[^\d.]', '', f[3])
-
-    total_m = len([l for l in st.session_state.main_meds.split('\n') if l.strip()])
-    f_pac = [datetime.now().strftime("%d/%m/%Y"), pac_info[1], pac_info[2], pac_info[0], pac_info[4], pac_info[7], pac_info[5], pac_info[6], total_m]
-    fila_base = f_pac + v_cg + [fgs[0]] + v_mdrd + [fgs[1]] + v_ckd + [fgs[2]]
-    
-    filas_meds = []
-    for f in matriz:
-        if len(f) >= 15 and "fármaco" not in f[1].lower() and not any(k in f[0].lower() for k in res_keys):
+# --- FUNCIONES ---
+def llamar_ia_en_cascada(prompt):
+    if not API_KEY: return "⚠️ Error: API Key no configurada."
+    disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+    orden = ['2.5-flash', 'flash-latest', '1.5-pro']
+    for mod_name in orden:
+        if mod_name in disponibles:
             try:
-                detalle = [f[1], f[2], f[4], f[5], f[7], f[8], f[10], f[11], f[12], f[14], f[15]]
-                filas_meds.append(fila_base + detalle)
+                st.session_state.active_model = mod_name.upper()
+                model = genai.GenerativeModel(f'models/gemini-{mod_name}')
+                return model.generate_content(prompt, generation_config={"temperature": 0.1}).text
             except: continue
-    return pd.DataFrame([fila_base], columns=COLS_VALIDACION), pd.DataFrame(filas_meds, columns=COLS_VALIDACION + COLS_MEDS_DETALLE)
+    return "⚠️ Error en la generación."
+
+def obtener_glow_class(sintesis_texto):
+    if "⛔" in sintesis_texto: return "glow-red"
+    elif "⚠️⚠️⚠️" in sintesis_texto: return "glow-orange"
+    elif "⚠️⚠️" in sintesis_texto: return "glow-yellow-dark"
+    elif "⚠️" in sintesis_texto: return "glow-yellow"
+    else: return "glow-green"
+
+def procesar_y_limpiar_meds():
+    texto = st.session_state.main_meds
+    if texto:
+        prompt = f"Actúa como farmacéutico clínico. Reescribe este listado: [Principio Activo] + [Dosis] + (Marca). Una línea por fármaco. Sin explicaciones:\n{texto}"
+        st.session_state.main_meds = llamar_ia_en_cascada(prompt)
+
+def reset_registro():
+    for key in ["reg_centro", "reg_res", "reg_id", "fgl_ckd", "fgl_mdrd", "main_meds"]:
+        st.session_state[key] = ""
+    for key in ["calc_e", "calc_p", "calc_c", "calc_s"]: 
+        if key in st.session_state: st.session_state[key] = None
+    st.session_state.analisis_realizado = False
+    st.session_state.resp_ia = None
+
+def reset_meds():
+    st.session_state.main_meds = ""
+    st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
+    st.session_state.soip_o = ""; st.session_state.soip_i = ""; st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
+    st.session_state.ic_inter = ""; st.session_state.ic_clinica = ""
+    st.session_state.analisis_realizado = False
+    st.session_state.resp_ia = None
+
+def preparar_datos_exportacion(texto_tabla, pac_info, fgs):
+    lineas = [l.strip() for l in texto_tabla.strip().split('\n') if '|' in l and '---' not in l]
+    matriz = []
+    for l in lineas:
+        cols = [c.strip() for c in l.split('|') if c.strip()]
+        if cols: matriz.append(cols)
+    resumen = matriz[-5:] if len(matriz) >= 5 else [["0"]*4 for _ in range(5)]
+    filas_meds = matriz[1:-5] if len(matriz) > 5 else []
+    def clean_val(v): return re.sub(r'[^\d]', '', str(v)) if v else "0"
+
+    # VALIDACIONES (A-AA)
+    v_row = [None] * 27
+    v_row[0:10] = pac_info
+    v_row[10:15] = [clean_val(r[1]) for r in resumen] # G-C K-O
+    v_row[15] = fgs[0] # P
+    v_row[16:21] = [clean_val(r[2]) for r in resumen] # MDRD Q-U
+    v_row[21] = fgs[1] # V
+    v_row[22:27] = [clean_val(r[3]) for r in resumen] # CKD W-AA
+
+    # MEDICAMENTOS (A-AN)
+    m_rows = []
+    for f in filas_meds:
+        det_farma = [f[0], f[1], f[3], f[4], f[5], f[6], f[8], f[9], f[10], f[11], f[13], f[14], f[15], f[16]] if len(f) >= 17 else [f[0]] + [""]*13
+        m_rows.append(v_row + det_farma)
+    return v_row, m_rows
 
 def inject_styles():
     st.markdown("""
     <style>
-    .black-badge-zona { background-color: #000; color: #888; padding: 6px 12px; border-radius: 4px; position: fixed; top: 10px; left: 15px; z-index: 9999; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; }
-    .black-badge-activo { background-color: #000; color: #0F0; padding: 6px 12px; border-radius: 4px; position: fixed; top: 10px; left: 145px; z-index: 9999; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; text-shadow: 0 0 5px #0F0; }
-    .main-title { text-align: center; font-size: 2.2rem; font-weight: 800; margin-top: 15px; color: #1e1e1e; }
-    .sub-version { text-align: center; font-size: 0.6rem; color: #bbb; font-family: monospace; margin-top: -8px; margin-bottom: 25px; }
-    .fg-glow-box { background-color: #000; color: #FFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 20px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
+    .block-container { max-width: 100% !important; padding-top: 1rem !important; padding-left: 4% !important; padding-right: 4% !important; }
+    .black-badge-zona { background-color: #000000; color: #888; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 10px; left: 15px; z-index: 999999; }
+    .black-badge-activo { background-color: #000000; color: #00FF00; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 10px; left: 145px; z-index: 999999; text-shadow: 0 0 5px #00FF00; }
+    .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; margin-top: 20px; }
+    .sub-version { text-align: center; font-size: 0.6rem; color: #bbb; margin-top: -5px; margin-bottom: 20px; font-family: monospace; }
+    .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
+    .unit-label { font-size: 0.65rem; color: #888; margin-top: -10px; margin-bottom: 5px; font-family: sans-serif; text-align: center; }
+    .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; line-height: 1.6; }
+    .glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; box-shadow: 0 0 12px #feb2b2; }
+    .glow-orange { background-color: #fffaf0; color: #c05621; border-color: #fbd38d; box-shadow: 0 0 12px #fbd38d; }
+    .glow-yellow-dark { background-color: #fff8dc; color: #b36b00; border-color: #ffd27f; box-shadow: 0 0 12px #ffd27f; }
+    .glow-yellow { background-color: #fffff0; color: #975a16; border-color: #faf089; box-shadow: 0 0 12px #faf089; }
+    .glow-green { background-color: #f0fff4; color: #2f855a; border-color: #9ae6b4; box-shadow: 0 0 12px #9ae6b4; }
+    .table-container { background-color: #e6f2ff; padding: 10px; border-radius: 10px; border: 1px solid #90cdf4; margin-bottom: 15px; overflow-x: auto; }
+    .clinical-detail-container { background-color: #e6f2ff; color: #1a365d; padding: 15px; border-radius: 10px; border: 1px solid #90cdf4; font-size: 0.9rem; line-height: 1.6; }
+    .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
+    .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
+    .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
+    .fg-special-border { border: 1.5px solid #9d00ff !important; border-radius: 5px; }
+    .nota-importante-box { border-top: 2px dashed #0057b8; margin-top: 15px; padding-top: 12px; font-size: 0.85rem; color: #1a365d; }
+    .nota-item { margin-bottom: 4px; font-weight: 500; }
     @keyframes blinker { 50% { opacity: 0; } }
-    .blink-text { animation: blinker 1s linear infinite; color: #c53030; font-weight: bold; padding: 10px; border: 1px solid #c53030; border-radius: 5px; background: #fff5f5; text-align: center; margin-top: 15px; }
-    .warning-yellow { background-color: #fff9db; color: #856404; padding: 15px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 30px; text-align: center; font-size: 0.8rem; }
+    .blink-text { animation: blinker 1s linear infinite; color: #c53030; font-weight: bold; padding: 10px; border: 1px solid #c53030; border-radius: 5px; background: #fff5f5; text-align: center; margin-bottom: 15px; }
+    div[data-testid="stVerticalBlock"] > div:has(button[key="btn_grabar"]) button {
+        animation: blinker 1s linear infinite;
+        background-color: #fff5f5 !important;
+        color: #c53030 !important;
+        border: 2.2px solid #c53030 !important;
+        font-weight: bold !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- INTERFAZ ---
 inject_styles()
+
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 11 mar 2026 22:50</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 10 mar 2026 21:45</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
 with tabs[0]:
     st.markdown("### Registro de Paciente")
-    r1, r2, r3, r4, r5 = st.columns([1, 1, 1, 1.5, 0.4])
-    with r1: centro = st.text_input("Centro", placeholder="M / G", key="reg_centro")
-    with r2: residencia = st.selectbox("¿Residencia?", ["No", "Sí"], index=None, key="reg_res")
-    with r3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
-    with r4: st.text_input("ID Registro", value=st.session_state.reg_id, disabled=True)
-    with r5: st.write(""); st.button("🗑️", on_click=lambda: st.rerun())
+    c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1.5, 0.4])
+    def on_centro_change():
+        centro_val = st.session_state.reg_centro.strip().lower()
+        if centro_val == "m": st.session_state.reg_centro = "Marín"
+        elif centro_val == "o": st.session_state.reg_centro = "O Grove"
+        if st.session_state.reg_centro:
+            iniciales = "".join([word[0] for word in st.session_state.reg_centro.split()]).upper()[:3]
+            st.session_state.reg_id = f"PAC-{iniciales}{random.randint(10000, 99999)}"
 
-    c1, c2 = st.columns(2, gap="large")
-    with c1:
+    with c1: st.text_input("Centro", placeholder="M / G", key="reg_centro", on_change=on_centro_change)
+    with c2: st.selectbox("¿Residencia?", ["No", "Sí"], index=None, placeholder="Sí / No", key="reg_res")
+    with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True, placeholder="Fecha")
+    with c4: st.text_input("ID Registro", key="reg_id", disabled=True)
+    with c5: st.write(""); st.button("🗑️", on_click=reset_registro, key="btn_reset_reg")
+
+    col_izq, col_der = st.columns(2, gap="large")
+    with col_izq:
         st.markdown("#### 📋 Calculadora")
         with st.container(border=True):
-            edad = st.number_input("Edad (años)", step=1, key="calc_e", value=None)
-            peso = st.number_input("Peso (kg)", key="calc_p", value=None)
-            creat = st.number_input("Creatinina (mg/dL)", key="calc_c", value=None)
-            sexo = st.selectbox("Sexo", ["Hombre", "Mujer"], index=None, key="calc_s")
-            fg_calc = round(((140 - edad) * peso) / (72 * creat) * (0.85 if sexo == "Mujer" else 1.0), 1) if all([edad, peso, creat, sexo]) else 0.0
-    with c2:
+            calc_e = st.number_input("Edad (años)", step=1, key="calc_e", placeholder="Edad (Ej: 65)", value=None)
+            calc_p = st.number_input("Peso (kg)", key="calc_p", placeholder="Peso (Ej: 70.5)", value=None)
+            calc_c = st.number_input("Creatinina (mg/dL)", key="calc_c", placeholder="Creatinina (Ej: 1.2)", value=None)
+            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=None, placeholder="Seleccionar sexo...", key="calc_s")
+            fg = round(((140 - calc_e) * calc_p) / (72 * (calc_c if calc_c and calc_c > 0 else 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if all([calc_e, calc_p, calc_c, calc_s]) else 0.0
+
+    with col_der:
         st.markdown("#### 💊 Filtrado Glomerular")
-        fg_m = st.text_input("Ajuste Manual (C-G)", placeholder="Manual si aplica")
-        fg_final = float(fg_m) if fg_m and fg_m.replace('.','',1).isdigit() else fg_calc
-        st.markdown(f'<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{fg_final}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>', unsafe_allow_html=True)
-        l1, l2 = st.columns(2)
-        with l1: mdrd = st.number_input("MDRD-4", value=None, key="fgl_mdrd")
-        with l2: ckd = st.number_input("CKD-EPI", value=None, key="fgl_ckd")
+        fg_m = st.text_input("Ajuste Manual", placeholder="Fórmula Cockcroft-Gault: entrada manual")
+        valor_fg = fg_m if fg_m else fg
+        st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
+        st.markdown('<div class="formula-label">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
+        st.write(""); l1, l2 = st.columns(2)
+        with l1:
+            st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
+            val_mdrd = st.number_input("MDRD-4", value=None, placeholder="MDRD-4", label_visibility="collapsed", key="fgl_mdrd")
+            st.markdown('</div><div class="unit-label">mL/min/1,73m²</div>', unsafe_allow_html=True)
+        with l2:
+            st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
+            val_ckd = st.number_input("CKD-EPI", value=None, placeholder="CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
+            st.markdown('</div><div class="unit-label">mL/min/1,73m²</div>', unsafe_allow_html=True)
 
-    st.write(""); meds_in = st.text_area("Listado de Medicaciones", height=150, key="main_meds")
+    st.write(""); st.markdown("---")
+    m_col1, m_col2 = st.columns([0.5, 0.5])
+    with m_col1: st.markdown("#### 📝 Listado de medicamentos")
+    with m_col2: st.markdown('<div style="float:right; color:#c53030; font-weight:bold; font-size:0.8rem;">🛡️ RGPD: No datos personales</div>', unsafe_allow_html=True)
+    st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds", placeholder="Pegue el listado de fármacos aquí...")
+    st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
     
-    if st.button("🚀 VALIDAR", use_container_width=True, type="primary"):
-        res = llamar_ia(f"{c.PROMPT_AFR_V10}\n\nFG C-G: {fg_final}\nFG MDRD: {mdrd}\nFG CKD: {ckd}\n\nMEDS:\n{meds_in}")
-        if res:
-            st.session_state.resp_ia = res
-            st.session_state.analisis_realizado = True
-            partes = [p.strip() for p in res.split("|||") if p.strip()]
-            if len(partes) >= 2:
-                st.session_state.df_val, st.session_state.df_meds = parsear_a_dataframes_v5(
-                    partes[1], 
-                    [st.session_state.reg_id, centro, residencia, "", edad, peso, creat, sexo],
-                    [fg_final, mdrd if mdrd else 0, ckd if ckd else 0]
-                )
+    b1, b2 = st.columns([0.85, 0.15])
+    btn_val = b1.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True)
+    b2.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
 
-    if st.session_state.analisis_realizado:
-        st.write(st.session_state.resp_ia)
-        st.markdown('<div class="blink-text">⚠️ REVISE LA PESTAÑA "DATOS" ANTES DE GRABAR</div>', unsafe_allow_html=True)
+    if btn_val:
+        faltan_datos = not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s])
+        if faltan_datos:
+            st.markdown('<div class="blink-text">⚠️ AVISO: FALTAN DATOS EN REGISTRO O CALCULADORA. EL ANÁLISIS PUEDE SER INCOMPLETO.</div>', unsafe_allow_html=True)
+        if not st.session_state.main_meds:
+            st.error("Introduce medicamentos.")
+        else:
+            with st.spinner("Analizando..."):
+                prompt_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
+                st.session_state.resp_ia = llamar_ia_en_cascada(prompt_final)
+                st.session_state.analisis_realizado = True
 
-with tabs[2]: # PESTAÑA DATOS
-    st.markdown("### 📊 Centro de Inspección")
-    dt_tabs = st.tabs(["📋 VALIDACIONES", "💊 MEDICAMENTOS"])
-    with dt_tabs[0]: st.data_editor(st.session_state.df_val, use_container_width=True, key="ed_v_v5")
-    with dt_tabs[1]: st.data_editor(st.session_state.df_meds, use_container_width=True, key="ed_m_v5")
-    
-    if not st.session_state.df_val.empty:
-        if st.button("💾 SINCRONIZAR CON GOOGLE SHEETS", use_container_width=True, type="primary"):
-            try:
-                sh = client.open_by_key(SHEET_ID)
-                sh.worksheet("VALIDACIONES").append_rows(st.session_state.df_val.values.tolist())
-                sh.worksheet("MEDICAMENTOS").append_rows(st.session_state.df_meds.values.tolist())
-                st.success("Sincronización exitosa.")
-            except Exception as e: st.error(f"Error en Sheets: {e}")
+    if st.session_state.analisis_realizado and st.session_state.resp_ia:
+        resp = st.session_state.resp_ia[st.session_state.resp_ia.find("|||"):] if "|||" in st.session_state.resp_ia else st.session_state.resp_ia
+        try:
+            partes = [p.strip() for p in resp.split("|||") if p.strip()]
+            while len(partes) < 3: partes.append("")
+            sintesis, tabla, detalle = partes[:3]
+            glow = obtener_glow_class(sintesis)
+            st.markdown(f'<div class="synthesis-box {glow}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
+            st.markdown(f'''<div class="clinical-detail-container">{detalle.replace("\n","<br>")}<div class="nota-importante-box"><div style="font-weight: 800; margin-bottom: 8px;">⚠️ NOTA IMPORTANTE:</div><div class="nota-item">1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</div><div class="nota-item">2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</div><div class="nota-item">3. La decisión final corresponde siempre al prescriptor médico.</div><div class="nota-item">4. Considere la situación clínica global del paciente antes de modificar dosis.</div></div></div>''', unsafe_allow_html=True)
+            
+            st.write("")
+            st.markdown('<div class="blink-text">¿DESEAS GRABAR DATOS?</div>', unsafe_allow_html=True)
+            
+            c_save_1, c_save_2, c_save_3 = st.columns([1, 1, 1])
+            with c_save_2:
+                if st.button("💾 GRABAR DATOS", key="btn_grabar", use_container_width=True):
+                    with st.spinner("Grabando en Google Sheets..."):
+                        pac_data = [st.session_state.reg_id, st.session_state.reg_centro, st.session_state.reg_res, datetime.now().strftime("%d/%m/%Y"), calc_e, calc_p, calc_c, calc_s, "N/A", "N/A"]
+                        fgs_actuales = [valor_fg, val_mdrd, val_ckd]
+                        fila_v, filas_m = preparar_datos_exportacion(tabla, pac_data, fgs_actuales)
+                        
+                        sh = client.open_by_key(SHEET_ID)
+                        sh.worksheet("VALIDACIONES").append_row(fila_v)
+                        sh.worksheet("MEDICAMENTOS").append_rows(filas_m)
+                        st.toast("Datos grabados correctamente en Google Sheets.")
+                        st.success("¡Éxito! Registro completado.")
+        except Exception as e: st.error(f"Error al grabar: {e}")
 
-st.markdown('<div class="warning-yellow">⚠️ <b>Apoyo clínico.</b></div>', unsafe_allow_html=True)
-st.markdown(f'<div style="text-align:right; font-size:0.6rem; color:#ccc; margin-top:10px;">v. 11 mar 2026 22:50</div>', unsafe_allow_html=True)
+with tabs[1]:
+    for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
+        st.markdown(f'<div class="linea-discreta-soip">{label}</div>', unsafe_allow_html=True)
+        st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed")
+    st.markdown('<div class="linea-discreta-soip">INTERCONSULTA</div>', unsafe_allow_html=True)
+    st.text_area("IC_B1", st.session_state.ic_inter, height=150, label_visibility="collapsed")
+    st.markdown('<div class="linea-discreta-soip">INFORMACIÓN CLÍNICA</div>', unsafe_allow_html=True)
+    st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed")
+
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 10 mar 2026 21:45</div>""", unsafe_allow_html=True)
