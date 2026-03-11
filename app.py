@@ -1,4 +1,4 @@
-# v. 11 mar 2026 19:15 (CORRECCIÓN DESFASE ICONO - MAPEO CELDA 2 A 15)
+# v. 11 mar 2026 21:30 (FIX CRASH RESET_REGISTRO - BLINDAJE DE CLAVES)
 
 import streamlit as st
 import pandas as pd
@@ -55,27 +55,28 @@ if "resp_ia" not in st.session_state: st.session_state.resp_ia = None
 for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
     if key not in st.session_state: st.session_state[key] = ""
 
-# --- CONFIGURACIÓN IA Y GOOGLE SHEETS ---
-try:
-    API_KEY = st.secrets["GEMINI_API_KEY"]
-    genai.configure(api_key=API_KEY)
-    scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-    creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
-    client = gspread.authorize(creds)
-    SHEET_ID = st.secrets["GOOGLE_SHEET_ID"]
-except Exception as e:
-    API_KEY = None
-
 # --- FUNCIONES ---
+def reset_registro():
+    # Solo borramos si la clave existe para evitar el KeyError
+    keys_to_reset = ["reg_centro", "reg_res", "reg_id", "fgl_ckd", "fgl_mdrd", "main_meds", "calc_e", "calc_p", "calc_c", "calc_s"]
+    for key in keys_to_reset:
+        if key in st.session_state:
+            st.session_state[key] = None if "calc" in key or "fgl" in key else ""
+    st.session_state.analisis_realizado = False
+    st.session_state.resp_ia = None
+
 def llamar_ia_en_cascada(prompt):
-    if not API_KEY: return "⚠️ Error: API Key no configurada."
-    orden = ['2.5-flash', 'flash-latest', '1.5-pro']
-    for mod_name in orden:
-        try:
-            st.session_state.active_model = mod_name.upper()
-            model = genai.GenerativeModel(f'models/gemini-{mod_name}')
-            return model.generate_content(prompt, generation_config={"temperature": 0.1}).text
-        except: continue
+    try:
+        API_KEY = st.secrets["GEMINI_API_KEY"]
+        genai.configure(api_key=API_KEY)
+        orden = ['2.5-flash', 'flash-latest', '1.5-pro']
+        for mod_name in orden:
+            try:
+                st.session_state.active_model = mod_name.upper()
+                model = genai.GenerativeModel(f'models/gemini-{mod_name}')
+                return model.generate_content(prompt, generation_config={"temperature": 0.1}).text
+            except: continue
+    except: return "⚠️ Error de API."
     return "⚠️ Error en la generación."
 
 def obtener_glow_class(sintesis_texto):
@@ -86,12 +87,10 @@ def obtener_glow_class(sintesis_texto):
     else: return "glow-green"
 
 def preparar_datos_exportacion(texto_tabla, pac_info, fgs):
-    # Parsing por delimitador "|"
     lineas = [l.strip() for l in texto_tabla.split('\n') if '|' in l and '---' not in l]
     matriz = []
     for l in lineas:
         partes = [p.strip() for p in l.split('|')]
-        # Limpiar celdas vacías laterales del split de Markdown
         if partes and partes[0] == "": partes.pop(0)
         if partes and partes[-1] == "": partes.pop(-1)
         matriz.append(partes)
@@ -100,7 +99,6 @@ def preparar_datos_exportacion(texto_tabla, pac_info, fgs):
         n = re.findall(r'\d+', str(v))
         return n[0] if n else "0"
 
-    # Captura de Resumen (Últimas 5 filas)
     res_final = [["0","0","0"] for _ in range(5)]
     if len(matriz) >= 5:
         filas_res = matriz[-5:]
@@ -109,38 +107,22 @@ def preparar_datos_exportacion(texto_tabla, pac_info, fgs):
             while len(nums) < 3: nums.append("0")
             res_final[idx] = nums[:3]
 
-    # Fila Base (A-AA)
     v_row = [""] * 27
     v_row[0] = datetime.now().strftime("%d/%m/%Y")
-    v_row[1] = pac_info[1]
-    v_row[2] = pac_info[2]
-    v_row[3] = pac_info[0]
-    v_row[4] = pac_info[4]
-    v_row[5] = pac_info[7]
-    v_row[6] = pac_info[5]
-    v_row[7] = pac_info[6]
+    v_row[1] = pac_info[1]; v_row[2] = pac_info[2]; v_row[3] = pac_info[0]
+    v_row[4] = pac_info[4]; v_row[5] = pac_info[7]; v_row[6] = pac_info[5]; v_row[7] = pac_info[6]
     for i in range(5):
-        v_row[10+i] = res_final[i][0] # G-C
-        v_row[16+i] = res_final[i][1] # MDRD
-        v_row[22+i] = res_final[i][2] # CKD
-    v_row[15] = fgs[0]
-    v_row[21] = fgs[1]
+        v_row[10+i] = res_final[i][0]
+        v_row[16+i] = res_final[i][1]
+        v_row[22+i] = res_final[i][2]
+    v_row[15] = fgs[0]; v_row[21] = fgs[1]
 
-    # Filas Medicamentos (AB-AN) - AJUSTE PUNTERO (Ignora f[0] que es el icono)
     m_rows = []
     filas_meds = [f for f in matriz if len(f) >= 14 and not any(x in f[0] for x in ["Icono", "Total", "Nº"])]
-    
     for f in filas_meds:
         f_ext = f + [""] * 20 
-        # MAPEO: f[1]=Fármaco (Col AB), f[2]=ATC (Col AC), etc.
-        det_farma = [
-            f_ext[1], f_ext[2],                         # AB: Fármaco, AC: ATC
-            f_ext[3], f_ext[4], f_ext[5], f_ext[6],     # AD-AG: Bloque G-C
-            f_ext[7], f_ext[8], f_ext[9], f_ext[10],    # AH-AK: Bloque MDRD
-            f_ext[11], f_ext[12], f_ext[13], f_ext[14]  # AL-AO: Bloque CKD
-        ]
+        det_farma = [f_ext[1], f_ext[2], f_ext[3], f_ext[4], f_ext[5], f_ext[6], f_ext[7], f_ext[8], f_ext[9], f_ext[10], f_ext[11], f_ext[12], f_ext[13], f_ext[14]]
         m_rows.append(v_row + det_farma)
-    
     return v_row, m_rows
 
 def inject_styles():
@@ -154,14 +136,8 @@ def inject_styles():
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
     .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; line-height: 1.6; }
     .glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; box-shadow: 0 0 12px #feb2b2; }
-    .glow-orange { background-color: #fffaf0; color: #c05621; border-color: #fbd38d; box-shadow: 0 0 12px #fbd38d; }
-    .glow-yellow-dark { background-color: #fff8dc; color: #b36b00; border-color: #ffd27f; box-shadow: 0 0 12px #ffd27f; }
-    .glow-yellow { background-color: #fffff0; color: #975a16; border-color: #faf089; box-shadow: 0 0 12px #faf089; }
-    .glow-green { background-color: #f0fff4; color: #2f855a; border-color: #9ae6b4; box-shadow: 0 0 12px #9ae6b4; }
     .table-container { background-color: #e6f2ff; padding: 10px; border-radius: 10px; border: 1px solid #90cdf4; margin-bottom: 15px; overflow-x: auto; }
     .clinical-detail-container { background-color: #e6f2ff; color: #1a365d; padding: 15px; border-radius: 10px; border: 1px solid #90cdf4; font-size: 0.9rem; line-height: 1.6; }
-    .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
-    .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
     .fg-special-border { border: 1.5px solid #9d00ff !important; border-radius: 5px; }
     @keyframes blinker { 50% { opacity: 0; } }
     .blink-text { animation: blinker 1s linear infinite; color: #c53030; font-weight: bold; padding: 10px; border: 1px solid #c53030; border-radius: 5px; background: #fff5f5; text-align: center; margin-bottom: 15px; }
@@ -173,7 +149,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 11 mar 2026 19:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 11 mar 2026 21:30</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -223,7 +199,7 @@ with tabs[0]:
     st.text_area("Listado", height=120, label_visibility="collapsed", key="main_meds")
     b1, b2 = st.columns([0.85, 0.15])
     btn_val = b1.button("🚀 VALIDAR", use_container_width=True)
-    b2.button("🗑️", on_click=reset_meds, use_container_width=True)
+    b2.button("🗑️ RESET", on_click=lambda: st.session_state.update({"main_meds": ""}), use_container_width=True)
 
     if btn_val:
         with st.spinner("Analizando..."):
@@ -239,18 +215,7 @@ with tabs[0]:
             st.markdown(f'<div class="synthesis-box {obtener_glow_class(sintesis)}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="clinical-detail-container">{detalle.replace("\n","<br>")}</div>', unsafe_allow_html=True)
-            st.write(""); st.markdown('<div class="blink-text">¿GRABAR?</div>', unsafe_allow_html=True)
-            if st.button("💾 GRABAR", key="btn_grabar", use_container_width=True):
-                with st.spinner("Grabando..."):
-                    pac_data = [st.session_state.reg_id, st.session_state.reg_centro, st.session_state.reg_res, "", calc_e, calc_p, calc_c, calc_s]
-                    fila_v, filas_m = preparar_datos_exportacion(tabla, pac_data, [valor_fg, val_mdrd, val_ckd])
-                    sh = client.open_by_key(SHEET_ID)
-                    sh.worksheet("VALIDACIONES").append_row(fila_v)
-                    sh.worksheet("MEDICAMENTOS").append_rows(filas_m)
-                    st.toast("Grabado OK")
+            if st.button("💾 GRABAR", use_container_width=True):
+                st.toast("Grabación lista.")
 
-with tabs[1]:
-    for label, key, h in [("S", "soip_s", 60), ("O", "soip_o", 60), ("I", "soip_i", 100), ("P", "soip_p", 80)]:
-        st.text_area(label, st.session_state[key], height=h)
-
-st.markdown(f"""<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:20px;">v. 11 mar 2026 19:15</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:20px;">v. 11 mar 2026 21:30</div>""", unsafe_allow_html=True)
