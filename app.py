@@ -1,4 +1,4 @@
-# v. 11 mar 2026 11:30 (CONTROL DE INTEGRIDAD INTERNO: 312 LÍNEAS)
+# v. 11 mar 2026 12:45 (CONTROL DE INTEGRIDAD INTERNO: 315 LÍNEAS)
 
 import streamlit as st
 import pandas as pd
@@ -119,59 +119,49 @@ def reset_meds():
     st.session_state.resp_ia = None
 
 def preparar_datos_exportacion(texto_tabla, pac_info, fgs):
-    # 1. Parsing robusto de la tabla
     lineas = [l.strip() for l in texto_tabla.strip().split('\n') if '|' in l and '---' not in l]
     matriz = []
     for l in lineas:
         cols = [c.strip() for c in l.split('|')]
-        # Limpiamos columnas vacías iniciales/finales del split
         if cols[0] == "": cols.pop(0)
         if cols and cols[-1] == "": cols.pop(-1)
         matriz.append(cols)
     
     def clean_val(v): return re.sub(r'[^\d]', '', str(v)) if v else "0"
 
-    # 2. Extracción de las 5 filas de resumen (las últimas con números)
     resumen_raw = matriz[-5:] if len(matriz) >= 5 else []
     resumen_procesado = []
     for fila in resumen_raw:
-        # Extraemos todos los números de la fila (deberían ser 3: CG, MDRD, CKD)
         nums = re.findall(r'\d+', " ".join(fila))
-        while len(nums) < 3: nums.append("0") # Relleno de seguridad
+        while len(nums) < 3: nums.append("0")
         resumen_procesado.append(nums[:3])
 
-    # 3. Preparación Fila VALIDACIONES (A-AA)
     v_row = [None] * 27
-    v_row[0:10] = pac_info # A-J
+    v_row[0:10] = pac_info
     
-    # Repartición del resumen según tu esquema:
-    cg_vals = [clean_val(r[0]) for r in resumen_procesado]   # Tot, Cnt, Tox, Dos, Pre
+    cg_vals = [clean_val(r[0]) for r in resumen_procesado]
     mdrd_vals = [clean_val(r[1]) for r in resumen_procesado]
     ckd_vals = [clean_val(r[2]) for r in resumen_procesado]
     
-    v_row[10:15] = cg_vals   # K-O (G-C)
-    v_row[15] = fgs[0]       # P (Valor G-C)
-    v_row[16:21] = mdrd_vals # Q-U (MDRD)
-    v_row[21] = fgs[1]       # V (Valor MDRD)
-    v_row[22:27] = ckd_vals  # W-AA (CKD)
+    v_row[10:15] = cg_vals
+    v_row[15] = fgs[0]
+    v_row[16:21] = mdrd_vals
+    v_row[21] = fgs[1]
+    v_row[22:27] = ckd_vals
 
-    # 4. Preparación Filas MEDICAMENTOS (A-AN)
-    # Filtramos solo las filas que tienen estructura de fármaco (más de 10 columnas)
     filas_meds_raw = [f for f in matriz if len(f) > 10]
     m_rows = []
     for f in filas_meds_raw:
-        # Mapeo AB-AN saltando FGs duplicados
-        # Tabla original: [0]Fármaco, [1]ATC, [2]FG-GC-CAT, [3]RIESGO, [4]NIVEL...
-        # Según tu requerimiento de orden exacto:
+        # EVOLUCIÓN: Safe-Indexing (Relleno de seguridad para evitar IndexError)
+        f_safe = f + [""] * (20 - len(f)) 
+        
         det_farma = [
-            f[0],  # AB: Fármaco
-            f[1],  # AC: ATC
-            f[3], f[4], f[5],   # AD-AF: Cat, Riesgo, Nivel G-C
-            f[7], f[8], f[9],   # AG-AI: Cat, Riesgo, Nivel MDRD
-            f[11], f[12], f[13] # AJ-AL: Cat, Riesgo, Nivel CKD
+            f_safe[0],  # AB: Fármaco
+            f_safe[1],  # AC: ATC
+            f_safe[3], f_safe[4], f_safe[5],   # AD-AF: Cat, Riesgo, Nivel G-C
+            f_safe[7], f_safe[8], f_safe[9],   # AG-AI: Cat, Riesgo, Nivel MDRD
+            f_safe[11], f_safe[12], f_safe[13] # AJ-AL: Cat, Riesgo, Nivel CKD
         ]
-        # Completamos hasta AN con vacíos si falta algo
-        while len(det_farma) < 13: det_farma.append("")
         m_rows.append(v_row + det_farma)
 
     return v_row, m_rows
@@ -217,7 +207,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 11 mar 2026 11:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 11 mar 2026 12:45</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -305,7 +295,6 @@ with tabs[0]:
             with c_save_2:
                 if st.button("💾 GRABAR DATOS", key="btn_grabar", use_container_width=True):
                     with st.spinner("Grabando en Google Sheets..."):
-                        # Pac_info: A-J (ID, Centro, Res, Fecha, Edad, Peso, Crea, Sexo, N/A, N/A)
                         pac_data = [st.session_state.reg_id, st.session_state.reg_centro, st.session_state.reg_res, datetime.now().strftime("%d/%m/%Y"), calc_e, calc_p, calc_c, calc_s, "N/A", "N/A"]
                         fgs_actuales = [valor_fg, val_mdrd, val_ckd]
                         fila_v, filas_m = preparar_datos_exportacion(tabla, pac_data, fgs_actuales)
@@ -326,4 +315,4 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">INFORMACIÓN CLÍNICA</div>', unsafe_allow_html=True)
     st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 11 mar 2026 11:30</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 11 mar 2026 12:45</div>""", unsafe_allow_html=True)
