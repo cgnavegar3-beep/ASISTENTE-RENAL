@@ -1,4 +1,4 @@
-# v. 11 mar 2026 13:15 (CONTROL DE INTEGRIDAD INTERNO: 325 LÍNEAS)
+# v. 11 mar 2026 14:15 (CONTROL DE INTEGRIDAD INTERNO: MAPEO ABSOLUTO COLUMNAS)
 
 import streamlit as st
 import pandas as pd
@@ -65,8 +65,6 @@ for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro"
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=API_KEY)
-    
-    # Credenciales Google Sheets
     scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
     client = gspread.authorize(creds)
@@ -129,36 +127,39 @@ def preparar_datos_exportacion(texto_tabla, pac_info, fgs):
     
     def clean_val(v): return re.sub(r'[^\d]', '', str(v)) if v else "0"
 
-    resumen_raw = matriz[-5:] if len(matriz) >= 5 else []
-    resumen_procesado = []
+    # 1. EXTRACCIÓN LITERAL DEL RESUMEN (Últimas 5 filas)
+    resumen_raw = matriz[-5:] if len(matriz) >= 5 else [["0","0","0"]]*5
+    resumen_final = []
     for fila in resumen_raw:
         nums = re.findall(r'\d+', " ".join(fila))
         while len(nums) < 3: nums.append("0")
-        resumen_procesado.append(nums[:3])
+        resumen_final.append(nums[:3])
 
-    # BLINDAJE DE SEGURIDAD PARA RESUMEN (Asegura longitud 5 para evitar Error de Índice)
-    cg_vals = [clean_val(r[0]) for r in resumen_procesado]
-    mdrd_vals = [clean_val(r[1]) for r in resumen_procesado]
-    ckd_vals = [clean_val(r[2]) for r in resumen_procesado]
-
-    for val_list in [cg_vals, mdrd_vals, ckd_vals]:
-        while len(val_list) < 5: val_list.append("0")
-
+    # 2. CONSTRUCCIÓN DE FILA DE VALIDACIÓN (A-AA)
     v_row = [None] * 27
-    v_row[0:10] = pac_info
-    v_row[10:15] = cg_vals[:5]
-    v_row[15] = fgs[0]
-    v_row[16:21] = mdrd_vals[:5]
-    v_row[21] = fgs[1]
-    v_row[22:27] = ckd_vals[:5]
+    v_row[0:10] = pac_info # A-J
+    
+    # Distribución K-AA según mapeo solicitado
+    v_row[10] = resumen_final[0][0]; v_row[16] = resumen_final[0][1]; v_row[22] = resumen_final[0][2] # Total Afectados
+    v_row[11] = resumen_final[1][0]; v_row[17] = resumen_final[1][1]; v_row[23] = resumen_final[1][2] # Contraindicados
+    v_row[12] = resumen_final[2][0]; v_row[18] = resumen_final[2][1]; v_row[24] = resumen_final[2][2] # Toxicidad
+    v_row[13] = resumen_final[3][0]; v_row[19] = resumen_final[3][1]; v_row[25] = resumen_final[3][2] # Dosis
+    v_row[14] = resumen_final[4][0]; v_row[20] = resumen_final[4][1]; v_row[26] = resumen_final[4][2] # Precaución
+    v_row[15] = fgs[0] # P (FG C-G)
+    v_row[21] = fgs[1] # V (FG MDRD) - CKD se usa en el resumen K-AA pero no tiene columna individual de FG sola
 
-    filas_meds_raw = [f for f in matriz if len(f) > 10]
+    # 3. CONSTRUCCIÓN DE FILAS DE MEDICAMENTOS (A-AN)
+    filas_meds_raw = [f for f in matriz if len(f) >= 14 and "Icono" not in f and "Total" not in f[0]]
     m_rows = []
     for f in filas_meds_raw:
-        f_safe = f + [""] * (20 - len(f)) 
+        # Fármaco está en col 1 (f[1]), ATC en col 2 (f[2]), etc.
+        # Quitamos iconos y FG de los datos de fármaco para AB-AN
+        f_ext = f + [""] * 20
         det_farma = [
-            f_safe[0], f_safe[1], f_safe[3], f_safe[4], f_safe[5], 
-            f_safe[7], f_safe[8], f_safe[9], f_safe[11], f_safe[12], f_safe[13]
+            f_ext[1], f_ext[2],  # AB: Fármaco, AC: ATC
+            f_ext[3], f_ext[4], f_ext[5], f_ext[6], # AD-AG: G-C
+            f_ext[7], f_ext[8], f_ext[9], f_ext[10], # AH-AK: MDRD
+            f_ext[11], f_ext[12], f_ext[13], f_ext[14] # AL-AO: CKD
         ]
         m_rows.append(v_row + det_farma)
 
@@ -205,7 +206,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 11 mar 2026 13:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 11 mar 2026 14:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -273,7 +274,6 @@ with tabs[0]:
             with st.spinner("Analizando..."):
                 prompt_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
                 st.session_state.resp_ia = llamar_ia_en_cascada(prompt_final)
-                # VOLCADO AUTOMÁTICO A SOIP E INTERCONSULTA DESDE LA RESPUESTA DE LA IA
                 if st.session_state.resp_ia:
                     st.session_state.soip_o = f"FG (C-G): {valor_fg} mL/min. MDRD: {val_mdrd}. CKD-EPI: {val_ckd}."
                     st.session_state.soip_i = st.session_state.resp_ia
@@ -303,7 +303,7 @@ with tabs[0]:
                         sh = client.open_by_key(SHEET_ID)
                         sh.worksheet("VALIDACIONES").append_row(fila_v)
                         sh.worksheet("MEDICAMENTOS").append_rows(filas_m)
-                        st.toast("Datos grabados correctamente en Google Sheets.")
+                        st.toast("Datos grabados correctamente.")
                         st.success("¡Éxito! Registro completado.")
         except Exception as e: st.error(f"Error al grabar: {e}")
 
@@ -316,4 +316,4 @@ with tabs[1]:
     st.markdown('<div class="linea-discreta-soip">INFORMACIÓN CLÍNICA</div>', unsafe_allow_html=True)
     st.text_area("IC_B2", st.session_state.ic_clinica, height=250, label_visibility="collapsed")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 11 mar 2026 13:15</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 11 mar 2026 14:15</div>""", unsafe_allow_html=True)
