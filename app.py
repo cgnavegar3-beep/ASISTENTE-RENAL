@@ -1,4 +1,4 @@
-# v. 12 mar 2026 21:30 (CONTROL DE INTEGRIDAD INTERNO: RESTAURACIÓN TOTAL INFORME + 12 COLS + JSON)
+# v. 12 mar 2026 21:50 (AUDITORÍA TOTAL: INFORME RESTAURADO + GESTIÓN DATOS DINÁMICA + SUBPESTAÑAS)
 
 import streamlit as st
 import pandas as pd
@@ -146,7 +146,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 12 mar 2026 21:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 12 mar 2026 21:50</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -284,10 +284,100 @@ with tabs[1]:
     st.text_area("ic_clinica", st.session_state.ic_clinica, height=250, label_visibility="collapsed", placeholder="Datos objetivos y análisis clínico...")
 
 with tabs[2]:
-    st.markdown("### 📊 Tablas de Datos")
-    st.markdown("#### Validaciones")
-    st.dataframe(st.session_state.df_val, use_container_width=True)
-    st.markdown("#### Medicamentos")
-    st.dataframe(st.session_state.df_meds, use_container_width=True)
+    st.markdown("### 📊 Gestión de Datos (Validación de Registro)")
+    
+    # --- CONFIGURACIÓN DE COLORES (REQUISITO 1 Y 2) ---
+    conf_v = {
+        "FECHA": st.column_config.TextColumn("📅 FECHA ⚪"),
+        "CENTRO": st.column_config.TextColumn("🏢 CENTRO ⚪"),
+        "RESIDENCIA": st.column_config.TextColumn("🏠 RESIDENCIA ⚪"),
+        "ID_REGISTRO": st.column_config.TextColumn("🆔 ID_REGISTRO ⚪"),
+        "EDAD": st.column_config.NumberColumn("🎂 EDAD 🔵", format="%d"),
+        "SEXO": st.column_config.TextColumn("⚧ SEXO 🔵"),
+        "PESO": st.column_config.NumberColumn("⚖️ PESO 🔵", format="%.1f kg"),
+        "CREATININA": st.column_config.NumberColumn("🧪 CREATININA 🔵", format="%.2f mg/dL"),
+        "Nº_TOTAL_MEDS_PAC": st.column_config.NumberColumn("💊 Nº_TOTAL_MEDS_PAC 🟢", format="%d"),
+        "FG_CG": st.column_config.NumberColumn("📉 FG_CG 🟡", format="%.1f"),
+        "Nº_TOT_AFEC_CG": st.column_config.NumberColumn("⚠️ Nº_TOT_AFEC_CG 🟡"),
+        "Nº_PRECAU_CG": st.column_config.NumberColumn("🟡 Nº_PRECAU_CG 🟡"),
+        "Nº_AJUSTE_DOS_CG": st.column_config.NumberColumn("🟠 Nº_AJUSTE_DOS_CG 🟡"),
+        "Nº_TOXICID_CG": st.column_config.NumberColumn("🔴 Nº_TOXICID_CG 🟡"),
+        "Nº_CONTRAIND_CG": st.column_config.NumberColumn("⛔ Nº_CONTRAIND_CG 🟡"),
+        "FG_MDRD": st.column_config.NumberColumn("📉 FG_MDRD 🟠", format="%.1f"),
+        "Nº_TOT_AFEC_MDRD": st.column_config.NumberColumn("⚠️ Nº_TOT_AFEC_MDRD 🟠"),
+        "Nº_PRECAU_MDRD": st.column_config.NumberColumn("🟡 Nº_PRECAU_MDRD 🟠"),
+        "Nº_AJUSTE_DOS_MDRD": st.column_config.NumberColumn("🟠 Nº_AJUSTE_DOS_MDRD 🟠"),
+        "Nº_TOXICID_MDRD": st.column_config.NumberColumn("🔴 Nº_TOXICID_MDRD 🟠"),
+        "Nº_CONTRAIND_MDRD": st.column_config.NumberColumn("⛔ Nº_CONTRAIND_MDRD 🟠"),
+        "FG_CKD": st.column_config.NumberColumn("📉 FG_CKD 🔴", format="%.1f"),
+        "Nº_TOT_AFEC_CKD": st.column_config.NumberColumn("⚠️ Nº_TOT_AFEC_CKD 🔴"),
+        "Nº_PRECAU_CKD": st.column_config.NumberColumn("🟡 Nº_PRECAU_CKD 🔴"),
+        "Nº_AJUSTE_DOS_CKD": st.column_config.NumberColumn("🟠 Nº_AJUSTE_DOS_CKD 🔴"),
+        "Nº_TOXICID_CKD": st.column_config.NumberColumn("🔴 Nº_TOXICID_CKD 🔴"),
+        "Nº_CONTRAIND_CKD": st.column_config.NumberColumn("⛔ Nº_CONTRAIND_CKD 🔴"),
+    }
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 12 mar 2026 21:30</div>""", unsafe_allow_html=True)
+    conf_m = conf_v.copy()
+    conf_m.update({
+        "MEDICAMENTO": st.column_config.TextColumn("💊 MEDICAMENTO 🔴"),
+        "GRUPO_TERAPEUTICO": st.column_config.TextColumn("🧬 GRUPO_TERAPEUTICO 🔴"),
+        "CAT_RIESGO_CG": st.column_config.TextColumn("📋 CAT_RIESGO_CG 🟢"),
+        "RIESGO_CG": st.column_config.TextColumn("☣️ RIESGO_CG 🟢"),
+        "NIVEL_ADE_CG": st.column_config.NumberColumn("🔢 NIVEL_ADE_CG 🟢"),
+        "CAT_RIESGO_MDRD": st.column_config.TextColumn("📋 CAT_RIESGO_MDRD 🟡"),
+        "RIESGO_MDRD": st.column_config.TextColumn("☣️ RIESGO_MDRD 🟡"),
+        "NIVEL_ADE_MDRD": st.column_config.NumberColumn("🔢 NIVEL_ADE_MDRD 🟡"),
+        "CAT_RIESGO_CKD": st.column_config.TextColumn("📋 CAT_RIESGO_CKD 🟠"),
+        "RIESGO_CKD": st.column_config.TextColumn("☣️ RIESGO_CKD 🟠"),
+        "NIVEL_ADE_CKD": st.column_config.NumberColumn("🔢 NIVEL_ADE_CKD 🟠"),
+    })
+
+    # --- TABLAS EDITABLES DINÁMICAS (REQUISITO 3) ---
+    st.markdown("#### 1. Validación de Paciente (Histórico)")
+    st.session_state.df_val = st.data_editor(
+        st.session_state.df_val,
+        column_config=conf_v,
+        num_rows="dynamic",
+        use_container_width=True,
+        key="editor_val"
+    )
+
+    st.write("")
+    
+    st.markdown("#### 2. Detalle de Medicamentos (Histórico)")
+    st.session_state.df_meds = st.data_editor(
+        st.session_state.df_meds,
+        column_config=conf_m,
+        num_rows="dynamic",
+        use_container_width=True,
+        key="editor_meds"
+    )
+
+    # --- BOTÓN GOOGLE SHEETS ---
+    st.write("")
+    c_gs1, c_gs2, c_gs3 = st.columns([1, 1, 1])
+    with c_gs2:
+        if st.button("📤 GRABAR EN GOOGLE SHEETS", use_container_width=True, type="primary"):
+            st.success("Preparando sincronización con Google Sheets...")
+            st.info("Requiere configuración de secrets: [connections.gsheets]")
+
+    st.write("---")
+    
+    # --- SUBPESTAÑAS DE HISTÓRICO ---
+    st.markdown("### 📜 Detalle de Histórico")
+    sub_hist = st.tabs(["📊 HISTÓRICO: VALIDACIONES", "💊 MEDICAMENTOS", "📝 ANÁLISIS"])
+    
+    with sub_hist[0]:
+        st.dataframe(st.session_state.df_val, use_container_width=True)
+    
+    with sub_hist[1]:
+        st.dataframe(st.session_state.df_meds, use_container_width=True)
+        
+    with sub_hist[2]:
+        if st.session_state.resp_ia:
+            st.markdown("#### Último Análisis Clínico Generado")
+            st.text_area("Análisis Crudo", st.session_state.resp_ia, height=400, label_visibility="collapsed")
+        else:
+            st.info("No hay análisis clínico registrado en esta sesión.")
+
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 12 mar 2026 21:50</div>""", unsafe_allow_html=True)
