@@ -1,4 +1,4 @@
-# v. 12 mar 2026 19:30 (CONTROL DE INTEGRIDAD INTERNO: EVOLUCIÓN TABLAS DATOS)
+# v. 12 mar 2026 20:00 (CONTROL DE INTEGRIDAD INTERNO: EVOLUCIÓN TABLAS DATOS ROBUSTA)
 
 import streamlit as st
 import pandas as pd
@@ -17,28 +17,28 @@ import constants as c
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#        "Filtrado Glomerular" (cuadro negro con glow morado).
+#         "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#        - Cuadros negros superiores (ZONA y ACTIVO).
-#        - Pestañas (Tabs) de navegación.
-#        - Registro de Paciente: Estructura y función de fila única.
-#        - Estructura del área de recorte y listado de medicación.
-#        - Barra dual de validación (VALIDAR / RESET).
-#        - Aviso legal amarillo inferior (Warning).
+#         - Cuadros negros superiores (ZONA y ACTIVO).
+#         - Pestañas (Tabs) de navegación.
+#         - Registro de Paciente: Estructura y función de fila única.
+#         - Estructura del área de recorte y listado de medicación.
+#         - Barra dual de validación (VALIDAR / RESET).
+#         - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#        "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#         "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#        principios antes y después de cada cambio. No se simplifican líneas.
+#         principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#        ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#         ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#        se considerará pérdida de principios.
+#         se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#         sus textos flotantes (placeholders) and los textos predefinidos en las
-#         secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#          sus textos flotantes (placeholders) and los textos predefinidos en las
+#          secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#         principio blindado; es informativo y no debe impedir la validación.
+#          principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -149,7 +149,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 12 mar 2026 19:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 12 mar 2026 20:00</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -251,10 +251,13 @@ with tabs[0]:
             analisis_clinico_limpio = detalle_limpio.split('⚠️ NOTA IMPORTANTE:')[0].replace('BLOQUE 3: ANALISIS CLINICO', '').strip()
             st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{analisis_clinico_limpio}"
 
-            # EVOLUCIÓN: PROCESAMIENTO JSON PARA TABLAS
+            # EVOLUCIÓN: PROCESAMIENTO JSON ROBUSTO
             try:
+                # Limpieza de etiquetas Markdown (```json o ```) y espacios
+                json_data_str = re.sub(r"```json|```", "", json_data_str).strip()
                 data = json.loads(json_data_str)
-                # Datos comunes del paciente
+                
+                # Datos comunes del paciente para mapeo
                 pac_row = {
                     "FECHA": datetime.now().strftime("%d/%m/%Y"), "CENTRO": st.session_state.reg_centro, "RESIDENCIA": st.session_state.reg_res, "ID_REGISTRO": st.session_state.reg_id,
                     "EDAD": calc_e, "SEXO": calc_s, "PESO": calc_p, "CREATININA": calc_c, "Nº_TOTAL_MEDS_PAC": data["paciente"]["N_TOTAL_MEDS_PAC"],
@@ -262,16 +265,16 @@ with tabs[0]:
                     "FG_MDRD": val_mdrd, "Nº_TOT_AFEC_MDRD": data["paciente"]["MDRD"]["TOT_AFECTADOS"], "Nº_PRECAU_MDRD": data["paciente"]["MDRD"]["PRECAUCION"], "Nº_AJUSTE_DOS_MDRD": data["paciente"]["MDRD"]["AJUSTE_DOSIS"], "Nº_TOXICID_MDRD": data["paciente"]["MDRD"]["TOXICIDAD"], "Nº_CONTRAIND_MDRD": data["paciente"]["MDRD"]["CONTRAINDICADOS"],
                     "FG_CKD": val_ckd, "Nº_TOT_AFEC_CKD": data["paciente"]["CKD"]["TOT_AFECTADOS"], "Nº_PRECAU_CKD": data["paciente"]["CKD"]["PRECAUCION"], "Nº_AJUSTE_DOS_CKD": data["paciente"]["CKD"]["AJUSTE_DOSIS"], "Nº_TOXICID_CKD": data["paciente"]["CKD"]["TOXICIDAD"], "Nº_CONTRAIND_CKD": data["paciente"]["CKD"]["CONTRAINDICADOS"]
                 }
-                # Relleno Tabla 1
-                st.session_state.df_val = pd.concat([st.session_state.df_val, pd.DataFrame([pac_row])], ignore_index=True)
                 
-                # Relleno Tabla 2
-                meds_list = []
-                for m in data["medicamentos"]:
-                    m_row = {**pac_row, **m}
-                    meds_list.append(m_row)
+                # Relleno de tablas en sesión
+                st.session_state.df_val = pd.concat([st.session_state.df_val, pd.DataFrame([pac_row])], ignore_index=True)
+                meds_list = [{**pac_row, **m} for m in data["medicamentos"]]
                 st.session_state.df_meds = pd.concat([st.session_state.df_meds, pd.DataFrame(meds_list)], ignore_index=True)
-            except: pass # Fallback silencioso si el JSON falla
+                
+            except Exception as e:
+                st.error(f"⚠️ Error al procesar datos para tablas: {e}")
+                with st.expander("Ver JSON recibido"):
+                    st.code(json_data_str, language="json")
 
             st.write("")
             c_save_1, c_save_2, c_save_3 = st.columns([1, 1, 1])
@@ -320,4 +323,4 @@ with tabs[2]:
     with h_tab2: st.info("Cargando histórico de medicamentos...")
     with h_tab3: st.info("Cargando histórico de análisis clínicos...")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 12 mar 2026 19:30</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 12 mar 2026 20:00</div>""", unsafe_allow_html=True)
