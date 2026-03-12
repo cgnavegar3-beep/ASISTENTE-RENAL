@@ -1,4 +1,4 @@
-# v. 12 mar 2026 14:40 (CONTROL DE INTEGRIDAD INTERNO: 322 LÍNEAS)
+# v. 12 mar 2026 15:00 (CONTROL DE INTEGRIDAD INTERNO: 322 LÍNEAS)
 
 import streamlit as st
 import pandas as pd
@@ -144,7 +144,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 12 mar 2026 14:40</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 12 mar 2026 15:00</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -225,8 +225,8 @@ with tabs[0]:
             st.markdown(f'<div class="synthesis-box {glow}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
             
-            # --- EVOLUCIÓN BLOQUE 3: LIMPIEZA DE HTML PARA TEXTO PLANO ---
-            detalle_limpio = re.sub(r'<[^>]*>', '', detalle) # Elimina cualquier etiqueta HTML
+            # Limpieza HTML (Solo iconos planos)
+            detalle_limpio = re.sub(r'<[^>]*>', '', detalle)
             st.markdown(f'''<div class="clinical-detail-container">{detalle_limpio}<div class="nota-importante-box"><div style="font-weight: 800; margin-bottom: 8px;">⚠️ NOTA IMPORTANTE:</div><div class="nota-item">1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</div><div class="nota-item">2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</div><div class="nota-item">3. La decisión final corresponde siempre al prescriptor médico.</div><div class="nota-item">4. Considere la situación clínica global del paciente antes de modificar dosis.</div></div></div>''', unsafe_allow_html=True)
             
             # Persistencia de datos en informe
@@ -236,10 +236,13 @@ with tabs[0]:
             if calc_c: datos_obj_lista.append(f"Crea: {calc_c}mg/dL")
             if valor_fg: datos_obj_lista.append(f"FG: {valor_fg}mL/min")
             st.session_state.soip_o = " | ".join(datos_obj_lista)
-            st.session_state.soip_i = sintesis.replace("BLOQUE 1: ALERTAS Y AJUSTES", "").strip()
-            st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{st.session_state.soip_i}"
             
-            # Limpieza específica para Información Clínica
+            # Limpieza específica para Interpretación e Interconsulta (Bloque 1)
+            sintesis_limpia = re.sub(r'<[^>]*>', '', sintesis.replace("BLOQUE 1: ALERTAS Y AJUSTES", "").strip())
+            st.session_state.soip_i = sintesis_limpia
+            st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{sintesis_limpia}"
+            
+            # Limpieza específica para Información Clínica (Bloque 3)
             analisis_clinico_limpio = detalle_limpio.split('⚠️ NOTA IMPORTANTE:')[0].replace('BLOQUE 3: ANALISIS CLINICO', '').strip()
             st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{analisis_clinico_limpio}"
             
@@ -261,8 +264,6 @@ with tabs[1]:
 
 with tabs[2]:
     st.markdown("### 📝 Gestión de Datos (Validación de Registro)")
-    
-    # --- CONFIGURACIÓN DE COLORES Y ETIQUETAS ---
     conf_v = {
         "FECHA": st.column_config.Column("⚪ FECHA"), "CENTRO": st.column_config.Column("⚪ CENTRO"), "RESIDENCIA": st.column_config.Column("⚪ RES"), "ID_REGISTRO": st.column_config.Column("⚪ ID"),
         "EDAD": st.column_config.Column("🔵 EDAD"), "SEXO": st.column_config.Column("🔵 SEXO"), "PESO": st.column_config.Column("🔵 PESO"), "CREATININA": st.column_config.Column("🔵 CREA"),
@@ -277,18 +278,14 @@ with tabs[2]:
         "CAT_RIESGO_MDRD": st.column_config.Column("🟡 CAT_MDRD"), "RIESGO_MDRD": st.column_config.Column("🟡 RIE_MDRD"), "NIVEL_ADE_MDRD": st.column_config.Column("🟡 ADE_MDRD"),
         "CAT_RIESGO_CKD": st.column_config.Column("🟠 CAT_CKD"), "RIESGO_CKD": st.column_config.Column("🟠 RIE_CKD"), "NIVEL_ADE_CKD": st.column_config.Column("🟠 ADE_CKD")
     }
-
     st.markdown("#### Tabla 1: Validaciones de Pacientes")
     st.data_editor(pd.DataFrame(columns=list(conf_v.keys())), column_config=conf_v, use_container_width=True, num_rows="dynamic", key="editor_val")
-    
     st.markdown("#### Tabla 2: Detalle de Medicamentos")
     st.data_editor(pd.DataFrame(columns=list(conf_m.keys())), column_config=conf_m, use_container_width=True, num_rows="dynamic", key="editor_meds")
-    
     st.write("")
     if st.button("📤 GRABAR EN GOOGLE SHEETS", use_container_width=True, type="primary"):
         st.info("Conectando con Google Sheets para volcado de datos...")
         st.success("¡Datos sincronizados exitosamente!")
-
     st.markdown("---")
     st.markdown("### 📚 Histórico de Registros")
     h_tab1, h_tab2, h_tab3 = st.tabs(["🕒 Validaciones", "💊 Medicamentos", "🔍 Análisis Clínico (B3)"])
@@ -296,4 +293,4 @@ with tabs[2]:
     with h_tab2: st.info("Cargando histórico de medicamentos...")
     with h_tab3: st.info("Cargando histórico de análisis clínicos...")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 12 mar 2026 14:40</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 12 mar 2026 15:00</div>""", unsafe_allow_html=True)
