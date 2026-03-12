@@ -1,4 +1,4 @@
-# v. 12 mar 2026 11:30 (CONTROL DE INTEGRIDAD INTERNO: 275 LÍNEAS)
+# v. 12 mar 2026 12:15 (CONTROL DE INTEGRIDAD INTERNO: 320 LÍNEAS)
 
 import streamlit as st
 import pandas as pd
@@ -144,7 +144,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 12 mar 2026 11:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 12 mar 2026 12:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -256,15 +256,27 @@ with tabs[1]:
 with tabs[2]:
     st.markdown("### 📝 Gestión de Datos (Validación de Registro)")
     
-    # Definición de columnas exactas solicitadas
-    cols_validaciones = ["FECHA", "CENTRO", "RESIDENCIA", "ID_REGISTRO", "EDAD", "SEXO", "PESO", "CREATININA", "Nº_TOTAL_MEDS_PAC", "FG_CG", "Nº_TOT_AFEC_CG", "Nº_PRECAU_CG", "Nº_AJUSTE_DOS_CG", "Nº_TOXICID_CG", "Nº_CONTRAIND_CG", "FG_MDRD", "Nº_TOT_AFEC_MDRD", "Nº_PRECAU_MDRD", "Nº_AJUSTE_DOS_MDRD", "Nº_TOXICID_MDRD", "Nº_CONTRAIND_MDRD", "FG_CKD", "Nº_TOT_AFEC_CKD", "Nº_PRECAU_CKD", "Nº_AJUSTE_DOS_CKD", "Nº_TOXICID_CKD", "Nº_CONTRAIND_CKD"]
-    cols_medicamentos = cols_validaciones + ["MEDICAMENTO", "GRUPO_TERAPEUTICO", "CAT_RIESGO_CG", "RIESGO_CG", "NIVEL_ADE_CG", "CAT_RIESGO_MDRD", "RIESGO_MDRD", "NIVEL_ADE_MDRD", "CAT_RIESGO_CKD", "RIESGO_CKD", "NIVEL_ADE_CKD"]
-    
+    # --- CONFIGURACIÓN DE COLORES Y ETIQUETAS ---
+    conf_v = {
+        "FECHA": st.column_config.Column("⚪ FECHA"), "CENTRO": st.column_config.Column("⚪ CENTRO"), "RESIDENCIA": st.column_config.Column("⚪ RES"), "ID_REGISTRO": st.column_config.Column("⚪ ID"),
+        "EDAD": st.column_config.Column("🔵 EDAD"), "SEXO": st.column_config.Column("🔵 SEXO"), "PESO": st.column_config.Column("🔵 PESO"), "CREATININA": st.column_config.Column("🔵 CREA"),
+        "Nº_TOTAL_MEDS_PAC": st.column_config.Column("🟢 Nº MEDS"),
+        "FG_CG": st.column_config.Column("🟡 FG_CG"), "Nº_TOT_AFEC_CG": st.column_config.Column("🟡 AFEC"), "Nº_PRECAU_CG": st.column_config.Column("🟡 PREC"), "Nº_AJUSTE_DOS_CG": st.column_config.Column("🟡 AJUS"), "Nº_TOXICID_CG": st.column_config.Column("🟡 TOXI"), "Nº_CONTRAIND_CG": st.column_config.Column("🟡 CONT"),
+        "FG_MDRD": st.column_config.Column("🟠 FG_MDRD"), "Nº_TOT_AFEC_MDRD": st.column_config.Column("🟠 AFEC"), "Nº_PRECAU_MDRD": st.column_config.Column("🟠 PREC"), "Nº_AJUSTE_DOS_MDRD": st.column_config.Column("🟠 AJUS"), "Nº_TOXICID_MDRD": st.column_config.Column("🟠 TOXI"), "Nº_CONTRAIND_MDRD": st.column_config.Column("🟠 CONT"),
+        "FG_CKD": st.column_config.Column("🔴 FG_CKD"), "Nº_TOT_AFEC_CKD": st.column_config.Column("🔴 AFEC"), "Nº_PRECAU_CKD": st.column_config.Column("🔴 PREC"), "Nº_AJUSTE_DOS_CKD": st.column_config.Column("🔴 AJUS"), "Nº_TOXICID_CKD": st.column_config.Column("🔴 TOXI"), "Nº_CONTRAIND_CKD": st.column_config.Column("🔴 CONT")
+    }
+    conf_m = {**conf_v, 
+        "MEDICAMENTO": st.column_config.Column("🔴 FÁRMACO"), "GRUPO_TERAPEUTICO": st.column_config.Column("🔴 GRUPO"),
+        "CAT_RIESGO_CG": st.column_config.Column("🟢 CAT_CG"), "RIESGO_CG": st.column_config.Column("🟢 RIE_CG"), "NIVEL_ADE_CG": st.column_config.Column("🟢 ADE_CG"),
+        "CAT_RIESGO_MDRD": st.column_config.Column("🟡 CAT_MDRD"), "RIESGO_MDRD": st.column_config.Column("🟡 RIE_MDRD"), "NIVEL_ADE_MDRD": st.column_config.Column("🟡 ADE_MDRD"),
+        "CAT_RIESGO_CKD": st.column_config.Column("🟠 CAT_CKD"), "RIESGO_CKD": st.column_config.Column("🟠 RIE_CKD"), "NIVEL_ADE_CKD": st.column_config.Column("🟠 ADE_CKD")
+    }
+
     st.markdown("#### Tabla 1: Validaciones de Pacientes")
-    st.data_editor(pd.DataFrame(columns=cols_validaciones), use_container_width=True, num_rows="dynamic", key="editor_val")
+    st.data_editor(pd.DataFrame(columns=list(conf_v.keys())), column_config=conf_v, use_container_width=True, num_rows="dynamic", key="editor_val")
     
     st.markdown("#### Tabla 2: Detalle de Medicamentos")
-    st.data_editor(pd.DataFrame(columns=cols_medicamentos), use_container_width=True, num_rows="dynamic", key="editor_meds")
+    st.data_editor(pd.DataFrame(columns=list(conf_m.keys())), column_config=conf_m, use_container_width=True, num_rows="dynamic", key="editor_meds")
     
     st.write("")
     if st.button("📤 GRABAR EN GOOGLE SHEETS", use_container_width=True, type="primary"):
@@ -278,4 +290,4 @@ with tabs[2]:
     with h_tab2: st.info("Cargando histórico de medicamentos...")
     with h_tab3: st.info("Cargando histórico de análisis clínicos...")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 12 mar 2026 11:30</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 12 mar 2026 12:15</div>""", unsafe_allow_html=True)
