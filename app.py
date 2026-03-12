@@ -1,4 +1,4 @@
-# v. 12 mar 2026 12:15 (CONTROL DE INTEGRIDAD INTERNO: 320 LÍNEAS)
+# v. 12 mar 2026 14:10 (CONTROL DE INTEGRIDAD INTERNO: 322 LÍNEAS)
 
 import streamlit as st
 import pandas as pd
@@ -16,28 +16,28 @@ import constants as c
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#      "Filtrado Glomerular" (cuadro negro con glow morado).
+#       "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#      - Cuadros negros superiores (ZONA y ACTIVO).
-#      - Pestañas (Tabs) de navegación.
-#      - Registro de Paciente: Estructura y función de fila única.
-#      - Estructura del área de recorte y listado de medicación.
-#      - Barra dual de validación (VALIDAR / RESET).
-#      - Aviso legal amarillo inferior (Warning).
+#       - Cuadros negros superiores (ZONA y ACTIVO).
+#       - Pestañas (Tabs) de navegación.
+#       - Registro de Paciente: Estructura y función de fila única.
+#       - Estructura del área de recorte y listado de medicación.
+#       - Barra dual de validación (VALIDAR / RESET).
+#       - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#      "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#       "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#      principios antes y después de cada cambio. No se simplifican líneas.
+#       principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#      ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#       ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#      se considerará pérdida de principios.
+#       se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#       sus textos flotantes (placeholders) y los textos predefinidos en las
-#       secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#        sus textos flotantes (placeholders) y los textos predefinidos en las
+#        secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#       principio blindado; es informativo y no debe impedir la validación.
+#        principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -120,7 +120,7 @@ def inject_styles():
     .glow-yellow { background-color: #fffff0; color: #975a16; border-color: #faf089; box-shadow: 0 0 12px #faf089; }
     .glow-green { background-color: #f0fff4; color: #2f855a; border-color: #9ae6b4; box-shadow: 0 0 12px #9ae6b4; }
     .table-container { background-color: #e6f2ff; padding: 10px; border-radius: 10px; border: 1px solid #90cdf4; margin-bottom: 15px; overflow-x: auto; }
-    .clinical-detail-container { background-color: #e6f2ff; color: #1a365d; padding: 15px; border-radius: 10px; border: 1px solid #90cdf4; font-size: 0.9rem; line-height: 1.6; }
+    .clinical-detail-container { background-color: #e6f2ff; color: #1a365d; padding: 15px; border-radius: 10px; border: 1px solid #90cdf4; font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap; }
     .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
     .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
@@ -144,7 +144,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 12 mar 2026 12:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 12 mar 2026 14:10</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -224,7 +224,9 @@ with tabs[0]:
             glow = obtener_glow_class(sintesis)
             st.markdown(f'<div class="synthesis-box {glow}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
-            st.markdown(f'''<div class="clinical-detail-container">{detalle.replace("\n","<br>")}<div class="nota-importante-box"><div style="font-weight: 800; margin-bottom: 8px;">⚠️ NOTA IMPORTANTE:</div><div class="nota-item">1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</div><div class="nota-item">2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</div><div class="nota-item">3. La decisión final corresponde siempre al prescriptor médico.</div><div class="nota-item">4. Considere la situación clínica global del paciente antes de modificar dosis.</div></div></div>''', unsafe_allow_html=True)
+            
+            # BLOQUE 3: RENDERIZADO COMO TEXTO PLANO
+            st.markdown(f'''<div class="clinical-detail-container">{detalle}<div class="nota-importante-box"><div style="font-weight: 800; margin-bottom: 8px;">⚠️ NOTA IMPORTANTE:</div><div class="nota-item">1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</div><div class="nota-item">2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</div><div class="nota-item">3. La decisión final corresponde siempre al prescriptor médico.</div><div class="nota-item">4. Considere la situación clínica global del paciente antes de modificar dosis.</div></div></div>''', unsafe_allow_html=True)
             
             # Persistencia de datos en informe
             datos_obj_lista = []
@@ -290,4 +292,4 @@ with tabs[2]:
     with h_tab2: st.info("Cargando histórico de medicamentos...")
     with h_tab3: st.info("Cargando histórico de análisis clínicos...")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 12 mar 2026 12:15</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 12 mar 2026 14:10</div>""", unsafe_allow_html=True)
