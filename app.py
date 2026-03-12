@@ -1,4 +1,4 @@
-# v. 12 mar 2026 21:15 (CONTROL DE INTEGRIDAD INTERNO: TABLA 12 COLS + JSON ROBUSTO)
+# v. 12 mar 2026 21:30 (CONTROL DE INTEGRIDAD INTERNO: RESTAURACIÓN TOTAL INFORME + 12 COLS + JSON)
 
 import streamlit as st
 import pandas as pd
@@ -146,7 +146,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 12 mar 2026 21:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 12 mar 2026 21:30</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -224,11 +224,25 @@ with tabs[0]:
             detalle_limpio = re.sub(r'<[^>]*>', '', detalle)
             st.markdown(f'''<div class="clinical-detail-container">{detalle_limpio}</div>''', unsafe_allow_html=True)
             
+            # INYECCIÓN AUTOMÁTICA EN INFORME
+            datos_obj_lista = []
+            if calc_e: datos_obj_lista.append(f"Edad: {calc_e}a")
+            if calc_p: datos_obj_lista.append(f"Peso: {calc_p}kg")
+            if calc_c: datos_obj_lista.append(f"Crea: {calc_c}mg/dL")
+            if valor_fg: datos_obj_lista.append(f"FG: {valor_fg}mL/min")
+            st.session_state.soip_o = " | ".join(datos_obj_lista)
+
+            sintesis_limpia = re.sub(r'<[^>]*>', '', sintesis.replace("BLOQUE 1: ALERTAS Y AJUSTES", "").strip())
+            st.session_state.soip_i = sintesis_limpia
+            st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{sintesis_limpia}"
+            
+            analisis_clinico_limpio = detalle_limpio.split('⚠️ NOTA IMPORTANTE:')[0].replace('BLOQUE 3: ANÁLISIS CLÍNICO', '').strip()
+            st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{analisis_clinico_limpio}"
+
             # PROCESAMIENTO JSON ROBUSTO
             try:
                 json_data_str = re.sub(r"```json|```", "", json_data_str).strip()
                 data = json.loads(json_data_str)
-                
                 pac_row = {
                     "FECHA": datetime.now().strftime("%d/%m/%Y"), "CENTRO": st.session_state.reg_centro, "RESIDENCIA": st.session_state.reg_res, "ID_REGISTRO": st.session_state.reg_id,
                     "EDAD": calc_e, "SEXO": calc_s, "PESO": calc_p, "CREATININA": calc_c, "Nº_TOTAL_MEDS_PAC": data["paciente"]["N_TOTAL_MEDS_PAC"],
@@ -236,28 +250,44 @@ with tabs[0]:
                     "FG_MDRD": val_mdrd, "Nº_TOT_AFEC_MDRD": data["paciente"]["MDRD"]["TOT_AFECTADOS"], "Nº_PRECAU_MDRD": data["paciente"]["MDRD"]["PRECAUCION"], "Nº_AJUSTE_DOS_MDRD": data["paciente"]["MDRD"]["AJUSTE_DOSIS"], "Nº_TOXICID_MDRD": data["paciente"]["MDRD"]["TOXICIDAD"], "Nº_CONTRAIND_MDRD": data["paciente"]["MDRD"]["CONTRAINDICADOS"],
                     "FG_CKD": val_ckd, "Nº_TOT_AFEC_CKD": data["paciente"]["CKD"]["TOT_AFECTADOS"], "Nº_PRECAU_CKD": data["paciente"]["CKD"]["PRECAUCION"], "Nº_AJUSTE_DOS_CKD": data["paciente"]["CKD"]["AJUSTE_DOSIS"], "Nº_TOXICID_CKD": data["paciente"]["CKD"]["TOXICIDAD"], "Nº_CONTRAIND_CKD": data["paciente"]["CKD"]["CONTRAINDICADOS"]
                 }
-                
                 st.session_state.df_val = pd.concat([st.session_state.df_val, pd.DataFrame([pac_row])], ignore_index=True)
                 meds_list = [{**pac_row, **m} for m in data["medicamentos"]]
                 st.session_state.df_meds = pd.concat([st.session_state.df_meds, pd.DataFrame(meds_list)], ignore_index=True)
-                
             except Exception as e:
                 st.error(f"⚠️ Error JSON: {e}")
                 with st.expander("Ver JSON"): st.code(json_data_str, language="json")
 
-            if st.button("💾 GRABAR DATOS", key="btn_grabar", use_container_width=True):
-                st.toast("Datos registrados.")
+            st.write("")
+            c_save_1, c_save_2, c_save_3 = st.columns([1, 1, 1])
+            with c_save_2:
+                if st.button("💾 GRABAR DATOS", key="btn_grabar", use_container_width=True):
+                    st.toast("Datos registrados.")
         except Exception as e: st.error(f"Error: {e}")
 
-# (Resto de pestañas INFORME, DATOS, GRÁFICOS se mantienen igual que en v. 20:00)
 with tabs[1]:
-    for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100)]:
-        st.markdown(f'<div class="linea-discreta-soip">{label}</div>', unsafe_allow_html=True)
-        st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed")
+    st.markdown('<div class="linea-discreta-soip">Subjetivo (S)</div>', unsafe_allow_html=True)
+    st.text_area("soip_s", st.session_state.soip_s, height=70, label_visibility="collapsed", placeholder="Contenido de Subjetivo...")
+    
+    st.markdown('<div class="linea-discreta-soip">Objetivo (O)</div>', unsafe_allow_html=True)
+    st.text_area("soip_o", st.session_state.soip_o, height=70, label_visibility="collapsed", placeholder="Contenido de Objetivo...")
+    
+    st.markdown('<div class="linea-discreta-soip">Interpretación (I)</div>', unsafe_allow_html=True)
+    st.text_area("soip_i", st.session_state.soip_i, height=120, label_visibility="collapsed", placeholder="Contenido de Interpretación...")
+    
+    st.markdown('<div class="linea-discreta-soip">Plan (P)</div>', unsafe_allow_html=True)
+    st.text_area("soip_p", st.session_state.soip_p, height=100, label_visibility="collapsed", placeholder="Contenido de Plan...")
+    
+    st.markdown('<div class="linea-discreta-soip">INTERCONSULTA</div>', unsafe_allow_html=True)
+    st.text_area("ic_inter", st.session_state.ic_inter, height=150, label_visibility="collapsed", placeholder="Se solicita revisión...")
+    
+    st.markdown('<div class="linea-discreta-soip">INFORMACIÓN CLÍNICA</div>', unsafe_allow_html=True)
+    st.text_area("ic_clinica", st.session_state.ic_clinica, height=250, label_visibility="collapsed", placeholder="Datos objetivos y análisis clínico...")
 
 with tabs[2]:
     st.markdown("### 📊 Tablas de Datos")
+    st.markdown("#### Validaciones")
     st.dataframe(st.session_state.df_val, use_container_width=True)
+    st.markdown("#### Medicamentos")
     st.dataframe(st.session_state.df_meds, use_container_width=True)
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 12 mar 2026 21:15</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 12 mar 2026 21:30</div>""", unsafe_allow_html=True)
