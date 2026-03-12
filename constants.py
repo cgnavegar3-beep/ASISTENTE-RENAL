@@ -1,6 +1,6 @@
 # constants.py - Algoritmo Experto en Farmacoterapéutica Renal (AFR-V10.4)
-# Versión: v. 12 mar 2026 19:00
-# Control Interno: Estructura estable con tabla matriz y bloque JSON para volcado automático.
+# Versión: v. 12 mar 2026 20:00
+# Control Interno: Estructura estable con bloque JSON purificado para automatización.
 
 PROMPT_AFR_V10 = r"""[REGLA DE ORO: SILENCIO ABSOLUTO]
 No saludes. No confirmes instrucciones. No añadas preámbulos.
@@ -59,25 +59,27 @@ BLOQUE 3: ANÁLISIS CLÍNICO (EXCLUSIVO COCKCROFT-GAULT)
 |||
 {
   "paciente": {
-    "N_TOTAL_MEDS_PAC": [Suma total de fármacos introducidos por el usuario],
+    "N_TOTAL_MEDS_PAC": 0,
     "CG": {
-      "TOT_AFECTADOS": [Suma 1-4], "PRECAUCION": [Suma cat 1], "AJUSTE_DOSIS": [Suma cat 2], "TOXICIDAD": [Suma cat 3], "CONTRAINDICADOS": [Suma cat 4]
+      "TOT_AFECTADOS": 0, "PRECAUCION": 0, "AJUSTE_DOSIS": 0, "TOXICIDAD": 0, "CONTRAINDICADOS": 0
     },
     "MDRD": {
-      "TOT_AFECTADOS": [Suma 1-4], "PRECAUCION": [Suma cat 1], "AJUSTE_DOSIS": [Suma cat 2], "TOXICIDAD": [Suma cat 3], "CONTRAINDICADOS": [Suma cat 4]
+      "TOT_AFECTADOS": 0, "PRECAUCION": 0, "AJUSTE_DOSIS": 0, "TOXICIDAD": 0, "CONTRAINDICADOS": 0
     },
     "CKD": {
-      "TOT_AFECTADOS": [Suma 1-4], "PRECAUCION": [Suma cat 1], "AJUSTE_DOSIS": [Suma cat 2], "TOXICIDAD": [Suma cat 3], "CONTRAINDICADOS": [Suma cat 4]
+      "TOT_AFECTADOS": 0, "PRECAUCION": 0, "AJUSTE_DOSIS": 0, "TOXICIDAD": 0, "CONTRAINDICADOS": 0
     }
   },
   "medicamentos": [
     {
-      "MEDICAMENTO": "[Nombre]",
-      "GRUPO_TERAPEUTICO": "[Grupo + ATC]",
-      "CAT_RIESGO_CG": "[Icono + Texto]", "RIESGO_CG": "[Cualitativo]", "NIVEL_ADE_CG": [0-4],
-      "CAT_RIESGO_MDRD": "[Icono + Texto]", "RIESGO_MDRD": "[Cualitativo]", "NIVEL_ADE_MDRD": [0-4],
-      "CAT_RIESGO_CKD": "[Icono + Texto]", "RIESGO_CKD": "[Cualitativo]", "NIVEL_ADE_CKD": [0-4]
+      "MEDICAMENTO": "string",
+      "GRUPO_TERAPEUTICO": "string",
+      "CAT_RIESGO_CG": "string", "RIESGO_CG": "string", "NIVEL_ADE_CG": 0,
+      "CAT_RIESGO_MDRD": "string", "RIESGO_MDRD": "string", "NIVEL_ADE_MDRD": 0,
+      "CAT_RIESGO_CKD": "string", "RIESGO_CKD": "string", "NIVEL_ADE_CKD": 0
     }
   ]
 }
+
+[REGLA PARA EL BLOQUE 4]: Sustituye los valores 0 por los conteos aritméticos reales detectados. Sustituye "string" por la información correspondiente. No añadas preámbulos ni explicaciones fuera del JSON. El JSON debe ser estrictamente válido.
 """
