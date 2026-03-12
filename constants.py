@@ -1,5 +1,5 @@
-# constants.py - Algoritmo Experto en Farmacoterapéutica Renal (AFR-V10.2)
-# Versión: v. 09 mar 2026 18:35
+# constants.py - Algoritmo Experto en Farmacoterapéutica Renal (AFR-V10.3)
+# Versión: v. 12 mar 2026 10:45
 # Control Interno: Estructura estable con tabla matriz y mapeo de 15 columnas
 
 PROMPT_AFR_V10 = r"""[REGLA DE ORO: SILENCIO ABSOLUTO]
@@ -53,9 +53,9 @@ BLOQUE 2: TABLA COMPARATIVA
 
 <tr style="font-weight:bold; background-color:#f2f2f2; text-align:center;">
 <td colspan="3">Total afectados</td>
-<td colspan="4" style="text-align:center;">[Tot_CG]</td>
-<td colspan="4" style="text-align:center;">[Tot_MDRD]</td>
-<td colspan="4" style="text-align:center;">[Tot_CKD]</td>
+<td colspan="4" style="text-align:center;">[Tot_CG: Suma aritmética de fármacos con riesgo 1-4 en esta columna]</td>
+<td colspan="4" style="text-align:center;">[Tot_MDRD: Suma aritmética de fármacos con riesgo 1-4 en esta columna]</td>
+<td colspan="4" style="text-align:center;">[Tot_CKD: Suma aritmética de fármacos con riesgo 1-4 en esta columna]</td>
 </tr>
 <tr style="text-align:center;">
 <td colspan="3">Nº Contraindicados</td>
@@ -84,6 +84,6 @@ BLOQUE 2: TABLA COMPARATIVA
 </table>
 
 |||
-BLOQUE 3: ANALISIS CLINICO
-• [ICONO] Principio activo — Categoría clínica — [Justificación basada en C-G] (Fuente)
+BLOQUE 3: ANÁLISIS CLÍNICO
+• [ICONO] Principio activo — Categoría clínica — [Justificación clínica interpretativa basada en C-G. No repetir dosis ni alertas del Bloque 1; aportar análisis sobre seguridad, farmacocinética o riesgos específicos según el aclaramiento C-G] (Fuente)
 """
