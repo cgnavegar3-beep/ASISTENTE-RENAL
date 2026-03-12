@@ -1,4 +1,4 @@
-# v. 12 mar 2026 14:10 (CONTROL DE INTEGRIDAD INTERNO: 322 LÍNEAS)
+# v. 12 mar 2026 14:40 (CONTROL DE INTEGRIDAD INTERNO: 322 LÍNEAS)
 
 import streamlit as st
 import pandas as pd
@@ -16,28 +16,28 @@ import constants as c
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#       "Filtrado Glomerular" (cuadro negro con glow morado).
+#        "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#       - Cuadros negros superiores (ZONA y ACTIVO).
-#       - Pestañas (Tabs) de navegación.
-#       - Registro de Paciente: Estructura y función de fila única.
-#       - Estructura del área de recorte y listado de medicación.
-#       - Barra dual de validación (VALIDAR / RESET).
-#       - Aviso legal amarillo inferior (Warning).
+#        - Cuadros negros superiores (ZONA y ACTIVO).
+#        - Pestañas (Tabs) de navegación.
+#        - Registro de Paciente: Estructura y función de fila única.
+#        - Estructura del área de recorte y listado de medicación.
+#        - Barra dual de validación (VALIDAR / RESET).
+#        - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#       "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#        "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#       principios antes y después de cada cambio. No se simplifican líneas.
+#        principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#       ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#        ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#       se considerará pérdida de principios.
+#        se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#        sus textos flotantes (placeholders) y los textos predefinidos en las
-#        secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#         sus textos flotantes (placeholders) and los textos predefinidos en las
+#         secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#        principio blindado; es informativo y no debe impedir la validación.
+#         principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -144,7 +144,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 12 mar 2026 14:10</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 12 mar 2026 14:40</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -225,8 +225,9 @@ with tabs[0]:
             st.markdown(f'<div class="synthesis-box {glow}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
             
-            # BLOQUE 3: RENDERIZADO COMO TEXTO PLANO
-            st.markdown(f'''<div class="clinical-detail-container">{detalle}<div class="nota-importante-box"><div style="font-weight: 800; margin-bottom: 8px;">⚠️ NOTA IMPORTANTE:</div><div class="nota-item">1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</div><div class="nota-item">2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</div><div class="nota-item">3. La decisión final corresponde siempre al prescriptor médico.</div><div class="nota-item">4. Considere la situación clínica global del paciente antes de modificar dosis.</div></div></div>''', unsafe_allow_html=True)
+            # --- EVOLUCIÓN BLOQUE 3: LIMPIEZA DE HTML PARA TEXTO PLANO ---
+            detalle_limpio = re.sub(r'<[^>]*>', '', detalle) # Elimina cualquier etiqueta HTML
+            st.markdown(f'''<div class="clinical-detail-container">{detalle_limpio}<div class="nota-importante-box"><div style="font-weight: 800; margin-bottom: 8px;">⚠️ NOTA IMPORTANTE:</div><div class="nota-item">1. Verifique siempre con la ficha técnica oficial (AEMPS/EMA).</div><div class="nota-item">2. Los ajustes propuestos son orientativos según filtrado glomerular actual.</div><div class="nota-item">3. La decisión final corresponde siempre al prescriptor médico.</div><div class="nota-item">4. Considere la situación clínica global del paciente antes de modificar dosis.</div></div></div>''', unsafe_allow_html=True)
             
             # Persistencia de datos en informe
             datos_obj_lista = []
@@ -237,7 +238,10 @@ with tabs[0]:
             st.session_state.soip_o = " | ".join(datos_obj_lista)
             st.session_state.soip_i = sintesis.replace("BLOQUE 1: ALERTAS Y AJUSTES", "").strip()
             st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{st.session_state.soip_i}"
-            st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{detalle.split('⚠️ NOTA IMPORTANTE:')[0].replace('BLOQUE 3: ANALISIS CLINICO', '').strip()}"
+            
+            # Limpieza específica para Información Clínica
+            analisis_clinico_limpio = detalle_limpio.split('⚠️ NOTA IMPORTANTE:')[0].replace('BLOQUE 3: ANALISIS CLINICO', '').strip()
+            st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{analisis_clinico_limpio}"
             
             st.write("")
             c_save_1, c_save_2, c_save_3 = st.columns([1, 1, 1])
@@ -292,4 +296,4 @@ with tabs[2]:
     with h_tab2: st.info("Cargando histórico de medicamentos...")
     with h_tab3: st.info("Cargando histórico de análisis clínicos...")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 12 mar 2026 14:10</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 12 mar 2026 14:40</div>""", unsafe_allow_html=True)
