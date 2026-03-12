@@ -1,6 +1,6 @@
-# constants.py - Algoritmo Experto en Farmacoterapéutica Renal (AFR-V10.4)
-# Versión: v. 12 mar 2026 20:00
-# Control Interno: Estructura estable con bloque JSON purificado para automatización.
+# constants.py - Algoritmo Experto en Farmacoterapéutica Renal (AFR-V10.5)
+# Versión: v. 12 mar 2026 21:15
+# REVISIÓN: Restauración de 12 columnas obligatorias en Bloque 2 y JSON purificado.
 
 PROMPT_AFR_V10 = r"""[REGLA DE ORO: SILENCIO ABSOLUTO]
 No saludes. No confirmes instrucciones. No añadas preámbulos.
@@ -13,7 +13,7 @@ Actúa como un Algoritmo Experto en Farmacoterapéutica Renal (AFR-V10).
 - NUNCA MODIFICAR LAS PALABRAS CLAVE DE LAS CATEGORÍAS.
 - ORDENACIÓN CRÍTICA: Bloques 1, 2 y 3: ⛔ > ⚠️⚠️⚠️ > ⚠️⚠️ > ⚠️ 
 - REGLA de "CELDAS CUBIERTAS" (BLOQUE 2): 
-  * SI UN FÁRMACO TIENE RIESGO (1, 2, 3 o 4) EN CUALQUIERA DE LAS 3 FÓRMULAS, ES OBLIGATORIO RELLENAR TODAS LAS COLUMNAS, aunque alguno tenga riesgo 0 (✅) para otro FG
+  * SI UN FÁRMACO TIENE RIESGO (1, 2, 3 o 4) EN CUALQUIERA DE LAS 3 FÓRMULAS, ES OBLIGATORIO RELLENAR TODAS LAS COLUMNAS, aunque alguno tenga riesgo 0 (✅) para otro FG.
   * Se ordenarán según el FG G-C con este orden: ⛔ > ⚠️⚠️⚠️ > ⚠️⚠️ > ⚠️
   * Escribir "Sin ajuste, 0" en lugar de celdas vacías.
 - GRUPO Y ATC: En la columna "Grupo terapéutico (ATC)", identificar grupo seguido del código ATC.
@@ -39,17 +39,28 @@ BLOQUE 1: ALERTAS Y AJUSTES
 
 |||
 BLOQUE 2: TABLA COMPARATIVA
-<table style="width:100%; border-collapse: collapse; font-size: 0.8rem; color: #333;">
+<table style="width:100%; border-collapse: collapse; font-size: 0.8rem; color: #333; border: 1px solid #ccc;">
 <tr style="background-color:#0057b8;color:white;">
-<th></th><th></th><th></th><th colspan="4">FG G-C</th><th colspan="4">FG MDRD-4</th><th colspan="4">FG CKD</th>
+  <th style="padding:8px;"></th><th style="padding:8px;"></th><th style="padding:8px;"></th>
+  <th colspan="3" style="border-left:2px solid white; text-align:center;">FG Cockcroft-Gault</th>
+  <th colspan="3" style="border-left:2px solid white; text-align:center;">FG MDRD-4</th>
+  <th colspan="3" style="border-left:2px solid white; text-align:center;">FG CKD-EPI</th>
 </tr>
-<tr style="background-color:#e9ecef;">
-<th>Icono</th><th>Fármaco</th><th>Grupo terapéutico (ATC)</th>
-<th>Valor G-C</th><th>Cat G-C</th><th>Riesgo G-C</th><th>Nivel riesgo G-C</th>
-<th>Valor MDRD</th><th>Cat MDRD</th><th>Riesgo MDRD</th><th>Nivel riesgo MDRD</th>
-<th>Valor CKD</th><th>Cat CKD</th><th>Riesgo CKD</th><th>Nivel riesgo CKD</th>
+<tr style="background-color:#e9ecef; text-align:center; font-weight:bold;">
+  <td style="padding:5px; border:1px solid #ccc;">Icono</td>
+  <td style="padding:5px; border:1px solid #ccc;">Fármaco</td>
+  <td style="padding:5px; border:1px solid #ccc;">Grupo (ATC)</td>
+  <td style="padding:5px; border:2px solid #0057b8; background-color:#f0f7ff;">Cat G-C</td>
+  <td style="padding:5px; border:1px solid #0057b8; background-color:#f0f7ff;">Riesgo</td>
+  <td style="padding:5px; border:1px solid #0057b8; background-color:#f0f7ff;">Nivel</td>
+  <td style="padding:5px; border:2px solid #1e4620; background-color:#f0fff4;">Cat MDRD</td>
+  <td style="padding:5px; border:1px solid #1e4620; background-color:#f0fff4;">Riesgo</td>
+  <td style="padding:5px; border:1px solid #1e4620; background-color:#f0fff4;">Nivel</td>
+  <td style="padding:5px; border:2px solid #6a0dad; background-color:#f8f0ff;">Cat CKD</td>
+  <td style="padding:5px; border:1px solid #6a0dad; background-color:#f8f0ff;">Riesgo</td>
+  <td style="padding:5px; border:1px solid #6a0dad; background-color:#f8f0ff;">Nivel</td>
 </tr>
-[FILAS DE FÁRMACOS]
+[FILAS DE FÁRMACOS: Rellenar las 12 columnas obligatorias para cada fármaco detectado]
 </table>
 
 |||
@@ -60,15 +71,9 @@ BLOQUE 3: ANÁLISIS CLÍNICO (EXCLUSIVO COCKCROFT-GAULT)
 {
   "paciente": {
     "N_TOTAL_MEDS_PAC": 0,
-    "CG": {
-      "TOT_AFECTADOS": 0, "PRECAUCION": 0, "AJUSTE_DOSIS": 0, "TOXICIDAD": 0, "CONTRAINDICADOS": 0
-    },
-    "MDRD": {
-      "TOT_AFECTADOS": 0, "PRECAUCION": 0, "AJUSTE_DOSIS": 0, "TOXICIDAD": 0, "CONTRAINDICADOS": 0
-    },
-    "CKD": {
-      "TOT_AFECTADOS": 0, "PRECAUCION": 0, "AJUSTE_DOSIS": 0, "TOXICIDAD": 0, "CONTRAINDICADOS": 0
-    }
+    "CG": { "TOT_AFECTADOS": 0, "PRECAUCION": 0, "AJUSTE_DOSIS": 0, "TOXICIDAD": 0, "CONTRAINDICADOS": 0 },
+    "MDRD": { "TOT_AFECTADOS": 0, "PRECAUCION": 0, "AJUSTE_DOSIS": 0, "TOXICIDAD": 0, "CONTRAINDICADOS": 0 },
+    "CKD": { "TOT_AFECTADOS": 0, "PRECAUCION": 0, "AJUSTE_DOSIS": 0, "TOXICIDAD": 0, "CONTRAINDICADOS": 0 }
   },
   "medicamentos": [
     {
