@@ -85,5 +85,5 @@ BLOQUE 2: TABLA COMPARATIVA
 
 |||
 BLOQUE 3: ANÁLISIS CLÍNICO (EXCLUSIVO COCKCROFT-GAULT)
-• [ICONO] Principio activo — Categoría clínica — [ANÁLISIS DE SEGURIDAD: Prohibido repetir dosis, miligramos o pautas del Bloque 1. Describe el riesgo fisiopatológico, la posible acumulación plasmática, riesgo de eventos adversos específicos o el parámetro clínico a monitorizar (ej. potasio, hemorragia, QT) debido al aclaramiento C-G detectado] (Fuente)
+• [ICONO] Principio activo — Categoría clínica — [ANÁLISIS CLÍNICO: Descripción interpretativa completa basada en C-G; **sin HTML ni etiquetas <span>**; no repetir dosis, miligramos o pautas del Bloque 1; describir riesgos fisiopatológicos, posibles acumulaciones plasmáticas, eventos adversos específicos o parámetros clínicos a monitorizar según aclaramiento C-G detectado] (Fuente)
 """
