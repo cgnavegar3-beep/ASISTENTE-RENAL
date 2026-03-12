@@ -1,4 +1,4 @@
-# v. 12 mar 2026 15:00 (CONTROL DE INTEGRIDAD INTERNO: 322 LÍNEAS)
+# v. 12 mar 2026 19:30 (CONTROL DE INTEGRIDAD INTERNO: EVOLUCIÓN TABLAS DATOS)
 
 import streamlit as st
 import pandas as pd
@@ -8,6 +8,7 @@ import google.generativeai as genai
 import random
 import re
 import os
+import json
 import constants as c 
 
 # =================================================================
@@ -49,6 +50,10 @@ if "soip_s" not in st.session_state: st.session_state.soip_s = "Revisión farmac
 if "soip_p" not in st.session_state: st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
 if "analisis_realizado" not in st.session_state: st.session_state.analisis_realizado = False
 if "resp_ia" not in st.session_state: st.session_state.resp_ia = None
+
+# Inicialización de DataFrames para Tablas de Datos
+if "df_val" not in st.session_state: st.session_state.df_val = pd.DataFrame()
+if "df_meds" not in st.session_state: st.session_state.df_meds = pd.DataFrame()
 
 for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
     if key not in st.session_state: st.session_state[key] = ""
@@ -144,7 +149,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 12 mar 2026 15:00</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 12 mar 2026 19:30</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -219,8 +224,8 @@ with tabs[0]:
         resp = st.session_state.resp_ia[st.session_state.resp_ia.find("|||"):] if "|||" in st.session_state.resp_ia else st.session_state.resp_ia
         try:
             partes = [p.strip() for p in resp.split("|||") if p.strip()]
-            while len(partes) < 3: partes.append("")
-            sintesis, tabla, detalle = partes[:3]
+            while len(partes) < 4: partes.append("")
+            sintesis, tabla, detalle, json_data_str = partes[:4]
             glow = obtener_glow_class(sintesis)
             st.markdown(f'<div class="synthesis-box {glow}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
@@ -237,15 +242,37 @@ with tabs[0]:
             if valor_fg: datos_obj_lista.append(f"FG: {valor_fg}mL/min")
             st.session_state.soip_o = " | ".join(datos_obj_lista)
             
-            # Limpieza específica para Interpretación e Interconsulta (Bloque 1)
+            # Limpieza específica para Interpretación e Interconsulta
             sintesis_limpia = re.sub(r'<[^>]*>', '', sintesis.replace("BLOQUE 1: ALERTAS Y AJUSTES", "").strip())
             st.session_state.soip_i = sintesis_limpia
             st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{sintesis_limpia}"
             
-            # Limpieza específica para Información Clínica (Bloque 3)
+            # Limpieza específica para Información Clínica
             analisis_clinico_limpio = detalle_limpio.split('⚠️ NOTA IMPORTANTE:')[0].replace('BLOQUE 3: ANALISIS CLINICO', '').strip()
             st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{analisis_clinico_limpio}"
-            
+
+            # EVOLUCIÓN: PROCESAMIENTO JSON PARA TABLAS
+            try:
+                data = json.loads(json_data_str)
+                # Datos comunes del paciente
+                pac_row = {
+                    "FECHA": datetime.now().strftime("%d/%m/%Y"), "CENTRO": st.session_state.reg_centro, "RESIDENCIA": st.session_state.reg_res, "ID_REGISTRO": st.session_state.reg_id,
+                    "EDAD": calc_e, "SEXO": calc_s, "PESO": calc_p, "CREATININA": calc_c, "Nº_TOTAL_MEDS_PAC": data["paciente"]["N_TOTAL_MEDS_PAC"],
+                    "FG_CG": valor_fg, "Nº_TOT_AFEC_CG": data["paciente"]["CG"]["TOT_AFECTADOS"], "Nº_PRECAU_CG": data["paciente"]["CG"]["PRECAUCION"], "Nº_AJUSTE_DOS_CG": data["paciente"]["CG"]["AJUSTE_DOSIS"], "Nº_TOXICID_CG": data["paciente"]["CG"]["TOXICIDAD"], "Nº_CONTRAIND_CG": data["paciente"]["CG"]["CONTRAINDICADOS"],
+                    "FG_MDRD": val_mdrd, "Nº_TOT_AFEC_MDRD": data["paciente"]["MDRD"]["TOT_AFECTADOS"], "Nº_PRECAU_MDRD": data["paciente"]["MDRD"]["PRECAUCION"], "Nº_AJUSTE_DOS_MDRD": data["paciente"]["MDRD"]["AJUSTE_DOSIS"], "Nº_TOXICID_MDRD": data["paciente"]["MDRD"]["TOXICIDAD"], "Nº_CONTRAIND_MDRD": data["paciente"]["MDRD"]["CONTRAINDICADOS"],
+                    "FG_CKD": val_ckd, "Nº_TOT_AFEC_CKD": data["paciente"]["CKD"]["TOT_AFECTADOS"], "Nº_PRECAU_CKD": data["paciente"]["CKD"]["PRECAUCION"], "Nº_AJUSTE_DOS_CKD": data["paciente"]["CKD"]["AJUSTE_DOSIS"], "Nº_TOXICID_CKD": data["paciente"]["CKD"]["TOXICIDAD"], "Nº_CONTRAIND_CKD": data["paciente"]["CKD"]["CONTRAINDICADOS"]
+                }
+                # Relleno Tabla 1
+                st.session_state.df_val = pd.concat([st.session_state.df_val, pd.DataFrame([pac_row])], ignore_index=True)
+                
+                # Relleno Tabla 2
+                meds_list = []
+                for m in data["medicamentos"]:
+                    m_row = {**pac_row, **m}
+                    meds_list.append(m_row)
+                st.session_state.df_meds = pd.concat([st.session_state.df_meds, pd.DataFrame(meds_list)], ignore_index=True)
+            except: pass # Fallback silencioso si el JSON falla
+
             st.write("")
             c_save_1, c_save_2, c_save_3 = st.columns([1, 1, 1])
             with c_save_2:
@@ -279,9 +306,9 @@ with tabs[2]:
         "CAT_RIESGO_CKD": st.column_config.Column("🟠 CAT_CKD"), "RIESGO_CKD": st.column_config.Column("🟠 RIE_CKD"), "NIVEL_ADE_CKD": st.column_config.Column("🟠 ADE_CKD")
     }
     st.markdown("#### Tabla 1: Validaciones de Pacientes")
-    st.data_editor(pd.DataFrame(columns=list(conf_v.keys())), column_config=conf_v, use_container_width=True, num_rows="dynamic", key="editor_val")
+    st.data_editor(st.session_state.df_val, column_config=conf_v, use_container_width=True, num_rows="dynamic", key="editor_val")
     st.markdown("#### Tabla 2: Detalle de Medicamentos")
-    st.data_editor(pd.DataFrame(columns=list(conf_m.keys())), column_config=conf_m, use_container_width=True, num_rows="dynamic", key="editor_meds")
+    st.data_editor(st.session_state.df_meds, column_config=conf_m, use_container_width=True, num_rows="dynamic", key="editor_meds")
     st.write("")
     if st.button("📤 GRABAR EN GOOGLE SHEETS", use_container_width=True, type="primary"):
         st.info("Conectando con Google Sheets para volcado de datos...")
@@ -293,4 +320,4 @@ with tabs[2]:
     with h_tab2: st.info("Cargando histórico de medicamentos...")
     with h_tab3: st.info("Cargando histórico de análisis clínicos...")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 12 mar 2026 15:00</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Esta herramienta es de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 12 mar 2026 19:30</div>""", unsafe_allow_html=True)
