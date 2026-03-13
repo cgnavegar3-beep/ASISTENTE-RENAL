@@ -1,4 +1,4 @@
-# v. 13 mar 2026 13:00 (AJUSTE ESTÉTICO: UNIFICACIÓN DE ALERTAS PARPADEANTES)
+# v. 13 mar 2026 13:15 (AJUSTE: UNIFICACIÓN Y ATENUACIÓN DE BOTÓN GRABAR)
 
 import streamlit as st
 import pandas as pd
@@ -17,28 +17,28 @@ import constants as c
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#            "Filtrado Glomerular" (cuadro negro con glow morado).
+#             "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#            - Cuadros negros superiores (ZONA y ACTIVO).
-#            - Pestañas (Tabs) de navegación.
-#            - Registro de Paciente: Estructura y función de fila única.
-#            - Estructura del área de recorte y listado de medicación.
-#            - Barra dual de validación (VALIDAR / RESET).
-#            - Aviso legal amarillo inferior (Warning).
+#             - Cuadros negros superiores (ZONA y ACTIVO).
+#             - Pestañas (Tabs) de navegación.
+#             - Registro de Paciente: Estructura y función de fila única.
+#             - Estructura del área de recorte y listado de medicación.
+#             - Barra dual de validación (VALIDAR / RESET).
+#             - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#            "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#             "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#            principios antes y después de cada cambio. No se simplifican líneas.
+#             principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#            ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#             ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#            se considerará pérdida de principios.
+#             se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#             sus textos flotantes (placeholders) and los textos predefinidos en las
-#             secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#              sus textos flotantes (placeholders) and los textos predefinidos en las
+#              secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#            principio blindado; es informativo y no debe impedir la validación.
+#             principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -140,7 +140,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 13 mar 2026 13:00</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 13 mar 2026 13:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -355,14 +355,10 @@ with tabs[2]:
     if st.session_state.analisis_realizado:
         st.markdown('<div class="blink-text-grabar">⚠️ VERIFICAR DATOS Y GRABAR</div>', unsafe_allow_html=True)
     
+    # Unificación de botón: Solo Google Sheets con nuevo nombre y color atenuado
     c_gs1, c_gs2, c_gs3 = st.columns([1, 1, 1])
-    with c_gs1:
-        if st.button("💾 GRABAR DATOS", key="btn_grabar_local", use_container_width=True):
-            st.session_state.analisis_realizado = False
-            st.toast("Datos registrados localmente.")
-            
     with c_gs2:
-        if st.button("📤 GRABAR EN GOOGLE SHEETS", use_container_width=True, type="primary"):
+        if st.button("💾 GRABAR DATOS", use_container_width=True):
             st.session_state.analisis_realizado = False
             st.success("Preparando sincronización con Google Sheets...")
             st.info("Requiere configuración de secrets: [connections.gsheets]")
@@ -386,4 +382,4 @@ with tabs[2]:
         else:
             st.info("No hay análisis clínico registrado en esta sesión.")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 13 mar 2026 13:00</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 13 mar 2026 13:15</div>""", unsafe_allow_html=True)
