@@ -1,4 +1,4 @@
-# v. 13 mar 2026 13:15 (AJUSTE: UNIFICACIÓN Y ATENUACIÓN DE BOTÓN GRABAR)
+# v. 14 mar 2026 10:45 (EVOLUCIÓN: GRABADO SEGURO GOOGLE SHEETS)
 
 import streamlit as st
 import pandas as pd
@@ -11,34 +11,39 @@ import os
 import json
 import constants as c 
 
+# --- NUEVAS LIBRERÍAS PARA GOOGLE SHEETS (AÑADIDAS POR EVOLUCIÓN) ---
+import gspread
+from google.oauth2.service_account import Credentials
+import time
+
 # =================================================================
 # PRINCIPIOS FUNDAMENTALES (ESCRITOS DE PE A PA - PROHIBIDO ELIMINAR)
 # =================================================================
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#             "Filtrado Glomerular" (cuadro negro con glow morado).
+#               "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#             - Cuadros negros superiores (ZONA y ACTIVO).
-#             - Pestañas (Tabs) de navegación.
-#             - Registro de Paciente: Estructura y función de fila única.
-#             - Estructura del área de recorte y listado de medicación.
-#             - Barra dual de validación (VALIDAR / RESET).
-#             - Aviso legal amarillo inferior (Warning).
+#               - Cuadros negros superiores (ZONA y ACTIVO).
+#               - Pestañas (Tabs) de navegación.
+#               - Registro de Paciente: Estructura y función de fila única.
+#               - Estructura del área de recorte y listado de medicación.
+#               - Barra dual de validación (VALIDAR / RESET).
+#               - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#             "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#               "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#             principios antes y después de cada cambio. No se simplifican líneas.
+#               principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#             ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#               ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#             se considerará pérdida de principios.
+#               se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#              sus textos flotantes (placeholders) and los textos predefinidos en las
-#              secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                sus textos flotantes (placeholders) and los textos predefinidos en las
+#                secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#             principio blindado; es informativo y no debe impedir la validación.
+#               principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -65,7 +70,78 @@ except:
     API_KEY = None
     st.sidebar.error("API Key no encontrada.")
 
-# --- FUNCIONES ---
+# --- NUEVAS FUNCIONES DE PERSISTENCIA SEGURA (GOOGLE SHEETS) ---
+def conectar_google_sheets():
+    """Establece conexión con el service account."""
+    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+    creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scopes)
+    client = gspread.authorize(creds)
+    return client.open_by_key(st.secrets["GOOGLE_SHEET_ID"])
+
+def acquire_lock(sheet_obj):
+    """Control de concurrencia: Bloquea el acceso para otros usuarios mediante hoja LOCK."""
+    try:
+        ws_lock = sheet_obj.worksheet("LOCK")
+    except gspread.exceptions.WorksheetNotFound:
+        ws_lock = sheet_obj.add_worksheet(title="LOCK", rows=2, cols=2)
+    
+    lock_val = ws_lock.acell("A1").value
+    if lock_val:  
+        return False
+    
+    ws_lock.update_acell("A1", f"LOCKED_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+    return True
+
+def release_lock(sheet_obj):
+    """Libera el acceso borrando la celda de bloqueo."""
+    try:
+        ws_lock = sheet_obj.worksheet("LOCK")
+        ws_lock.update_acell("A1", "")
+    except:
+        pass
+
+def guardar_en_google_sheets(df_val_actual, df_meds_actual):
+    """Escribe datos en VALIDACIONES y MEDICAMENTOS de forma segura."""
+    try:
+        doc = conectar_google_sheets()
+        
+        # 1. Intentar adquirir LOCK
+        intentos = 0
+        while not acquire_lock(doc) and intentos < 5:
+            time.sleep(2)
+            intentos += 1
+        
+        if intentos >= 5:
+            st.error("⚠️ El sistema está ocupado por otro usuario. Intente grabar en unos segundos.")
+            return
+
+        # 2. Verificar Duplicados
+        ws_val = doc.worksheet("VALIDACIONES")
+        ids_existentes = ws_val.col_values(4) # Columna ID_REGISTRO
+        id_actual = st.session_state.reg_id
+        
+        if id_actual in ids_existentes:
+            st.warning(f"⚠️ El registro {id_actual} ya fue guardado previamente.")
+            release_lock(doc)
+            return
+
+        # 3. Grabar en VALIDACIONES
+        ws_val.append_row(df_val_actual.iloc[-1].fillna("").tolist())
+        
+        # 4. Grabar en MEDICAMENTOS (filas correspondientes al ID actual)
+        ws_meds = doc.worksheet("MEDICAMENTOS")
+        meds_a_grabar = df_meds_actual[df_meds_actual["ID_REGISTRO"] == id_actual]
+        ws_meds.append_rows(meds_a_grabar.fillna("").values.tolist())
+        
+        st.success(f"✅ Sincronización exitosa con Google Sheets (ID: {id_actual})")
+        release_lock(doc)
+
+    except Exception as e:
+        st.error(f"❌ Error crítico en la sincronización: {e}")
+        try: release_lock(doc)
+        except: pass
+
+# --- FUNCIONES EXISTENTES ---
 def llamar_ia_en_cascada(prompt):
     if not API_KEY: return "⚠️ Error: API Key no configurada."
     disponibles = [m.name.replace('models/', '').replace('gemini-', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
@@ -140,7 +216,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 13 mar 2026 13:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 14 mar 2026 10:45</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -359,9 +435,12 @@ with tabs[2]:
     c_gs1, c_gs2, c_gs3 = st.columns([1, 1, 1])
     with c_gs2:
         if st.button("💾 GRABAR DATOS", use_container_width=True, type="primary"):
-            st.session_state.analisis_realizado = False
-            st.success("Preparando sincronización con Google Sheets...")
-            st.info("Requiere configuración de secrets: [connections.gsheets]")
+            if not st.session_state.df_val.empty:
+                # LLAMADA A LA NUEVA FUNCIÓN DE GRABADO SEGURO
+                guardar_en_google_sheets(st.session_state.df_val, st.session_state.df_meds)
+                st.session_state.analisis_realizado = False
+            else:
+                st.error("No hay datos para grabar. Realice una validación primero.")
 
     st.write("---")
     
@@ -382,4 +461,4 @@ with tabs[2]:
         else:
             st.info("No hay análisis clínico registrado en esta sesión.")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 13 mar 2026 13:15</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 14 mar 2026 10:45</div>""", unsafe_allow_html=True)
