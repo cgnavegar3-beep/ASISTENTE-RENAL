@@ -362,7 +362,7 @@ with tabs[0]:
             sintesis_limpia = re.sub(r'<[^>]*>', '', sintesis.replace("BLOQUE 1: ALERTAS Y AJUSTES", "").strip())
             st.session_state.soip_i = sintesis_limpia
             st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{sintesis_limpia}"
-            analisis_clinico_limpio = detalle_limpio.split('⚠️ NOTA IMPORTANTE:')[0].replace('BLOQUE 3: ANÁLISIS CLÍNICO', '').strip()
+            analisis_clinico_limpio = detalle_limpio.split('⚠️ NOTA IMPORTANTE:')[0].replace('BLOQUE 3: ANÁLISIS CLÍNICO (EXCLUSIVO COCKCROFT-GAULT)', '').strip()
             st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{analisis_clinico_limpio}"
 
             try:
