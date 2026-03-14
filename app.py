@@ -235,7 +235,7 @@ with tabs[0]:
             st.session_state.soip_i = sintesis_limpia
             st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{sintesis_limpia}"
             
-            analisis_clinico_limpio = detalle_limpio.split('⚠️ NOTA IMPORTANTE:')[0].replace('BLOQUE 3: ANÁLISIS CLÍNICO', '').strip()
+            analisis_clinico_limpio = detalle_limpio.split('⚠️ NOTA IMPORTANTE:')[0].replace('BLOQUE 3: ANÁLISIS CLÍNICO (EXCLUSIVO COCKCROFT-GAULT)', '').strip()
             st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{analisis_clinico_limpio}"
 
             # PROCESAMIENTO JSON ROBUSTO
@@ -358,7 +358,7 @@ with tabs[2]:
     # Unificación de botón: Solo Google Sheets con nuevo nombre y color atenuado
     c_gs1, c_gs2, c_gs3 = st.columns([1, 1, 1])
     with c_gs2:
-        if st.button("💾 GRABAR DATOS", use_container_width=True):
+        if st.button("💾 GRABAR DATOS", use_container_width=True, type="primary"):
             st.session_state.analisis_realizado = False
             st.success("Preparando sincronización con Google Sheets...")
             st.info("Requiere configuración de secrets: [connections.gsheets]")
