@@ -1,4 +1,4 @@
-# v. 14 mar 2026 19:10 (EVOLUCIÓN: AUTOMATIZACIÓN NUBE Y EXCEL CONSOLIDADO)
+# v. 14 mar 2026 20:50 (EVOLUCIÓN: CORRECCIÓN DE IMPORTACIÓN DECIMAL NUBE)
 
 import streamlit as st
 import pandas as pd
@@ -23,28 +23,28 @@ import math
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                "Filtrado Glomerular" (cuadro negro con glow morado).
+#                 "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                 - Cuadros negros superiores (ZONA y ACTIVO).
-#                 - Pestañas (Tabs) de navegación.
-#                 - Registro de Paciente: Estructura y función de fila única.
-#                 - Estructura del área de recorte y listado de medicación.
-#                 - Barra dual de validación (VALIDAR / RESET).
-#                 - Aviso legal amarillo inferior (Warning).
+#                   - Cuadros negros superiores (ZONA y ACTIVO).
+#                   - Pestañas (Tabs) de navegación.
+#                   - Registro de Paciente: Estructura y función de fila única.
+#                   - Estructura del área de recorte y listado de medicación.
+#                   - Barra dual de validación (VALIDAR / RESET).
+#                   - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                 "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                principios antes y después de cada cambio. No se simplifican líneas.
+#                 principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
 #                  ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#                  se considerará pérdida de principios.
+#                   se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#                   sus textos flotantes (placeholders) and los textos predefinidos en las
-#                   secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                    sus textos flotantes (placeholders) and los textos predefinidos en las
+#                    secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                principio blindado; es informativo y no debe impedir la validación.
+#                   principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -94,7 +94,7 @@ def conectar_google_sheets():
     client = gspread.authorize(creds)
     return client.open_by_key(st.secrets["GOOGLE_SHEET_ID"])
 
-# --- NUEVA FUNCIÓN: SINCRONIZAR DESDE NUBE ---
+# --- NUEVA FUNCIÓN: SINCRONIZAR DESDE NUBE (EVOLUCIONADA PARA DECIMALES) ---
 def sincronizar_desde_nube():
     try:
         doc = conectar_google_sheets()
@@ -104,16 +104,34 @@ def sincronizar_desde_nube():
         ws_meds = doc.worksheet("MEDICAMENTOS")
         ws_anal = doc.worksheet("ANALISIS")
         
-        # Conversión a DataFrames
-        st.session_state["df_sync_val"] = pd.DataFrame(ws_val.get_all_records())
-        st.session_state["df_sync_meds"] = pd.DataFrame(ws_meds.get_all_records())
-        st.session_state["df_sync_analisis"] = pd.DataFrame(ws_anal.get_all_records())
+        # Obtención de registros
+        raw_val = ws_val.get_all_records()
+        raw_meds = ws_meds.get_all_records()
+        raw_anal = ws_anal.get_all_records()
+
+        # --- LÓGICA DE LIMPIEZA DE DECIMALES (AÑADIDA) ---
+        def limpiar_decimales(lista_dicts):
+            for d in lista_dicts:
+                for k, v in d.items():
+                    if isinstance(v, str) and "," in v:
+                        # Intentar conversión solo si parece un número decimal
+                        clean_v = v.replace(",", ".")
+                        try:
+                            d[k] = float(clean_v)
+                        except ValueError:
+                            pass # Mantener original si no es numérico
+            return lista_dicts
+
+        # Aplicar limpieza antes de convertir a DataFrame
+        st.session_state["df_sync_val"] = pd.DataFrame(limpiar_decimales(raw_val))
+        st.session_state["df_sync_meds"] = pd.DataFrame(limpiar_decimales(raw_meds))
+        st.session_state["df_sync_analisis"] = pd.DataFrame(limpiar_decimales(raw_anal))
         
-        st.toast("✅ Nube sincronizada", icon="🔄")
+        st.toast("✅ Nube sincronizada (Decimales corregidos)", icon="🔄")
     except Exception as e:
         st.error(f"❌ Error al sincronizar desde nube: {e}")
 
-# --- EVOLUCIÓN: SINCRONIZACIÓN AUTOMÁTICA AL INICIO ---
+# --- SINCRONIZACIÓN AUTOMÁTICA AL INICIO ---
 if st.session_state["df_sync_val"].empty:
     sincronizar_desde_nube()
 
@@ -272,7 +290,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 14 mar 2026 19:10</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 14 mar 2026 20:50</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -428,7 +446,7 @@ with tabs[2]:
         if st.button("💾 GRABAR DATOS", use_container_width=True, type="primary"):
             if not st.session_state.df_val.empty:
                 guardar_en_google_sheets(st.session_state.df_val, st.session_state.df_meds)
-                # EVOLUCIÓN: Sincronización automática tras grabar
+                # Sincronización automática tras grabar
                 sincronizar_desde_nube()
                 st.session_state.analisis_realizado = False
             else: st.error("Sin datos.")
@@ -446,7 +464,7 @@ with tabs[2]:
     with sub_hist[2]:
         st.dataframe(st.session_state["df_sync_analisis"], use_container_width=True)
 
-    # --- BOTONES DE CONTROL DE ESPEJO (UBICACIÓN SOLICITADA) ---
+    # --- BOTONES DE CONTROL DE ESPEJO ---
     st.write("")
     c_btn1, c_btn2 = st.columns(2)
     with c_btn1:
@@ -455,7 +473,6 @@ with tabs[2]:
             st.rerun()
     
     with c_btn2:
-        # EVOLUCIÓN: DESCARGA EXCEL MULTI-HOJA CONSOLIDADO
         buffer_excel = io.BytesIO()
         with pd.ExcelWriter(buffer_excel, engine='xlsxwriter') as writer:
             st.session_state["df_sync_val"].to_excel(writer, index=False, sheet_name='VALIDACIONES')
@@ -470,7 +487,7 @@ with tabs[2]:
             use_container_width=True
         )
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 14 mar 2026 19:10</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 14 mar 2026 20:50</div>""", unsafe_allow_html=True)
 
 # FINAL DE PROTOCOLO:
 # He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
