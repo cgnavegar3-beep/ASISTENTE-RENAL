@@ -328,7 +328,7 @@ with tabs[2]:
     })
 
     # --- TABLAS EDITABLES DINÁMICAS ---
-    st.markdown("#### 1. Validación de Paciente (Histórico)")
+    st.markdown("#### 1. Validación de Paciente")
     st.session_state.df_val = st.data_editor(
         st.session_state.df_val,
         column_config=conf_v,
@@ -339,7 +339,7 @@ with tabs[2]:
 
     st.write("")
     
-    st.markdown("#### 2. Detalle de Medicamentos (Histórico)")
+    st.markdown("#### 2. Detalle de Medicamentos")
     st.session_state.df_meds = st.data_editor(
         st.session_state.df_meds,
         column_config=conf_m,
