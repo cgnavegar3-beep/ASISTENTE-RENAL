@@ -1,4 +1,4 @@
-# v. 14 mar 2026 11:15 (AJUSTE: SERIALIZACIÓN NATIVA GOOGLE SHEETS)
+# v. 14 mar 2026 12:15 (BLOQUEO DUPLICADOS: TABLA 1 Y TABLA 2)
 
 import streamlit as st
 import pandas as pd
@@ -23,28 +23,28 @@ import math
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#               "Filtrado Glomerular" (cuadro negro con glow morado).
+#                "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#               - Cuadros negros superiores (ZONA y ACTIVO).
-#               - Pestañas (Tabs) de navegación.
-#               - Registro de Paciente: Estructura y función de fila única.
-#               - Estructura del área de recorte y listado de medicación.
-#               - Barra dual de validación (VALIDAR / RESET).
-#               - Aviso legal amarillo inferior (Warning).
+#                - Cuadros negros superiores (ZONA y ACTIVO).
+#                - Pestañas (Tabs) de navegación.
+#                - Registro de Paciente: Estructura y función de fila única.
+#                - Estructura del área de recorte y listado de medicación.
+#                - Barra dual de validación (VALIDAR / RESET).
+#                - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#               "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#               principios antes y después de cada cambio. No se simplifican líneas.
+#                principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#               ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#                ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#               se considerará pérdida de principios.
+#                se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#                sus textos flotantes (placeholders) and los textos predefinidos en las
-#                secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                 sus textos flotantes (placeholders) and los textos predefinidos en las
+#                 secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#               principio blindado; es informativo y no debe impedir la validación.
+#                principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -95,7 +95,7 @@ def release_lock(sheet_obj):
     except: pass
 
 def guardar_en_google_sheets(df_val_actual, df_meds_actual):
-    """Escribe datos en VALIDACIONES y MEDICAMENTOS con conversión nativa profesional."""
+    """Escribe datos en VALIDACIONES y MEDICAMENTOS con lógica anti-duplicados."""
     try:
         doc = conectar_google_sheets()
         
@@ -109,35 +109,50 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
             st.error("⚠️ El sistema está ocupado. Intente de nuevo.")
             return
 
-        # 2. Verificar Duplicados
-        ws_val = doc.worksheet("VALIDACIONES")
-        ids_existentes = ws_val.col_values(4) 
         id_actual = st.session_state.reg_id
         
-        if id_actual in ids_existentes:
-            st.warning(f"⚠️ Registro {id_actual} ya guardado.")
-            release_lock(doc)
-            return
+        # 2. Verificar Duplicados Tabla 1 (VALIDACIONES)
+        ws_val = doc.worksheet("VALIDACIONES")
+        ids_existentes = ws_val.col_values(4) # Columna D: ID_REGISTRO
+        
+        if id_actual not in ids_existentes:
+            fila_val = df_val_actual[df_val_actual["ID_REGISTRO"] == id_actual].iloc[-1].fillna("").to_dict()
+            fila_val_convertida = [
+                v.item() if hasattr(v, "item") else "" if isinstance(v, float) and math.isnan(v) else v
+                for v in fila_val.values()
+            ]
+            ws_val.append_row(fila_val_convertida)
+        else:
+            st.warning(f"ℹ️ El ID {id_actual} ya existe en VALIDACIONES. Omitiendo duplicado.")
 
-        # 3. Grabar en VALIDACIONES (Lógica optimizada)
-        fila_val = df_val_actual.iloc[-1].fillna("").to_dict()
-        fila_val_convertida = [
-            v.item() if hasattr(v, "item") else "" if isinstance(v, float) and math.isnan(v) else v
-            for v in fila_val.values()
-        ]
-        ws_val.append_row(fila_val_convertida)
-        
-        # 4. Grabar en MEDICAMENTOS (Lógica optimizada)
+        # 3. Verificar Duplicados Tabla 2 (MEDICAMENTOS) con Clave Compuesta
         ws_meds = doc.worksheet("MEDICAMENTOS")
-        meds_a_grabar = df_meds_actual[df_meds_actual["ID_REGISTRO"] == id_actual].fillna("")
-        lista_meds_convertida = [
-            [v.item() if hasattr(v, "item") else "" if isinstance(v, float) and math.isnan(v) else v
-             for v in fila]
-            for fila in meds_a_grabar.values.tolist()
-        ]
-        ws_meds.append_rows(lista_meds_convertida)
+        data_meds_nube = ws_meds.get_all_records()
+        df_nube_meds = pd.DataFrame(data_meds_nube)
         
-        st.success(f"✅ Sincronización exitosa (ID: {id_actual})")
+        # Filtrar solo los medicamentos del registro actual que no estén ya en la nube
+        meds_a_procesar = df_meds_actual[df_meds_actual["ID_REGISTRO"] == id_actual].fillna("")
+        
+        filas_nuevas = []
+        for _, fila in meds_a_procesar.iterrows():
+            # Clave compuesta: ID_REGISTRO + MEDICAMENTO
+            ya_existe = False
+            if not df_nube_meds.empty:
+                existe = df_nube_meds[(df_nube_meds["ID_REGISTRO"] == id_actual) & 
+                                     (df_nube_meds["MEDICAMENTO"] == fila["MEDICAMENTO"])]
+                if not existe.empty:
+                    ya_existe = True
+            
+            if not ya_existe:
+                fila_conv = [v.item() if hasattr(v, "item") else v for v in fila.values.tolist()]
+                filas_nuevas.append(fila_conv)
+        
+        if filas_nuevas:
+            ws_meds.append_rows(filas_nuevas)
+            st.success(f"✅ Sincronización exitosa (ID: {id_actual})")
+        else:
+            st.info("ℹ️ No hay nuevos medicamentos que añadir para este registro.")
+
         release_lock(doc)
 
     except Exception as e:
@@ -220,7 +235,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 14 mar 2026 11:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 14 mar 2026 12:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -316,16 +331,31 @@ with tabs[0]:
             try:
                 json_data_str = re.sub(r"```json|```", "", json_data_str).strip()
                 data = json.loads(json_data_str)
-                pac_row = {
-                    "FECHA": datetime.now().strftime("%d/%m/%Y"), "CENTRO": st.session_state.reg_centro, "RESIDENCIA": st.session_state.reg_res, "ID_REGISTRO": st.session_state.reg_id,
-                    "EDAD": calc_e, "SEXO": calc_s, "PESO": calc_p, "CREATININA": calc_c, "Nº_TOTAL_MEDS_PAC": data["paciente"]["N_TOTAL_MEDS_PAC"],
-                    "FG_CG": valor_fg, "Nº_TOT_AFEC_CG": data["paciente"]["CG"]["TOT_AFECTADOS"], "Nº_PRECAU_CG": data["paciente"]["CG"]["PRECAUCION"], "Nº_AJUSTE_DOS_CG": data["paciente"]["CG"]["AJUSTE_DOSIS"], "Nº_TOXICID_CG": data["paciente"]["CG"]["TOXICIDAD"], "Nº_CONTRAIND_CG": data["paciente"]["CG"]["CONTRAINDICADOS"],
-                    "FG_MDRD": val_mdrd, "Nº_TOT_AFEC_MDRD": data["paciente"]["MDRD"]["TOT_AFECTADOS"], "Nº_PRECAU_MDRD": data["paciente"]["MDRD"]["PRECAUCION"], "Nº_AJUSTE_DOS_MDRD": data["paciente"]["MDRD"]["AJUSTE_DOSIS"], "Nº_TOXICID_MDRD": data["paciente"]["MDRD"]["TOXICIDAD"], "Nº_CONTRAIND_MDRD": data["paciente"]["MDRD"]["CONTRAINDICADOS"],
-                    "FG_CKD": val_ckd, "Nº_TOT_AFEC_CKD": data["paciente"]["CKD"]["TOT_AFECTADOS"], "Nº_PRECAU_CKD": data["paciente"]["CKD"]["PRECAUCION"], "Nº_AJUSTE_DOS_CKD": data["paciente"]["CKD"]["AJUSTE_DOSIS"], "Nº_TOXICID_CKD": data["paciente"]["CKD"]["TOXICIDAD"], "Nº_CONTRAIND_CKD": data["paciente"]["CKD"]["CONTRAINDICADOS"]
-                }
-                st.session_state.df_val = pd.concat([st.session_state.df_val, pd.DataFrame([pac_row])], ignore_index=True)
-                meds_list = [{**pac_row, **m} for m in data["medicamentos"]]
-                st.session_state.df_meds = pd.concat([st.session_state.df_meds, pd.DataFrame(meds_list)], ignore_index=True)
+                id_actual = st.session_state.reg_id
+                
+                # --- LÓGICA DE BLOQUEO EN MEMORIA (TABLA 1) ---
+                if st.session_state.df_val.empty or id_actual not in st.session_state.df_val["ID_REGISTRO"].values:
+                    pac_row = {
+                        "FECHA": datetime.now().strftime("%d/%m/%Y"), "CENTRO": st.session_state.reg_centro, "RESIDENCIA": st.session_state.reg_res, "ID_REGISTRO": id_actual,
+                        "EDAD": calc_e, "SEXO": calc_s, "PESO": calc_p, "CREATININA": calc_c, "Nº_TOTAL_MEDS_PAC": data["paciente"]["N_TOTAL_MEDS_PAC"],
+                        "FG_CG": valor_fg, "Nº_TOT_AFEC_CG": data["paciente"]["CG"]["TOT_AFECTADOS"], "Nº_PRECAU_CG": data["paciente"]["CG"]["PRECAUCION"], "Nº_AJUSTE_DOS_CG": data["paciente"]["CG"]["AJUSTE_DOSIS"], "Nº_TOXICID_CG": data["paciente"]["CG"]["TOXICIDAD"], "Nº_CONTRAIND_CG": data["paciente"]["CG"]["CONTRAINDICADOS"],
+                        "FG_MDRD": val_mdrd, "Nº_TOT_AFEC_MDRD": data["paciente"]["MDRD"]["TOT_AFECTADOS"], "Nº_PRECAU_MDRD": data["paciente"]["MDRD"]["PRECAUCION"], "Nº_AJUSTE_DOS_MDRD": data["paciente"]["MDRD"]["AJUSTE_DOSIS"], "Nº_TOXICID_MDRD": data["paciente"]["MDRD"]["TOXICIDAD"], "Nº_CONTRAIND_MDRD": data["paciente"]["MDRD"]["CONTRAINDICADOS"],
+                        "FG_CKD": val_ckd, "Nº_TOT_AFEC_CKD": data["paciente"]["CKD"]["TOT_AFECTADOS"], "Nº_PRECAU_CKD": data["paciente"]["CKD"]["PRECAUCION"], "Nº_AJUSTE_DOS_CKD": data["paciente"]["CKD"]["AJUSTE_DOSIS"], "Nº_TOXICID_CKD": data["paciente"]["CKD"]["TOXICIDAD"], "Nº_CONTRAIND_CKD": data["paciente"]["CKD"]["CONTRAINDICADOS"]
+                    }
+                    st.session_state.df_val = pd.concat([st.session_state.df_val, pd.DataFrame([pac_row])], ignore_index=True)
+                    
+                    # --- LÓGICA DE BLOQUEO EN MEMORIA (TABLA 2: Clave Compuesta) ---
+                    for m in data["medicamentos"]:
+                        med_nombre = m.get("MEDICAMENTO", "")
+                        ya_existe_med = False
+                        if not st.session_state.df_meds.empty:
+                            ya_existe_med = not st.session_state.df_meds[(st.session_state.df_meds["ID_REGISTRO"] == id_actual) & 
+                                                                         (st.session_state.df_meds["MEDICAMENTO"] == med_nombre)].empty
+                        
+                        if not ya_existe_med:
+                            med_row = {**pac_row, **m}
+                            st.session_state.df_meds = pd.concat([st.session_state.df_meds, pd.DataFrame([med_row])], ignore_index=True)
+
             except Exception as e: st.error(f"⚠️ Error JSON: {e}")
         except Exception as e: st.error(f"Error: {e}")
 
@@ -373,4 +403,4 @@ with tabs[2]:
         if st.session_state.resp_ia: st.text_area("Análisis Crudo", st.session_state.resp_ia, height=400, label_visibility="collapsed")
         else: st.info("Sin registros.")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 14 mar 2026 11:15</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 14 mar 2026 12:15</div>""", unsafe_allow_html=True)
