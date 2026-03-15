@@ -1,4 +1,4 @@
-# v. 15 mar 2026 12:20 (INTEGRACIÓN DASHBOARD HÍBRIDO)
+# v. 15 mar 2026 12:35 (HOTFIX RESILIENCIA DASHBOARD)
 
 import streamlit as st
 import pandas as pd
@@ -253,7 +253,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 15 mar 2026 12:20</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 15 mar 2026 12:35</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -378,7 +378,6 @@ with tabs[1]:
 
 with tabs[2]:
     st.markdown("### 📊 Gestión de Datos")
-    conf_v = {"FECHA": "📅 FECHA", "CENTRO": "🏢 CENTRO", "RESIDENCIA": "🏠 RESIDENCIA", "ID_REGISTRO": "🆔 ID_REGISTRO"}
     st.session_state.df_val = st.data_editor(st.session_state.df_val, num_rows="dynamic", use_container_width=True, key="editor_val")
     st.session_state.df_meds = st.data_editor(st.session_state.df_meds, num_rows="dynamic", use_container_width=True, key="editor_meds")
     
@@ -398,35 +397,21 @@ with tabs[2]:
     with sub_hist[1]: st.dataframe(st.session_state["df_sync_meds"], use_container_width=True)
     with sub_hist[2]: st.dataframe(st.session_state["df_sync_analisis"], use_container_width=True)
 
-    c_btn1, c_btn2 = st.columns(2)
-    with c_btn1:
-        if st.button("🔄 REFRESCAR DESDE NUBE", use_container_width=True):
-            sincronizar_desde_nube(); st.rerun()
+    if st.button("🔄 REFRESCAR DESDE NUBE", use_container_width=True):
+        sincronizar_desde_nube(); st.rerun()
 
-# =================================================================
-# MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (TABS 3: DASHBOARD HÍBRIDO)
-# INTEGRACIÓN: DATOS DE SESIÓN (df_meds) + DATOS NUBE (df_sync_meds)
-# =================================================================
 with tabs[3]:
     st.markdown("### 📈 Dashboard de Gestión Renal")
-    
-    # 1. UNIFICACIÓN DE FUENTES (Invisible y en Memoria)
     df_local = st.session_state.df_meds.copy()
     df_nube = st.session_state["df_sync_meds"].copy()
-    
-    # Combinamos para visibilidad total inmediata
     df_dashboard = pd.concat([df_local, df_nube], ignore_index=True)
     
     if not df_dashboard.empty:
-        # Limpieza de duplicados por clave (ID + Medicamento) para evitar redundancia post-grabación
         df_dashboard = df_dashboard.drop_duplicates(subset=["ID_REGISTRO", "MEDICAMENTO"], keep="first")
-        
-        # Tipado de datos para cálculos
         df_dashboard['EDAD'] = pd.to_numeric(df_dashboard['EDAD'], errors='coerce').fillna(0)
         df_dashboard['FG_CG'] = pd.to_numeric(df_dashboard['FG_CG'], errors='coerce').fillna(0)
         df_dashboard['NIVEL_ADE_CG'] = pd.to_numeric(df_dashboard['NIVEL_ADE_CG'], errors='coerce').fillna(0)
 
-        # 2. FILTROS INTERACTIVOS
         with st.expander("🔍 Filtros Dinámicos de Análisis", expanded=True):
             f_col1, f_col2, f_col3, f_col4 = st.columns(4)
             with f_col1:
@@ -437,67 +422,55 @@ with tabs[3]:
             with f_col3:
                 rango_fg = st.slider("Filtrado Glomerular", 0.0, 150.0, (0.0, 150.0))
             with f_col4:
-                riesgos_disp = sorted([str(x) for x in df_dashboard["CAT_RIESGO_CG"].unique() if x])
+                riesgos_disp = sorted([str(x) for x in df_dashboard["CAT_RIESGO_CG"].unique() if x]) if "CAT_RIESGO_CG" in df_dashboard.columns else []
                 filtro_riesgo = st.multiselect("Nivel Alerta", options=riesgos_disp)
 
-        # Aplicación de la máscara de filtrado
-        mask = (df_dashboard['EDAD'].between(rango_edad[0], rango_edad[1])) & \
-               (df_dashboard['FG_CG'].between(rango_fg[0], rango_fg[1]))
+        mask = (df_dashboard['EDAD'].between(rango_edad[0], rango_edad[1])) & (df_dashboard['FG_CG'].between(rango_fg[0], rango_fg[1]))
         if filtro_centro: mask &= df_dashboard['CENTRO'].isin(filtro_centro)
-        if filtro_riesgo: mask &= df_dashboard['CAT_RIESGO_CG'].isin(filtro_riesgo)
+        if filtro_riesgo and "CAT_RIESGO_CG" in df_dashboard.columns: mask &= df_dashboard['CAT_RIESGO_CG'].isin(filtro_riesgo)
         df_filtered = df_dashboard[mask]
 
-        # 3. KPIs DINÁMICOS
         kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-        total_pacientes = df_filtered["ID_REGISTRO"].nunique()
+        total_pacientes = df_filtered["ID_REGISTRO"].nunique() if "ID_REGISTRO" in df_filtered.columns else 0
         total_meds = len(df_filtered)
-        afectados = len(df_filtered[df_filtered["NIVEL_ADE_CG"] > 0])
+        afectados = len(df_filtered[df_filtered["NIVEL_ADE_CG"] > 0]) if "NIVEL_ADE_CG" in df_filtered.columns else 0
         porcentaje_afec = (afectados / total_meds * 100) if total_meds > 0 else 0
 
-        with kpi1:
-            st.metric("Pacientes Únicos", total_pacientes)
-        with kpi2:
-            st.metric("Total Fármacos", total_meds)
-        with kpi3:
-            st.metric("Alertas Detectadas", afectados, delta=f"{porcentaje_afec:.1f}%", delta_color="inverse")
-        with kpi4:
-            st.metric("Promedio FG", f"{df_filtered['FG_CG'].mean():.1f}" if not df_filtered.empty else "0")
+        with kpi1: st.metric("Pacientes Únicos", total_pacientes)
+        with kpi2: st.metric("Total Fármacos", total_meds)
+        with kpi3: st.metric("Alertas Detectadas", afectados, delta=f"{porcentaje_afec:.1f}%", delta_color="inverse")
+        with kpi4: st.metric("Promedio FG", f"{df_filtered['FG_CG'].mean():.1f}" if not df_filtered.empty else "0")
 
-        # 4. VISUALIZACIÓN DE IMPACTO
         g_col1, g_col2 = st.columns([0.6, 0.4])
-        
         with g_col1:
             st.markdown("##### Distribución de Riesgos (Cockcroft-Gault)")
-            # Mapeo de colores coherente con el sistema de Glow
             color_map = {"0": "#2f855a", "1": "#faf089", "2": "#ffd27f", "3": "#c05621", "4": "#c53030"}
-            df_cat = df_filtered.groupby("NIVEL_ADE_CG").size().reset_index(name='count')
-            df_cat["NIVEL_ADE_CG"] = df_cat["NIVEL_ADE_CG"].astype(str)
-            fig_bar = px.bar(df_cat, x="NIVEL_ADE_CG", y="count", color="NIVEL_ADE_CG", 
-                             color_discrete_map=color_map, labels={'count':'Cantidad', 'NIVEL_ADE_CG': 'Nivel de Riesgo'})
-            fig_bar.update_layout(showlegend=False, height=350, margin=dict(t=10, b=10, l=10, r=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig_bar, use_container_width=True)
+            if "NIVEL_ADE_CG" in df_filtered.columns:
+                df_cat = df_filtered.groupby("NIVEL_ADE_CG").size().reset_index(name='count')
+                df_cat["NIVEL_ADE_CG"] = df_cat["NIVEL_ADE_CG"].astype(str)
+                fig_bar = px.bar(df_cat, x="NIVEL_ADE_CG", y="count", color="NIVEL_ADE_CG", color_discrete_map=color_map)
+                fig_bar.update_layout(showlegend=False, height=350, margin=dict(t=10, b=10, l=10, r=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                st.plotly_chart(fig_bar, use_container_width=True)
 
         with g_col2:
             st.markdown("##### Top 10 Medicamentos Críticos")
-            df_top = df_filtered[df_filtered["NIVEL_ADE_CG"] > 0].groupby("MEDICAMENTO").size().reset_index(name='Frecuencia')
-            df_top = df_top.sort_values(by="Frecuencia", ascending=False).head(10)
-            if not df_top.empty:
-                fig_pie = px.pie(df_top, values='Frecuencia', names='MEDICAMENTO', hole=.4, color_discrete_sequence=px.colors.sequential.RdBu)
-                fig_pie.update_layout(height=350, margin=dict(t=10, b=10, l=10, r=10))
-                st.plotly_chart(fig_pie, use_container_width=True)
-            else:
-                st.info("No hay fármacos con alerta en la selección actual.")
+            if "NIVEL_ADE_CG" in df_filtered.columns and "MEDICAMENTO" in df_filtered.columns:
+                df_top = df_filtered[df_filtered["NIVEL_ADE_CG"] > 0].groupby("MEDICAMENTO").size().reset_index(name='Frecuencia')
+                df_top = df_top.sort_values(by="Frecuencia", ascending=False).head(10)
+                if not df_top.empty:
+                    fig_pie = px.pie(df_top, values='Frecuencia', names='MEDICAMENTO', hole=.4)
+                    fig_pie.update_layout(height=350, margin=dict(t=10, b=10, l=10, r=10))
+                    st.plotly_chart(fig_pie, use_container_width=True)
 
-        # 5. TABLA DE ANÁLISIS RÁPIDO
+        # 5. TABLA DE ANÁLISIS RÁPIDO (Hotfix Resiliencia - Protege contra KeyError)
         st.markdown("##### 🔍 Detalle Filtrado de Intervenciones")
-        st.dataframe(df_filtered[["FECHA", "CENTRO", "ID_REGISTRO", "MEDICAMENTO", "CAT_RIESGO_CG", "SINTESIS_IA"]], 
-                     use_container_width=True, hide_index=True)
-        
+        cols_deseadas = ["FECHA", "CENTRO", "ID_REGISTRO", "MEDICAMENTO", "CAT_RIESGO_CG", "SINTESIS_IA"]
+        cols_visibles = [c for c in cols_deseadas if c in df_filtered.columns]
+        if cols_visibles:
+            st.dataframe(df_filtered[cols_visibles], use_container_width=True, hide_index=True)
+        else:
+            st.info("No hay columnas de análisis detallado disponibles para mostrar.")
     else:
-        st.warning("⚠️ No se detectan datos locales ni históricos. Realice una validación para activar el dashboard.")
+        st.warning("⚠️ No se detectan datos locales ni históricos.")
 
-# =================================================================
-# FIN DE MÓDULO HISTÓRICO INTEGRADO
-# =================================================================
-
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 15 mar 2026 12:20</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 15 mar 2026 12:35</div>""", unsafe_allow_html=True)
