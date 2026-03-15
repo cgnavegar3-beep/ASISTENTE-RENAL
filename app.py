@@ -1,4 +1,4 @@
-# v. 15 mar 2026 11:15 (EVOLUCIÓN: DASHBOARD HÍBRIDO LOCAL+NUBE)
+# v. 15 mar 2026 11:40 (CORRECCIÓN SINTÁCTICA NÚCLEO)
 
 import streamlit as st
 import pandas as pd
@@ -27,28 +27,28 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                   "Filtrado Glomerular" (cuadro negro con glow morado).
+#                     "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                    - Cuadros negros superiores (ZONA y ACTIVO).
-#                    - Pestañas (Tabs) de navegación.
-#                    - Registro de Paciente: Estructura y función de fila única.
-#                    - Estructura del área de recorte y listado de medicación.
-#                    - Barra dual de validación (VALIDAR / RESET).
-#                    - Aviso legal amarillo inferior (Warning).
+#                     - Cuadros negros superiores (ZONA y ACTIVO).
+#                     - Pestañas (Tabs) de navegación.
+#                     - Registro de Paciente: Estructura y función de fila única.
+#                     - Estructura del área de recorte y listado de medicación.
+#                     - Barra dual de validación (VALIDAR / RESET).
+#                     - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                  "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                   "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                  principios antes y después de cada cambio. No se simplifican líneas.
+#                   principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#                  ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#                   ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#                    se considerará pérdida de principios.
+#                     se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#                     sus textos flotantes (placeholders) and los textos predefinidos en las
-#                     secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                      sus textos flotantes (placeholders) and los textos predefinidos en las
+#                      secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                    principio blindado; es informativo y no debe impedir la validación.
+#                     principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -208,8 +208,11 @@ def procesar_y_limpiar_meds():
         st.session_state.main_meds = llamar_ia_en_cascada(prompt)
 
 def reset_registro():
-    for key in ["reg_centro", "reg_res", "reg_id", "fgl_ckd", "fgl_mdrd", "main_meds"]: st.session_state[key] = ""
-    for key in ["calc_e", "calc_p", "calc_c", "calc_s"]: if key in st.session_state: st.session_state[key] = None
+    for key in ["reg_centro", "reg_res", "reg_id", "fgl_ckd", "fgl_mdrd", "main_meds"]: 
+        st.session_state[key] = ""
+    for key in ["calc_e", "calc_p", "calc_c", "calc_s"]: 
+        if key in st.session_state:
+            st.session_state[key] = None
     st.session_state.analisis_realizado = False; st.session_state.resp_ia = None
 
 def reset_meds():
@@ -250,7 +253,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 15 mar 2026 11:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 15 mar 2026 11:40</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -439,7 +442,7 @@ with tabs[3]:
 
         # Aplicación de filtros
         mask = (df_dashboard['EDAD'].between(rango_edad[0], rango_edad[1])) & \
-               (df_dashboard['FG_CG'].between(rango_fg[0], rango_fg[1]))
+                (df_dashboard['FG_CG'].between(rango_fg[0], rango_fg[1]))
         if filtro_centro: mask &= df_dashboard['CENTRO'].isin(filtro_centro)
         if filtro_riesgo: mask &= df_dashboard['CAT_RIESGO_CG'].isin(filtro_riesgo)
         df_filtered = df_dashboard[mask]
@@ -494,4 +497,4 @@ with tabs[3]:
 # FIN DE CORRECCIÓN TAB 3
 # =================================================================
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 15 mar 2026 11:15</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 15 mar 2026 11:40</div>""", unsafe_allow_html=True)
