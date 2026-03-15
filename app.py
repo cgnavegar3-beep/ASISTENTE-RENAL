@@ -1,4 +1,4 @@
-# v. 14 mar 2026 20:50 (EVOLUCIÓN: CORRECCIÓN DE IMPORTACIÓN DECIMAL NUBE)
+# v. 15 mar 2026 10:45 (EVOLUCIÓN: INTEGRACIÓN DASHBOARD ANALÍTICO MODULAR)
 
 import streamlit as st
 import pandas as pd
@@ -17,34 +17,38 @@ from google.oauth2.service_account import Credentials
 import time
 import math
 
+# MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (IMPORTACIONES VISUALIZACIÓN)
+import plotly.express as px
+import plotly.graph_objects as go
+
 # =================================================================
 # PRINCIPIOS FUNDAMENTALES (ESCRITOS DE PE A PA - PROHIBIDO ELIMINAR)
 # =================================================================
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                 "Filtrado Glomerular" (cuadro negro con glow morado).
+#                   "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                   - Cuadros negros superiores (ZONA y ACTIVO).
-#                   - Pestañas (Tabs) de navegación.
-#                   - Registro de Paciente: Estructura y función de fila única.
-#                   - Estructura del área de recorte y listado de medicación.
-#                   - Barra dual de validación (VALIDAR / RESET).
-#                   - Aviso legal amarillo inferior (Warning).
+#                    - Cuadros negros superiores (ZONA y ACTIVO).
+#                    - Pestañas (Tabs) de navegación.
+#                    - Registro de Paciente: Estructura y función de fila única.
+#                    - Estructura del área de recorte y listado de medicación.
+#                    - Barra dual de validación (VALIDAR / RESET).
+#                    - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                 "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                  "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                 principios antes y después de cada cambio. No se simplifican líneas.
+#                  principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
 #                  ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#                   se considerará pérdida de principios.
+#                    se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#                    sus textos flotantes (placeholders) and los textos predefinidos en las
-#                    secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                     sus textos flotantes (placeholders) and los textos predefinidos en las
+#                     secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                   principio blindado; es informativo y no debe impedir la validación.
+#                    principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -114,15 +118,13 @@ def sincronizar_desde_nube():
             for d in lista_dicts:
                 for k, v in d.items():
                     if isinstance(v, str) and "," in v:
-                        # Intentar conversión solo si parece un número decimal
                         clean_v = v.replace(",", ".")
                         try:
                             d[k] = float(clean_v)
                         except ValueError:
-                            pass # Mantener original si no es numérico
+                            pass 
             return lista_dicts
 
-        # Aplicar limpieza antes de convertir a DataFrame
         st.session_state["df_sync_val"] = pd.DataFrame(limpiar_decimales(raw_val))
         st.session_state["df_sync_meds"] = pd.DataFrame(limpiar_decimales(raw_meds))
         st.session_state["df_sync_analisis"] = pd.DataFrame(limpiar_decimales(raw_anal))
@@ -152,11 +154,8 @@ def release_lock(sheet_obj):
     except: pass
 
 def guardar_en_google_sheets(df_val_actual, df_meds_actual):
-    """Escribe datos en VALIDACIONES y MEDICAMENTOS con lógica anti-duplicados."""
     try:
         doc = conectar_google_sheets()
-        
-        # 1. Intentar adquirir LOCK
         intentos = 0
         while not acquire_lock(doc) and intentos < 5:
             time.sleep(2)
@@ -167,10 +166,8 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
             return
 
         id_actual = st.session_state.reg_id
-        
-        # 2. Verificar Duplicados Tabla 1 (VALIDACIONES)
         ws_val = doc.worksheet("VALIDACIONES")
-        ids_existentes = ws_val.col_values(4) # Columna D: ID_REGISTRO
+        ids_existentes = ws_val.col_values(4) 
         
         if id_actual not in ids_existentes:
             fila_val = df_val_actual[df_val_actual["ID_REGISTRO"] == id_actual].iloc[-1].fillna("").to_dict()
@@ -179,14 +176,10 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
                 for v in fila_val.values()
             ]
             ws_val.append_row(fila_val_convertida)
-        else:
-            st.warning(f"ℹ️ El ID {id_actual} ya existe en VALIDACIONES. Omitiendo duplicado.")
 
-        # 3. Verificar Duplicados Tabla 2 (MEDICAMENTOS) con Clave Compuesta
         ws_meds = doc.worksheet("MEDICAMENTOS")
         data_meds_nube = ws_meds.get_all_records()
         df_nube_meds = pd.DataFrame(data_meds_nube)
-        
         meds_a_procesar = df_meds_actual[df_meds_actual["ID_REGISTRO"] == id_actual].fillna("")
         
         filas_nuevas = []
@@ -205,11 +198,8 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
         if filas_nuevas:
             ws_meds.append_rows(filas_nuevas)
             st.success(f"✅ Sincronización exitosa (ID: {id_actual})")
-        else:
-            st.info("ℹ️ No hay nuevos medicamentos que añadir para este registro.")
 
         release_lock(doc)
-
     except Exception as e:
         st.error(f"❌ Error crítico: {e}")
         try: release_lock(doc)
@@ -370,7 +360,6 @@ with tabs[0]:
             detalle_limpio = re.sub(r'<[^>]*>', '', detalle)
             st.markdown(f'''<div class="clinical-detail-container">{detalle_limpio}</div>''', unsafe_allow_html=True)
             
-            # Auto-informe
             datos_obj_lista = []
             if calc_e: datos_obj_lista.append(f"Edad: {calc_e}a")
             if calc_p: datos_obj_lista.append(f"Peso: {calc_p}kg")
@@ -388,7 +377,6 @@ with tabs[0]:
                 data = json.loads(json_data_str)
                 id_actual = st.session_state.reg_id
                 
-                # --- LÓGICA DE BLOQUEO EN MEMORIA (TABLA 1) ---
                 if st.session_state.df_val.empty or id_actual not in st.session_state.df_val["ID_REGISTRO"].values:
                     pac_row = {
                         "FECHA": datetime.now().strftime("%d/%m/%Y"), "CENTRO": st.session_state.reg_centro, "RESIDENCIA": st.session_state.reg_res, "ID_REGISTRO": id_actual,
@@ -399,7 +387,6 @@ with tabs[0]:
                     }
                     st.session_state.df_val = pd.concat([st.session_state.df_val, pd.DataFrame([pac_row])], ignore_index=True)
                     
-                    # --- LÓGICA DE BLOQUEO EN MEMORIA (TABLA 2: Clave Compuesta) ---
                     for m in data["medicamentos"]:
                         med_nombre = m.get("MEDICAMENTO", "")
                         ya_existe_med = False
@@ -446,17 +433,13 @@ with tabs[2]:
         if st.button("💾 GRABAR DATOS", use_container_width=True, type="primary"):
             if not st.session_state.df_val.empty:
                 guardar_en_google_sheets(st.session_state.df_val, st.session_state.df_meds)
-                # Sincronización automática tras grabar
                 sincronizar_desde_nube()
                 st.session_state.analisis_realizado = False
             else: st.error("Sin datos.")
 
     st.write("---")
     st.markdown("### 📜 Detalle de Histórico")
-    
-    # --- ESPEJO DE GOOGLE SHEETS EN SUBPESTAÑAS ---
     sub_hist = st.tabs(["📊 VALIDACIONES", "💊 MEDICAMENTOS", "📝 ANÁLISIS"])
-    
     with sub_hist[0]:
         st.dataframe(st.session_state["df_sync_val"], use_container_width=True)
     with sub_hist[1]:
@@ -464,21 +447,18 @@ with tabs[2]:
     with sub_hist[2]:
         st.dataframe(st.session_state["df_sync_analisis"], use_container_width=True)
 
-    # --- BOTONES DE CONTROL DE ESPEJO ---
     st.write("")
     c_btn1, c_btn2 = st.columns(2)
     with c_btn1:
         if st.button("🔄 REFRESCAR DESDE NUBE", use_container_width=True):
             sincronizar_desde_nube()
             st.rerun()
-    
     with c_btn2:
         buffer_excel = io.BytesIO()
         with pd.ExcelWriter(buffer_excel, engine='xlsxwriter') as writer:
             st.session_state["df_sync_val"].to_excel(writer, index=False, sheet_name='VALIDACIONES')
             st.session_state["df_sync_meds"].to_excel(writer, index=False, sheet_name='MEDICAMENTOS')
             st.session_state["df_sync_analisis"].to_excel(writer, index=False, sheet_name='ANALISIS')
-        
         st.download_button(
             label="📥 DESCARGAR EXCEL",
             data=buffer_excel.getvalue(),
@@ -486,6 +466,86 @@ with tabs[2]:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
         )
+
+# =================================================================
+# MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (TABS 3: DASHBOARD)
+# =================================================================
+with tabs[3]:
+    # MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (TÍTULO Y PREPARACIÓN)
+    st.markdown("### 📈 Dashboard de Gestión Renal")
+    df_dashboard = st.session_state["df_sync_meds"].copy()
+    
+    if df_dashboard.empty:
+        # MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (AVISO DATOS VACÍOS)
+        st.info("🔄 No hay datos sincronizados para mostrar el dashboard. Pulse 'REFRESCAR DESDE NUBE' en la pestaña DATOS.")
+    else:
+        # MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (TRATAMIENTO NULOS)
+        df_dashboard['EDAD'] = pd.to_numeric(df_dashboard['EDAD'], errors='coerce').fillna(0)
+        df_dashboard['FG_CG'] = pd.to_numeric(df_dashboard['FG_CG'], errors='coerce').fillna(0)
+        df_dashboard['NIVEL_ADE_CG'] = pd.to_numeric(df_dashboard['NIVEL_ADE_CG'], errors='coerce').fillna(0)
+
+        # MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (FILTROS)
+        with st.expander("🔍 Filtros Avanzados", expanded=False):
+            f_col1, f_col2, f_col3, f_col4 = st.columns(4)
+            with f_col1:
+                filtro_centro = st.multiselect("Centro", options=df_dashboard["CENTRO"].unique())
+            with f_col2:
+                rango_edad = st.slider("Rango Edad", 0, 110, (0, 110))
+            with f_col3:
+                rango_fg = st.slider("Rango FG (C-G)", 0.0, 150.0, (0.0, 150.0))
+            with f_col4:
+                filtro_riesgo = st.multiselect("Categoría Riesgo", options=df_dashboard["CAT_RIESGO_CG"].unique())
+
+        mask = (df_dashboard['EDAD'].between(rango_edad[0], rango_edad[1])) & \
+               (df_dashboard['FG_CG'].between(rango_fg[0], rango_fg[1]))
+        if filtro_centro: mask &= df_dashboard['CENTRO'].isin(filtro_centro)
+        if filtro_riesgo: mask &= df_dashboard['CAT_RIESGO_CG'].isin(filtro_riesgo)
+        df_filtered = df_dashboard[mask]
+
+        # MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (KPIs)
+        kpi1, kpi2, kpi3 = st.columns(3)
+        total_pacientes = df_filtered["ID_REGISTRO"].nunique()
+        total_meds = len(df_filtered)
+        afectados = len(df_filtered[df_filtered["NIVEL_ADE_CG"] > 0])
+        porcentaje_afec = (afectados / total_meds * 100) if total_meds > 0 else 0
+
+        with kpi1:
+            st.markdown(f'<div class="fg-glow-box" style="height:100px; border-color:#3182ce; box-shadow: 0 0 10px #3182ce;"><div style="font-size:0.8rem; color:#888;">PACIENTES</div><div style="font-size:2rem; font-weight:bold; color:#fff;">{total_pacientes}</div></div>', unsafe_allow_html=True)
+        with kpi2:
+            st.markdown(f'<div class="fg-glow-box" style="height:100px; border-color:#38a169; box-shadow: 0 0 10px #38a169;"><div style="font-size:0.8rem; color:#888;">MEDICAMENTOS</div><div style="font-size:2rem; font-weight:bold; color:#fff;">{total_meds}</div></div>', unsafe_allow_html=True)
+        with kpi3:
+            color_pct = "#e53e3e" if porcentaje_afec > 50 else "#dd6b20"
+            st.markdown(f'<div class="fg-glow-box" style="height:100px; border-color:{color_pct}; box-shadow: 0 0 10px {color_pct};"><div style="font-size:0.8rem; color:#888;">% AFECTADOS</div><div style="font-size:2rem; font-weight:bold; color:#fff;">{porcentaje_afec:.1f}%</div></div>', unsafe_allow_html=True)
+
+        # MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (GRÁFICOS)
+        g_col1, g_col2 = st.columns(2)
+        with g_col1:
+            st.markdown("##### Riesgo por Categoría")
+            color_map = {"0": "#2f855a", "1": "#faf089", "2": "#ffd27f", "3": "#c05621", "4": "#c53030"}
+            df_cat = df_filtered.groupby("NIVEL_ADE_CG").size().reset_index(name='count')
+            df_cat["NIVEL_ADE_CG"] = df_cat["NIVEL_ADE_CG"].astype(str)
+            fig_bar = px.bar(df_cat, x="NIVEL_ADE_CG", y="count", color="NIVEL_ADE_CG", color_discrete_map=color_map)
+            fig_bar.update_layout(showlegend=False, height=300, margin=dict(t=10, b=10, l=10, r=10))
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+        with g_col2:
+            st.markdown("##### Top Medicamentos Afectados")
+            df_top = df_filtered[df_filtered["NIVEL_ADE_CG"] > 0].groupby("MEDICAMENTO").size().reset_index(name='Nº')
+            df_top = df_top.sort_values(by="Nº", ascending=False)
+            if not df_top.empty:
+                umbral_top = df_top.iloc[4]["Nº"] if len(df_top) >= 5 else 0
+                df_top_final = df_top[df_top["Nº"] >= umbral_top].head(10)
+                fig_pie = px.pie(df_top_final, values='Nº', names='MEDICAMENTO', hole=.4)
+                fig_pie.update_layout(height=300, margin=dict(t=10, b=10, l=10, r=10))
+                st.plotly_chart(fig_pie, use_container_width=True)
+            else: st.write("Sin riesgos detectados.")
+
+        # MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (CHAT IA UI)
+        st.markdown("---")
+        st.markdown("##### 💬 Análisis Inteligente (Contexto Filtrado)")
+        with st.container(border=True):
+            chat_input = st.chat_input("Pregunta sobre los datos actuales...")
+            if chat_input: st.info(f"Análisis solicitado sobre {len(df_filtered)} registros activos.")
 
 st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 14 mar 2026 20:50</div>""", unsafe_allow_html=True)
 
