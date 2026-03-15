@@ -9,3 +9,5 @@ pandas
 st-gsheets-connection
 beautifulsoup4
 xlsxwriter
+plotly
+nbformat
