@@ -453,23 +453,40 @@ with tabs[3]:
                 st.plotly_chart(fig_bar, use_container_width=True)
 
         with g_col2:
-            st.markdown("##### Top 10 Medicamentos Críticos")
+            st.markdown("##### Top 5 Medicamentos Críticos")
             if "NIVEL_ADE_CG" in df_filtered.columns and "MEDICAMENTO" in df_filtered.columns:
                 df_top = df_filtered[df_filtered["NIVEL_ADE_CG"] > 0].groupby("MEDICAMENTO").size().reset_index(name='Frecuencia')
-                df_top = df_top.sort_values(by="Frecuencia", ascending=False).head(10)
+                # Lógica de Top 5 incluyendo empates
+                frecuencias_top = df_top["Frecuencia"].nlargest(5).unique()
+                df_top = df_top[df_top["Frecuencia"].isin(frecuencias_top)].sort_values(by="Frecuencia", ascending=False)
+                
                 if not df_top.empty:
                     fig_pie = px.pie(df_top, values='Frecuencia', names='MEDICAMENTO', hole=.4)
                     fig_pie.update_layout(height=350, margin=dict(t=10, b=10, l=10, r=10))
                     st.plotly_chart(fig_pie, use_container_width=True)
 
-        # 5. TABLA DE ANÁLISIS RÁPIDO (Hotfix Resiliencia - Protege contra KeyError)
-        st.markdown("##### 🔍 Detalle Filtrado de Intervenciones")
-        cols_deseadas = ["FECHA", "CENTRO", "ID_REGISTRO", "MEDICAMENTO", "CAT_RIESGO_CG", "SINTESIS_IA"]
-        cols_visibles = [c for c in cols_deseadas if c in df_filtered.columns]
-        if cols_visibles:
-            st.dataframe(df_filtered[cols_visibles], use_container_width=True, hide_index=True)
-        else:
-            st.info("No hay columnas de análisis detallado disponibles para mostrar.")
+        st.write("---")
+        st.markdown("##### 💬 Consulta Inteligente sobre Histórico")
+        chat_container = st.container(border=True)
+        with chat_container:
+            if "messages_db" not in st.session_state:
+                st.session_state.messages_db = []
+            
+            for message in st.session_state.messages_db:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
+
+            if prompt_db := st.chat_input("Pregunta sobre tendencias o datos específicos..."):
+                st.session_state.messages_db.append({"role": "user", "content": prompt_db})
+                with st.chat_message("user"):
+                    st.markdown(prompt_db)
+
+                with st.chat_message("assistant"):
+                    contexto_db = df_filtered.to_string()
+                    full_prompt = f"Basándote en estos datos del dashboard:\n{contexto_db}\n\nResponde a: {prompt_db}"
+                    response = llamar_ia_en_cascada(full_prompt)
+                    st.markdown(response)
+                st.session_state.messages_db.append({"role": "assistant", "content": response})
     else:
         st.warning("⚠️ No se detectan datos locales ni históricos.")
 
