@@ -1,4 +1,4 @@
-# v. 15 mar 2026 11:40 (CORRECCIÓN SINTÁCTICA NÚCLEO)
+# v. 15 mar 2026 12:20 (INTEGRACIÓN DASHBOARD HÍBRIDO)
 
 import streamlit as st
 import pandas as pd
@@ -27,28 +27,28 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                     "Filtrado Glomerular" (cuadro negro con glow morado).
+#                       "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                     - Cuadros negros superiores (ZONA y ACTIVO).
-#                     - Pestañas (Tabs) de navegación.
-#                     - Registro de Paciente: Estructura y función de fila única.
-#                     - Estructura del área de recorte y listado de medicación.
-#                     - Barra dual de validación (VALIDAR / RESET).
-#                     - Aviso legal amarillo inferior (Warning).
+#                       - Cuadros negros superiores (ZONA y ACTIVO).
+#                       - Pestañas (Tabs) de navegación.
+#                       - Registro de Paciente: Estructura y función de fila única.
+#                       - Estructura del área de recorte y listado de medicación.
+#                       - Barra dual de validación (VALIDAR / RESET).
+#                       - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                   "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                    "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                   principios antes y después de cada cambio. No se simplifican líneas.
+#                    principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#                   ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#                    ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#                     se considerará pérdida de principios.
+#                       se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#                      sus textos flotantes (placeholders) and los textos predefinidos en las
-#                      secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                       sus textos flotantes (placeholders) and los textos predefinidos en las
+#                       secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                     principio blindado; es informativo y no debe impedir la validación.
+#                       principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -253,7 +253,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 15 mar 2026 11:40</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 15 mar 2026 12:20</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -404,97 +404,100 @@ with tabs[2]:
             sincronizar_desde_nube(); st.rerun()
 
 # =================================================================
-# MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (TABS 3: DASHBOARD OPTIMIZADO)
-# CORRECCIÓN: INTEGRACIÓN LOCAL + NUBE EN TIEMPO REAL
+# MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (TABS 3: DASHBOARD HÍBRIDO)
+# INTEGRACIÓN: DATOS DE SESIÓN (df_meds) + DATOS NUBE (df_sync_meds)
 # =================================================================
 with tabs[3]:
     st.markdown("### 📈 Dashboard de Gestión Renal")
     
-    # MÓDULO DE EVOLUCIÓN - UNIFICACIÓN DE FUENTES (LOCAL + NUBE)
+    # 1. UNIFICACIÓN DE FUENTES (Invisible y en Memoria)
     df_local = st.session_state.df_meds.copy()
     df_nube = st.session_state["df_sync_meds"].copy()
     
-    # Combinamos ambas fuentes para que el dashboard sea instantáneo
+    # Combinamos para visibilidad total inmediata
     df_dashboard = pd.concat([df_local, df_nube], ignore_index=True)
     
     if not df_dashboard.empty:
-        # Eliminamos duplicados (por si el usuario validó y grabó en la misma sesión)
+        # Limpieza de duplicados por clave (ID + Medicamento) para evitar redundancia post-grabación
         df_dashboard = df_dashboard.drop_duplicates(subset=["ID_REGISTRO", "MEDICAMENTO"], keep="first")
         
-        # MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (TRATAMIENTO NULOS)
+        # Tipado de datos para cálculos
         df_dashboard['EDAD'] = pd.to_numeric(df_dashboard['EDAD'], errors='coerce').fillna(0)
         df_dashboard['FG_CG'] = pd.to_numeric(df_dashboard['FG_CG'], errors='coerce').fillna(0)
         df_dashboard['NIVEL_ADE_CG'] = pd.to_numeric(df_dashboard['NIVEL_ADE_CG'], errors='coerce').fillna(0)
 
-        # MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (FILTROS)
-        with st.expander("🔍 Filtros Avanzados", expanded=False):
+        # 2. FILTROS INTERACTIVOS
+        with st.expander("🔍 Filtros Dinámicos de Análisis", expanded=True):
             f_col1, f_col2, f_col3, f_col4 = st.columns(4)
             with f_col1:
-                centros_disp = [str(x) for x in df_dashboard["CENTRO"].unique() if x]
+                centros_disp = sorted([str(x) for x in df_dashboard["CENTRO"].unique() if x])
                 filtro_centro = st.multiselect("Centro", options=centros_disp)
             with f_col2:
-                rango_edad = st.slider("Rango Edad", 0, 110, (0, 110))
+                rango_edad = st.slider("Edad", 0, 110, (0, 110))
             with f_col3:
-                rango_fg = st.slider("Rango FG (C-G)", 0.0, 150.0, (0.0, 150.0))
+                rango_fg = st.slider("Filtrado Glomerular", 0.0, 150.0, (0.0, 150.0))
             with f_col4:
-                riesgos_disp = [str(x) for x in df_dashboard["CAT_RIESGO_CG"].unique() if x]
-                filtro_riesgo = st.multiselect("Categoría Riesgo", options=riesgos_disp)
+                riesgos_disp = sorted([str(x) for x in df_dashboard["CAT_RIESGO_CG"].unique() if x])
+                filtro_riesgo = st.multiselect("Nivel Alerta", options=riesgos_disp)
 
-        # Aplicación de filtros
+        # Aplicación de la máscara de filtrado
         mask = (df_dashboard['EDAD'].between(rango_edad[0], rango_edad[1])) & \
-                (df_dashboard['FG_CG'].between(rango_fg[0], rango_fg[1]))
+               (df_dashboard['FG_CG'].between(rango_fg[0], rango_fg[1]))
         if filtro_centro: mask &= df_dashboard['CENTRO'].isin(filtro_centro)
         if filtro_riesgo: mask &= df_dashboard['CAT_RIESGO_CG'].isin(filtro_riesgo)
         df_filtered = df_dashboard[mask]
 
-        # MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (KPIs)
-        kpi1, kpi2, kpi3 = st.columns(3)
+        # 3. KPIs DINÁMICOS
+        kpi1, kpi2, kpi3, kpi4 = st.columns(4)
         total_pacientes = df_filtered["ID_REGISTRO"].nunique()
         total_meds = len(df_filtered)
         afectados = len(df_filtered[df_filtered["NIVEL_ADE_CG"] > 0])
         porcentaje_afec = (afectados / total_meds * 100) if total_meds > 0 else 0
 
         with kpi1:
-            st.markdown(f'<div class="fg-glow-box" style="height:100px; border-color:#3182ce; box-shadow: 0 0 10px #3182ce;"><div style="font-size:0.8rem; color:#888;">PACIENTES</div><div style="font-size:2rem; font-weight:bold; color:#fff;">{total_pacientes}</div></div>', unsafe_allow_html=True)
+            st.metric("Pacientes Únicos", total_pacientes)
         with kpi2:
-            st.markdown(f'<div class="fg-glow-box" style="height:100px; border-color:#38a169; box-shadow: 0 0 10px #38a169;"><div style="font-size:0.8rem; color:#888;">MEDICAMENTOS</div><div style="font-size:2rem; font-weight:bold; color:#fff;">{total_meds}</div></div>', unsafe_allow_html=True)
+            st.metric("Total Fármacos", total_meds)
         with kpi3:
-            color_pct = "#e53e3e" if porcentaje_afec > 50 else "#dd6b20"
-            st.markdown(f'<div class="fg-glow-box" style="height:100px; border-color:{color_pct}; box-shadow: 0 0 10px {color_pct};"><div style="font-size:0.8rem; color:#888;">% AFECTADOS</div><div style="font-size:2rem; font-weight:bold; color:#fff;">{porcentaje_afec:.1f}%</div></div>', unsafe_allow_html=True)
+            st.metric("Alertas Detectadas", afectados, delta=f"{porcentaje_afec:.1f}%", delta_color="inverse")
+        with kpi4:
+            st.metric("Promedio FG", f"{df_filtered['FG_CG'].mean():.1f}" if not df_filtered.empty else "0")
 
-        # MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (GRÁFICOS)
-        g_col1, g_col2 = st.columns(2)
+        # 4. VISUALIZACIÓN DE IMPACTO
+        g_col1, g_col2 = st.columns([0.6, 0.4])
+        
         with g_col1:
-            st.markdown("##### Riesgo por Categoría")
+            st.markdown("##### Distribución de Riesgos (Cockcroft-Gault)")
+            # Mapeo de colores coherente con el sistema de Glow
             color_map = {"0": "#2f855a", "1": "#faf089", "2": "#ffd27f", "3": "#c05621", "4": "#c53030"}
             df_cat = df_filtered.groupby("NIVEL_ADE_CG").size().reset_index(name='count')
             df_cat["NIVEL_ADE_CG"] = df_cat["NIVEL_ADE_CG"].astype(str)
-            fig_bar = px.bar(df_cat, x="NIVEL_ADE_CG", y="count", color="NIVEL_ADE_CG", color_discrete_map=color_map)
-            fig_bar.update_layout(showlegend=False, height=300, margin=dict(t=10, b=10, l=10, r=10))
+            fig_bar = px.bar(df_cat, x="NIVEL_ADE_CG", y="count", color="NIVEL_ADE_CG", 
+                             color_discrete_map=color_map, labels={'count':'Cantidad', 'NIVEL_ADE_CG': 'Nivel de Riesgo'})
+            fig_bar.update_layout(showlegend=False, height=350, margin=dict(t=10, b=10, l=10, r=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_bar, use_container_width=True)
 
         with g_col2:
-            st.markdown("##### Top Medicamentos Afectados")
-            df_top = df_filtered[df_filtered["NIVEL_ADE_CG"] > 0].groupby("MEDICAMENTO").size().reset_index(name='Nº')
-            df_top = df_top.sort_values(by="Nº", ascending=False)
+            st.markdown("##### Top 10 Medicamentos Críticos")
+            df_top = df_filtered[df_filtered["NIVEL_ADE_CG"] > 0].groupby("MEDICAMENTO").size().reset_index(name='Frecuencia')
+            df_top = df_top.sort_values(by="Frecuencia", ascending=False).head(10)
             if not df_top.empty:
-                umbral_top = df_top.iloc[4]["Nº"] if len(df_top) >= 5 else 0
-                df_top_final = df_top[df_top["Nº"] >= umbral_top].head(10)
-                fig_pie = px.pie(df_top_final, values='Nº', names='MEDICAMENTO', hole=.4)
-                fig_pie.update_layout(height=300, margin=dict(t=10, b=10, l=10, r=10))
+                fig_pie = px.pie(df_top, values='Frecuencia', names='MEDICAMENTO', hole=.4, color_discrete_sequence=px.colors.sequential.RdBu)
+                fig_pie.update_layout(height=350, margin=dict(t=10, b=10, l=10, r=10))
                 st.plotly_chart(fig_pie, use_container_width=True)
-            else: st.info("Sin riesgos detectados en la selección actual.")
+            else:
+                st.info("No hay fármacos con alerta en la selección actual.")
 
-        # MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (CHAT IA UI)
-        st.markdown("---")
-        st.markdown("##### 💬 Análisis Inteligente (Contexto Híbrido)")
-        with st.container(border=True):
-            chat_input = st.chat_input("Pregunta sobre los datos actuales...")
-            if chat_input: st.info(f"Análisis solicitado sobre {len(df_filtered)} registros activos (Local + Nube).")
+        # 5. TABLA DE ANÁLISIS RÁPIDO
+        st.markdown("##### 🔍 Detalle Filtrado de Intervenciones")
+        st.dataframe(df_filtered[["FECHA", "CENTRO", "ID_REGISTRO", "MEDICAMENTO", "CAT_RIESGO_CG", "SINTESIS_IA"]], 
+                     use_container_width=True, hide_index=True)
+        
     else:
-        st.info("🔄 No hay datos para mostrar. Realice una validación en la pestaña 💊 VALIDACIÓN o pulse 'REFRESCAR DESDE NUBE' en la pestaña DATOS.")
+        st.warning("⚠️ No se detectan datos locales ni históricos. Realice una validación para activar el dashboard.")
+
 # =================================================================
-# FIN DE CORRECCIÓN TAB 3
+# FIN DE MÓDULO HISTÓRICO INTEGRADO
 # =================================================================
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 15 mar 2026 11:40</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 15 mar 2026 12:20</div>""", unsafe_allow_html=True)
