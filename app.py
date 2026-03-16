@@ -1,4 +1,4 @@
-# v. 16 mar 2026 13:05 (EVOLUCIÓN DASHBOARD GLOW & VALIDACIÓN EXTENDIDA)
+# v. 16 mar 2026 13:30 (EVOLUCIÓN DASHBOARD GLOW & VALIDACIÓN EXTENDIDA)
 
 import streamlit as st
 import pandas as pd
@@ -125,7 +125,7 @@ def sincronizar_desde_nube():
         st.error(f"❌ Error al sincronizar: {e}")
 
 if st.session_state["df_sync_val"].empty:
-    sincronizar_desde_nube()
+    sinconizar_desde_nube()
 
 def acquire_lock(sheet_obj):
     try:
@@ -254,7 +254,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 16 mar 2026 13:05</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 16 mar 2026 13:30</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -436,7 +436,7 @@ with tabs[3]:
         if filtro_riesgo and "CAT_RIESGO_CG" in df_dashboard.columns: mask &= df_dashboard['CAT_RIESGO_CG'].isin(filtro_riesgo)
         df_filtered = df_dashboard[mask]
 
-        # EVOLUCIÓN: Dashboard con métricas en cuadro visual Glow
+        # EVOLUCIÓN: Dashboard con métricas en cuadro visual Glow Actualizado
         total_pacientes = df_filtered["ID_REGISTRO"].nunique() if "ID_REGISTRO" in df_filtered.columns else 0
         total_meds = len(df_filtered)
         afectados = len(df_filtered[df_filtered["NIVEL_ADE_CG"] > 0]) if "NIVEL_ADE_CG" in df_filtered.columns else 0
@@ -445,13 +445,13 @@ with tabs[3]:
 
         kpi_c1, kpi_c2, kpi_c3, kpi_c4 = st.columns(4)
         with kpi_c1:
-            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #888;">Pacientes Únicos</div><div style="font-size: 1.8rem; font-weight: bold;">{total_pacientes}</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Pacientes Revisados</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{total_pacientes}</div></div>', unsafe_allow_html=True)
         with kpi_c2:
-            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #888;">Total Fármacos</div><div style="font-size: 1.8rem; font-weight: bold;">{total_meds}</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Total Fármacos</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{total_meds}</div></div>', unsafe_allow_html=True)
         with kpi_c3:
-            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #888;">Alertas Detectadas</div><div style="font-size: 1.8rem; font-weight: bold;">{afectados} <span style="font-size: 0.9rem; color: #feb2b2;">({porcentaje_afec:.1f}%)</span></div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Alertas Detectadas</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{afectados} <span style="font-size: 0.9rem; color: #feb2b2;">({porcentaje_afec:.1f}%)</span></div></div>', unsafe_allow_html=True)
         with kpi_c4:
-            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #888;">Promedio FG</div><div style="font-size: 1.8rem; font-weight: bold;">{promedio_fg:.1f}</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Promedio FG</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{promedio_fg:.1f}</div></div>', unsafe_allow_html=True)
 
         g_col1, g_col2 = st.columns([0.6, 0.4])
         with g_col1:
@@ -502,4 +502,4 @@ with tabs[3]:
     else:
         st.warning("⚠️ No se detectan datos locales ni históricos.")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 16 mar 2026 13:05</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 16 mar 2026 13:30</div>""", unsafe_allow_html=True)
