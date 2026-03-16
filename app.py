@@ -1,4 +1,4 @@
-# v. 15 mar 2026 12:35 (HOTFIX RESILIENCIA DASHBOARD)
+# v. 16 mar 2026 13:05 (EVOLUCIÓN DASHBOARD GLOW & VALIDACIÓN EXTENDIDA)
 
 import streamlit as st
 import pandas as pd
@@ -231,6 +231,7 @@ def inject_styles():
     .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; margin-top: 20px; }
     .sub-version { text-align: center; font-size: 0.6rem; color: #bbb; margin-top: -5px; margin-bottom: 20px; font-family: monospace; }
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
+    .db-glow-box { background-color: #000000; color: #FFFFFF; border: 1.5px solid #4a5568; box-shadow: 0 0 10px #2d3748; padding: 12px; border-radius: 12px; text-align: center; display: flex; flex-direction: column; justify-content: center; margin-bottom: 10px; }
     .unit-label { font-size: 0.65rem; color: #888; margin-top: -10px; margin-bottom: 5px; font-family: sans-serif; text-align: center; }
     .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; line-height: 1.6; }
     .glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; box-shadow: 0 0 12px #feb2b2; }
@@ -253,7 +254,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 15 mar 2026 12:35</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 16 mar 2026 13:05</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -305,9 +306,14 @@ with tabs[0]:
     st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds", placeholder="Pegue el listado...")
     st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
     
-    faltan_datos = not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s]) or (not fg_m and not valor_fg and not val_mdrd and not val_ckd)
+    # EVOLUCIÓN: Extensión de validación de datos faltantes
+    faltan_datos = not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s]) or \
+                   (not fg_m and not valor_fg) or \
+                   (st.session_state.fgl_mdrd is None) or \
+                   (st.session_state.fgl_ckd is None)
+
     if st.session_state.main_meds and faltan_datos and not st.session_state.analisis_realizado:
-        st.markdown('<div class="blink-text">⚠️ FALTAN DATOS EN REGISTRO O CALCULADORA</div>', unsafe_allow_html=True)
+        st.markdown('<div class="blink-text">⚠️ FALTAN DATOS EN REGISTRO, CALCULADORA O FGs (MDRD/CKD)</div>', unsafe_allow_html=True)
 
     b1, b2 = st.columns([0.85, 0.15])
     btn_val = b1.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True)
@@ -430,16 +436,22 @@ with tabs[3]:
         if filtro_riesgo and "CAT_RIESGO_CG" in df_dashboard.columns: mask &= df_dashboard['CAT_RIESGO_CG'].isin(filtro_riesgo)
         df_filtered = df_dashboard[mask]
 
-        kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+        # EVOLUCIÓN: Dashboard con métricas en cuadro visual Glow
         total_pacientes = df_filtered["ID_REGISTRO"].nunique() if "ID_REGISTRO" in df_filtered.columns else 0
         total_meds = len(df_filtered)
         afectados = len(df_filtered[df_filtered["NIVEL_ADE_CG"] > 0]) if "NIVEL_ADE_CG" in df_filtered.columns else 0
         porcentaje_afec = (afectados / total_meds * 100) if total_meds > 0 else 0
+        promedio_fg = df_filtered['FG_CG'].mean() if not df_filtered.empty else 0
 
-        with kpi1: st.metric("Pacientes Únicos", total_pacientes)
-        with kpi2: st.metric("Total Fármacos", total_meds)
-        with kpi3: st.metric("Alertas Detectadas", afectados, delta=f"{porcentaje_afec:.1f}%", delta_color="inverse")
-        with kpi4: st.metric("Promedio FG", f"{df_filtered['FG_CG'].mean():.1f}" if not df_filtered.empty else "0")
+        kpi_c1, kpi_c2, kpi_c3, kpi_c4 = st.columns(4)
+        with kpi_c1:
+            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #888;">Pacientes Únicos</div><div style="font-size: 1.8rem; font-weight: bold;">{total_pacientes}</div></div>', unsafe_allow_html=True)
+        with kpi_c2:
+            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #888;">Total Fármacos</div><div style="font-size: 1.8rem; font-weight: bold;">{total_meds}</div></div>', unsafe_allow_html=True)
+        with kpi_c3:
+            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #888;">Alertas Detectadas</div><div style="font-size: 1.8rem; font-weight: bold;">{afectados} <span style="font-size: 0.9rem; color: #feb2b2;">({porcentaje_afec:.1f}%)</span></div></div>', unsafe_allow_html=True)
+        with kpi_c4:
+            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #888;">Promedio FG</div><div style="font-size: 1.8rem; font-weight: bold;">{promedio_fg:.1f}</div></div>', unsafe_allow_html=True)
 
         g_col1, g_col2 = st.columns([0.6, 0.4])
         with g_col1:
@@ -490,4 +502,4 @@ with tabs[3]:
     else:
         st.warning("⚠️ No se detectan datos locales ni históricos.")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 15 mar 2026 12:35</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 16 mar 2026 13:05</div>""", unsafe_allow_html=True)
