@@ -1,4 +1,4 @@
-# v. 17 mar 2026 21:30 (SINCRO DE ALTA PRECISIÓN Y MAPEO DINÁMICO)
+# v. 16 mar 2026 13:30 (EVOLUCIÓN DASHBOARD GLOW & VALIDACIÓN EXTENDIDA)
 
 import streamlit as st
 import pandas as pd
@@ -27,28 +27,28 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                      "Filtrado Glomerular" (cuadro negro con glow morado).
+#                       "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                      - Cuadros negros superiores (ZONA y ACTIVO).
-#                      - Pestañas (Tabs) de navegación.
-#                      - Registro de Paciente: Estructura y función de fila única.
-#                      - Estructura del área de recorte y listado de medicación.
-#                      - Barra dual de validación (VALIDAR / RESET).
-#                      - Aviso legal amarillo inferior (Warning).
+#                       - Cuadros negros superiores (ZONA y ACTIVO).
+#                       - Pestañas (Tabs) de navegación.
+#                       - Registro de Paciente: Estructura y función de fila única.
+#                       - Estructura del área de recorte y listado de medicación.
+#                       - Barra dual de validación (VALIDAR / RESET).
+#                       - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                   "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                    "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                   principios antes y después de cada cambio. No se simplifican líneas.
+#                    principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#                   ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#                    ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#                      se considerará pérdida de principios.
+#                       se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
 #                       sus textos flotantes (placeholders) and los textos predefinidos en las
 #                       secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                      principio blindado; es informativo y no debe impedir la validación.
+#                       principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -81,8 +81,7 @@ if "df_sync_analisis" not in st.session_state:
     st.session_state["df_sync_analisis"] = pd.DataFrame()
 
 for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
-    if key not in st.session_state:
-        st.session_state[key] = ""
+    if key not in st.session_state: st.session_state[key] = ""
 
 # --- CONFIGURACIÓN IA ---
 try:
@@ -154,25 +153,14 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
 
         id_actual = st.session_state.reg_id
         ws_val = doc.worksheet("VALIDACIONES")
-        
-        # --- EVOLUCIÓN: MAPEO DINÁMICO POR CABECERAS ---
-        headers = ws_val.row_values(1)
-        ids_existentes = ws_val.col_values(headers.index("ID_REGISTRO") + 1) if "ID_REGISTRO" in headers else []
+        ids_existentes = ws_val.col_values(4) 
         
         if id_actual not in ids_existentes:
-            fila_val_dict = df_val_actual[df_val_actual["ID_REGISTRO"] == id_actual].iloc[-1].to_dict()
-            # Construir fila basada exactamente en el orden del Excel
-            fila_a_subir = []
-            for h in headers:
-                val = fila_val_dict.get(h, "") # Si no existe en el DF, se envía vacío (para tus 3 columnas manuales)
-                if hasattr(val, "item"): val = val.item()
-                if isinstance(val, float) and math.isnan(val): val = ""
-                fila_a_subir.append(val)
-            ws_val.append_row(fila_a_subir)
+            fila_val = df_val_actual[df_val_actual["ID_REGISTRO"] == id_actual].iloc[-1].fillna("").to_dict()
+            fila_val_convertida = [v.item() if hasattr(v, "item") else "" if isinstance(v, float) and math.isnan(v) else v for v in fila_val.values()]
+            ws_val.append_row(fila_val_convertida)
 
-        # Mismo proceso para MEDICAMENTOS
         ws_meds = doc.worksheet("MEDICAMENTOS")
-        headers_meds = ws_meds.row_values(1)
         data_meds_nube = ws_meds.get_all_records()
         df_nube_meds = pd.DataFrame(data_meds_nube)
         meds_a_procesar = df_meds_actual[df_meds_actual["ID_REGISTRO"] == id_actual].fillna("")
@@ -183,20 +171,12 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
             if not df_nube_meds.empty:
                 existe = df_nube_meds[(df_nube_meds["ID_REGISTRO"] == id_actual) & (df_nube_meds["MEDICAMENTO"] == fila["MEDICAMENTO"])]
                 if not existe.empty: ya_existe = True
-            
             if not ya_existe:
-                fila_dict = fila.to_dict()
-                fila_conv = []
-                for h in headers_meds:
-                    val = fila_dict.get(h, "")
-                    if hasattr(val, "item"): val = val.item()
-                    fila_conv.append(val)
+                fila_conv = [v.item() if hasattr(v, "item") else v for v in fila.values.tolist()]
                 filas_nuevas.append(fila_conv)
-        
         if filas_nuevas: ws_meds.append_rows(filas_nuevas)
         release_lock(doc)
-    except Exception as e:
-        st.error(f"Error técnico en volcado: {e}")
+    except:
         try: release_lock(doc)
         except: pass
 
@@ -274,7 +254,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 17 mar 2026 21:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 16 mar 2026 13:30</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -326,7 +306,11 @@ with tabs[0]:
     st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds", placeholder="Pegue el listado...")
     st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
     
-    faltan_datos = not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s]) or (not fg_m and not valor_fg) or (st.session_state.fgl_mdrd is None) or (st.session_state.fgl_ckd is None)
+    # EVOLUCIÓN: Extensión de validación de datos faltantes
+    faltan_datos = not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s]) or \
+                   (not fg_m and not valor_fg) or \
+                   (st.session_state.fgl_mdrd is None) or \
+                   (st.session_state.fgl_ckd is None)
 
     if st.session_state.main_meds and faltan_datos and not st.session_state.analisis_realizado:
         st.markdown('<div class="blink-text">⚠️ FALTAN DATOS EN REGISTRO, CALCULADORA O FGs (MDRD/CKD)</div>', unsafe_allow_html=True)
@@ -373,35 +357,12 @@ with tabs[0]:
                 id_actual = st.session_state.reg_id
                 
                 if st.session_state.df_val.empty or id_actual not in st.session_state.df_val["ID_REGISTRO"].values:
-                    # CONSTRUCCIÓN DE PAC_ROW EXPANDIDO (27 CAMPOS)
                     pac_row = {
-                        "FECHA": datetime.now().strftime("%d/%m/%Y"), 
-                        "CENTRO": st.session_state.reg_centro, 
-                        "RESIDENCIA": st.session_state.reg_res, 
-                        "ID_REGISTRO": id_actual,
-                        "EDAD": calc_e, 
-                        "SEXO": calc_s, 
-                        "PESO": calc_p, 
-                        "CREATININA": calc_c, 
-                        "Nº_TOTAL_MEDS_PAC": data["paciente"]["N_TOTAL_MEDS_PAC"],
-                        "FG_CG": valor_fg, 
-                        "Nº_TOT_AFEC_CG": data["paciente"]["CG"]["TOT_AFECTADOS"],
-                        "Nº_PRECAU_CG": data["paciente"]["CG"]["PRECAUCION"],
-                        "Nº_AJUSTE_DOS_CG": data["paciente"]["CG"]["AJUSTE_DOSIS"], 
-                        "Nº_TOXICID_CG": data["paciente"]["CG"]["TOXICIDAD"],
-                        "Nº_CONTRAIND_CG": data["paciente"]["CG"]["CONTRAINDICADOS"],
-                        "FG_MDRD": val_mdrd, 
-                        "Nº_TOT_AFEC_MDRD": data["paciente"]["MDRD"]["TOT_AFECTADOS"],
-                        "Nº_PRECAU_MDRD": data["paciente"]["MDRD"]["PRECAUCION"],
-                        "Nº_AJUSTE_DOS_MDRD": data["paciente"]["MDRD"]["AJUSTE_DOSIS"], 
-                        "Nº_TOXICID_MDRD": data["paciente"]["MDRD"]["TOXICIDAD"],
-                        "Nº_CONTRAIND_MDRD": data["paciente"]["MDRD"]["CONTRAINDICADOS"],
-                        "FG_CKD": val_ckd, 
-                        "Nº_TOT_AFEC_CKD": data["paciente"]["CKD"]["TOT_AFECTADOS"],
-                        "Nº_PRECAU_CKD": data["paciente"]["CKD"]["PRECAUCION"],
-                        "Nº_AJUSTE_DOS_CKD": data["paciente"]["CKD"]["AJUSTE_DOSIS"], 
-                        "Nº_TOXICID_CKD": data["paciente"]["CKD"]["TOXICIDAD"],
-                        "Nº_CONTRAIND_CKD": data["paciente"]["CKD"]["CONTRAINDICADOS"]
+                        "FECHA": datetime.now().strftime("%d/%m/%Y"), "CENTRO": st.session_state.reg_centro, "RESIDENCIA": st.session_state.reg_res, "ID_REGISTRO": id_actual,
+                        "EDAD": calc_e, "SEXO": calc_s, "PESO": calc_p, "CREATININA": calc_c, "Nº_TOTAL_MEDS_PAC": data["paciente"]["N_TOTAL_MEDS_PAC"],
+                        "FG_CG": valor_fg, "Nº_TOT_AFEC_CG": data["paciente"]["CG"]["TOT_AFECTADOS"], "Nº_PRECAU_CG": data["paciente"]["CG"]["PRECAUCION"], "Nº_AJUSTE_DOS_CG": data["paciente"]["CG"]["AJUSTE_DOSIS"], "Nº_TOXICID_CG": data["paciente"]["CG"]["TOXICIDAD"], "Nº_CONTRAIND_CG": data["paciente"]["CG"]["CONTRAINDICADOS"],
+                        "FG_MDRD": val_mdrd, "Nº_TOT_AFEC_MDRD": data["paciente"]["MDRD"]["TOT_AFECTADOS"], "Nº_PRECAU_MDRD": data["paciente"]["MDRD"]["PRECAUCION"], "Nº_AJUSTE_DOS_MDRD": data["paciente"]["MDRD"]["AJUSTE_DOSIS"], "Nº_TOXICID_MDRD": data["paciente"]["MDRD"]["TOXICIDAD"], "Nº_CONTRAIND_MDRD": data["paciente"]["MDRD"]["CONTRAINDICADOS"],
+                        "FG_CKD": val_ckd, "Nº_TOT_AFEC_CKD": data["paciente"]["CKD"]["TOT_AFECTADOS"], "Nº_PRECAU_CKD": data["paciente"]["CKD"]["PRECAUCION"], "Nº_AJUSTE_DOS_CKD": data["paciente"]["CKD"]["AJUSTE_DOSIS"], "Nº_TOXICID_CKD": data["paciente"]["CKD"]["TOXICIDAD"], "Nº_CONTRAIND_CKD": data["paciente"]["CKD"]["CONTRAINDICADOS"]
                     }
                     st.session_state.df_val = pd.concat([st.session_state.df_val, pd.DataFrame([pac_row])], ignore_index=True)
                     
@@ -475,6 +436,7 @@ with tabs[3]:
         if filtro_riesgo and "CAT_RIESGO_CG" in df_dashboard.columns: mask &= df_dashboard['CAT_RIESGO_CG'].isin(filtro_riesgo)
         df_filtered = df_dashboard[mask]
 
+        # EVOLUCIÓN: Dashboard con métricas en cuadro visual Glow Actualizado
         total_pacientes = df_filtered["ID_REGISTRO"].nunique() if "ID_REGISTRO" in df_filtered.columns else 0
         total_meds = len(df_filtered)
         afectados = len(df_filtered[df_filtered["NIVEL_ADE_CG"] > 0]) if "NIVEL_ADE_CG" in df_filtered.columns else 0
@@ -506,8 +468,10 @@ with tabs[3]:
             st.markdown("##### Top 5 Medicamentos Críticos")
             if "NIVEL_ADE_CG" in df_filtered.columns and "MEDICAMENTO" in df_filtered.columns:
                 df_top = df_filtered[df_filtered["NIVEL_ADE_CG"] > 0].groupby("MEDICAMENTO").size().reset_index(name='Frecuencia')
+                # Lógica de Top 5 incluyendo empates
                 frecuencias_top = df_top["Frecuencia"].nlargest(5).unique()
                 df_top = df_top[df_top["Frecuencia"].isin(frecuencias_top)].sort_values(by="Frecuencia", ascending=False)
+                
                 if not df_top.empty:
                     fig_pie = px.pie(df_top, values='Frecuencia', names='MEDICAMENTO', hole=.4)
                     fig_pie.update_layout(height=350, margin=dict(t=10, b=10, l=10, r=10))
@@ -519,12 +483,16 @@ with tabs[3]:
         with chat_container:
             if "messages_db" not in st.session_state:
                 st.session_state.messages_db = []
+            
             for message in st.session_state.messages_db:
-                with st.chat_message(message["role"]): st.markdown(message["content"])
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
 
             if prompt_db := st.chat_input("Pregunta sobre tendencias o datos específicos..."):
                 st.session_state.messages_db.append({"role": "user", "content": prompt_db})
-                with st.chat_message("user"): st.markdown(prompt_db)
+                with st.chat_message("user"):
+                    st.markdown(prompt_db)
+
                 with st.chat_message("assistant"):
                     contexto_db = df_filtered.to_string()
                     full_prompt = f"Basándote en estos datos del dashboard:\n{contexto_db}\n\nResponde a: {prompt_db}"
@@ -534,4 +502,4 @@ with tabs[3]:
     else:
         st.warning("⚠️ No se detectan datos locales ni históricos.")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 17 mar 2026 21:30</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 16 mar 2026 13:30</div>""", unsafe_allow_html=True)
