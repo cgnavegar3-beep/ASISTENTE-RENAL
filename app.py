@@ -1,4 +1,4 @@
-# v. 17 mar 2026 19:05 (EVOLUCIÓN ROBUSTEZ GRABACIÓN VALIDACIONES)
+# v. 16 mar 2026 13:30 (EVOLUCIÓN DASHBOARD GLOW & VALIDACIÓN EXTENDIDA)
 
 import streamlit as st
 import pandas as pd
@@ -27,28 +27,28 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                        "Filtrado Glomerular" (cuadro negro con glow morado).
+#                       "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                        - Cuadros negros superiores (ZONA y ACTIVO).
-#                        - Pestañas (Tabs) de navegación.
-#                        - Registro de Paciente: Estructura y función de fila única.
-#                        - Estructura del área de recorte y listado de medicación.
-#                        - Barra dual de validación (VALIDAR / RESET).
-#                        - Aviso legal amarillo inferior (Warning).
+#                       - Cuadros negros superiores (ZONA y ACTIVO).
+#                       - Pestañas (Tabs) de navegación.
+#                       - Registro de Paciente: Estructura y función de fila única.
+#                       - Estructura del área de recorte y listado de medicación.
+#                       - Barra dual de validación (VALIDAR / RESET).
+#                       - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                     "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                    "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                     principios antes y después de cada cambio. No se simplifican líneas.
+#                    principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#                     ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#                    ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#                        se considerará pérdida de principios.
+#                       se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#                        sus textos flotantes (placeholders) and los textos predefinidos en las
-#                        secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                       sus textos flotantes (placeholders) and los textos predefinidos en las
+#                       secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                        principio blindado; es informativo y no debe impedir la validación.
+#                       principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -101,7 +101,7 @@ def conectar_google_sheets():
 def sincronizar_desde_nube():
     try:
         doc = conectar_google_sheets()
-        ws_val = doc.worksheet("VALIDACIONES")
+        ws_val = doc.worksheet("VALIDACIONES_NUEVA")
         ws_meds = doc.worksheet("MEDICAMENTOS")
         ws_anal = doc.worksheet("ANALISIS")
         raw_val = ws_val.get_all_records()
@@ -153,16 +153,7 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
 
         id_actual = st.session_state.reg_id
         ws_val = doc.worksheet("VALIDACIONES")
-        
-        # --- INICIO EVOLUCIÓN: BÚSQUEDA DINÁMICA DE ID ---
-        headers = ws_val.row_values(1)
-        try:
-            col_id = headers.index("ID_REGISTRO") + 1
-        except ValueError:
-            col_id = 4 # Fallback a columna 4 si no se encuentra el encabezado
-            
-        ids_existentes = ws_val.col_values(col_id) 
-        # --- FIN EVOLUCIÓN ---
+        ids_existentes = ws_val.col_values(4) 
         
         if id_actual not in ids_existentes:
             fila_val = df_val_actual[df_val_actual["ID_REGISTRO"] == id_actual].iloc[-1].fillna("").to_dict()
@@ -263,7 +254,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 17 mar 2026 19:05</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 16 mar 2026 13:30</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -511,4 +502,4 @@ with tabs[3]:
     else:
         st.warning("⚠️ No se detectan datos locales ni históricos.")
 
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 17 mar 2026 19:05</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 16 mar 2026 13:30</div>""", unsafe_allow_html=True)
