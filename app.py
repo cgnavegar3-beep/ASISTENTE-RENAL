@@ -1,4 +1,4 @@
-# v. 19 mar 2026 10:15 (FIX: ROBUSTEZ EN VOLCADO DE VALIDACIONES)
+# v. 19 mar 2026 10:25 (TEST: IMPLEMENTACIÓN TEST DIRECTO EN APPEND_ROW)
  
 import streamlit as st
 import pandas as pd
@@ -151,28 +151,34 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
             time.sleep(2); intentos += 1
         if intentos >= 5: return
  
-        id_actual = str(st.session_state.reg_id).strip()
         ws_val = doc.worksheet("VALIDACIONES")
         
-        # EVOLUCIÓN: Limpieza robusta de IDs existentes
-        raw_ids = ws_val.col_values(4) 
-        ids_existentes = [str(x).strip() for x in raw_ids if str(x).strip()]
-        
-        if id_actual not in ids_existentes:
-            # EVOLUCIÓN: Filtrado seguro del DataFrame
-            df_filtrado = df_val_actual[df_val_actual["ID_REGISTRO"] == id_actual]
-            
-            if df_filtrado.empty:
-                st.error(f"❌ Error técnico: ID {id_actual} no encontrado en memoria local.")
-            else:
-                fila_val = df_filtrado.iloc[-1].fillna("").to_dict()
-                fila_val_convertida = [v.item() if hasattr(v, "item") else "" if isinstance(v, float) and math.isnan(v) else v for v in fila_val.values()]
-                ws_val.append_row(fila_val_convertida)
-                st.info(f"✅ Validación {id_actual} volcada correctamente.")
+        # ===== TEST DIRECTO =====
+        try:
+            ws_val.append_row([
+                "TEST_FECHA",
+                "TEST_CENTRO",
+                "",
+                "TEST_ID",
+                65,
+                "Hombre",
+                56,
+                1.4,
+                1,
+                41.7,
+                1,0,1,0,0,
+                "",0,0,0,0,0,
+                "",0,0,0,0,0,
+                "", "", ""
+            ])
+            st.success("✅ TEST append_row FUNCIONA")
+        except Exception as e:
+            st.error(f"❌ TEST append_row ERROR: {e}")
  
         ws_meds = doc.worksheet("MEDICAMENTOS")
         data_meds_nube = ws_meds.get_all_records()
         df_nube_meds = pd.DataFrame(data_meds_nube)
+        id_actual = str(st.session_state.reg_id).strip()
         meds_a_procesar = df_meds_actual[df_meds_actual["ID_REGISTRO"] == id_actual].fillna("")
         
         filas_nuevas = []
@@ -265,7 +271,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 19 mar 2026 10:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 19 mar 2026 10:25</div>', unsafe_allow_html=True)
  
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
  
@@ -510,4 +516,4 @@ with tabs[3]:
     else:
         st.warning("⚠️ No se detectan datos locales ni históricos.")
  
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 19 mar 2026 10:15</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 19 mar 2026 10:25</div>""", unsafe_allow_html=True)
