@@ -1,4 +1,4 @@
-# v. 19 mar 2026 10:25 (TEST: IMPLEMENTACIÓN TEST DIRECTO EN APPEND_ROW)
+# v. 19 mar 2026 10:20 (SOLUCIÓN PERSISTENCIA TABLA 1 & NORMALIZACIÓN)
  
 import streamlit as st
 import pandas as pd
@@ -16,6 +16,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 import time
 import math
+import numpy as np
  
 # MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (IMPORTACIONES VISUALIZACIÓN)
 import plotly.express as px
@@ -151,51 +152,61 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
             time.sleep(2); intentos += 1
         if intentos >= 5: return
  
-        ws_val = doc.worksheet("VALIDACIONES")
+        id_actual = st.session_state.reg_id
         
-        # ===== TEST DIRECTO =====
-        try:
-            ws_val.append_row([
-                "TEST_FECHA",
-                "TEST_CENTRO",
-                "",
-                "TEST_ID",
-                65,
-                "Hombre",
-                56,
-                1.4,
-                1,
-                41.7,
-                1,0,1,0,0,
-                "",0,0,0,0,0,
-                "",0,0,0,0,0,
-                "", "", ""
-            ])
-            st.success("✅ TEST append_row FUNCIONA")
-        except Exception as e:
-            st.error(f"❌ TEST append_row ERROR: {e}")
+        # --- EVOLUCIÓN TABLA 1 (VALIDACIONES) ---
+        ws_val = doc.worksheet("VALIDACIONES")
+        ids_existentes = ws_val.col_values(4) 
+        
+        if id_actual not in ids_existentes:
+            headers_val = ws_val.row_values(1)
+            df_fila = df_val_actual[df_val_actual["ID_REGISTRO"] == id_actual].iloc[-1].to_dict()
+            
+            fila_ordenada = []
+            for col in headers_val:
+                val = df_fila.get(col, "")
+                # Normalización robusta
+                if val is None or (isinstance(val, float) and math.isnan(val)):
+                    val = ""
+                elif hasattr(val, "item"): # Tipos numpy
+                    val = val.item()
+                fila_ordenada.append(val)
+                
+            if len(fila_ordenada) == len(headers_val):
+                ws_val.append_row(fila_ordenada)
  
+        # --- TABLA 2 (MEDICAMENTOS) ---
         ws_meds = doc.worksheet("MEDICAMENTOS")
         data_meds_nube = ws_meds.get_all_records()
         df_nube_meds = pd.DataFrame(data_meds_nube)
-        id_actual = str(st.session_state.reg_id).strip()
         meds_a_procesar = df_meds_actual[df_meds_actual["ID_REGISTRO"] == id_actual].fillna("")
         
+        headers_meds = ws_meds.row_values(1)
         filas_nuevas = []
         for _, fila in meds_a_procesar.iterrows():
             ya_existe = False
             if not df_nube_meds.empty:
                 existe = df_nube_meds[(df_nube_meds["ID_REGISTRO"] == id_actual) & (df_nube_meds["MEDICAMENTO"] == fila["MEDICAMENTO"])]
                 if not existe.empty: ya_existe = True
+            
             if not ya_existe:
-                fila_conv = [v.item() if hasattr(v, "item") else v for v in fila.values.tolist()]
+                fila_dict = fila.to_dict()
+                fila_conv = []
+                for col in headers_meds:
+                    val = fila_dict.get(col, "")
+                    if val is None or (isinstance(val, float) and math.isnan(val)):
+                        val = ""
+                    elif hasattr(val, "item"):
+                        val = val.item()
+                    fila_conv.append(val)
                 filas_nuevas.append(fila_conv)
+                
         if filas_nuevas: ws_meds.append_rows(filas_nuevas)
         release_lock(doc)
     except Exception as e:
-        st.error(f"❌ Error crítico al grabar: {str(e)}")
         try: release_lock(doc)
         except: pass
+        st.error(f"Error técnico en persistencia: {e}")
  
 # --- FUNCIONES NÚCLEO ---
 def llamar_ia_en_cascada(prompt):
@@ -271,7 +282,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 19 mar 2026 10:25</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 19 mar 2026 10:20</div>', unsafe_allow_html=True)
  
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
  
@@ -516,4 +527,4 @@ with tabs[3]:
     else:
         st.warning("⚠️ No se detectan datos locales ni históricos.")
  
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 19 mar 2026 10:25</div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 19 mar 2026 10:20</div>""", unsafe_allow_html=True)
