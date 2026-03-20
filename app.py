@@ -1,4 +1,4 @@
-# v. 20 mar 2026 12:45 (CORRECCIÓN DASHBOARD SUMATORIA K2:K)
+# v. 20 mar 2026 18:30 (EVO: DASHBOARD COLORS & CHAT ANALÍTICO)
 
 import streamlit as st
 import pandas as pd
@@ -27,28 +27,28 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                      "Filtrado Glomerular" (cuadro negro con glow morado).
+#                       "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                      - Cuadros negros superiores (ZONA y ACTIVO).
-#                      - Pestañas (Tabs) de navegación.
-#                      - Registro de Paciente: Estructura y función de fila única.
-#                      - Estructura del área de recorte y listado de medicación.
-#                      - Barra dual de validación (VALIDAR / RESET).
-#                      - Aviso legal amarillo inferior (Warning).
+#                       - Cuadros negros superiores (ZONA y ACTIVO).
+#                       - Pestañas (Tabs) de navegación.
+#                       - Registro de Paciente: Estructura y función de fila única.
+#                       - Estructura del área de recorte y listado de medicación.
+#                       - Barra dual de validación (VALIDAR / RESET).
+#                       - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                   "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                    "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                    principios antes y después de cada cambio. No se simplifican líneas.
+#                     principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#                    ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#                     ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#                    se considerará pérdida de principios.
+#                     se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#                      sus textos flotantes (placeholders) and los textos predefinidos en las
-#                      secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                       sus textos flotantes (placeholders) and los textos predefinidos en las
+#                       secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                      principio blindado; es informativo y no debe impedir la validación.
+#                       principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -79,6 +79,10 @@ if "df_sync_meds" not in st.session_state:
   st.session_state["df_sync_meds"] = pd.DataFrame()
 if "df_sync_analisis" not in st.session_state:
   st.session_state["df_sync_analisis"] = pd.DataFrame()
+
+# --- ESTADO PARA CHAT DE ANÁLISIS ---
+if "chat_history_graficos" not in st.session_state:
+    st.session_state.chat_history_graficos = []
 
 for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
     if key not in st.session_state:
@@ -251,7 +255,14 @@ def inject_styles():
     .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; margin-top: 20px; }
     .sub-version { text-align: center; font-size: 0.6rem; color: #bbb; margin-top: -5px; margin-bottom: 20px; font-family: monospace; }
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
-    .db-glow-box { background-color: #000000; color: #FFFFFF; border: 1.5px solid #4a5568; box-shadow: 0 0 10px #2d3748; padding: 12px; border-radius: 12px; text-align: center; display: flex; flex-direction: column; justify-content: center; margin-bottom: 10px; }
+    
+    /* DASHBOARDS EVOLUCIONADOS */
+    .db-glow-box { background-color: #000000; color: #FFFFFF; border: 1.5px solid #4a5568; padding: 12px; border-radius: 12px; text-align: center; display: flex; flex-direction: column; justify-content: center; margin-bottom: 10px; }
+    .db-blue { border-color: #63b3ed !important; box-shadow: 0 0 8px #63b3ed; }
+    .db-green { border-color: #68d391 !important; box-shadow: 0 0 8px #68d391; }
+    .db-red { border-color: #fc8181 !important; box-shadow: 0 0 8px #fc8181; }
+    .db-purple { border-color: #b794f4 !important; box-shadow: 0 0 8px #b794f4; }
+
     .unit-label { font-size: 0.65rem; color: #888; margin-top: -10px; margin-bottom: 5px; font-family: sans-serif; text-align: center; }
     .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; line-height: 1.6; }
     .glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; box-shadow: 0 0 12px #feb2b2; }
@@ -274,7 +285,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 20 mar 2026 12:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 20 mar 2026 18:30</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -282,11 +293,12 @@ with tabs[0]:
     st.markdown("### Registro de Paciente")
     c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1.5, 0.4])
     def on_centro_change():
-        centro_val = st.session_state.reg_centro.strip().lower()
-        if centro_val == "m": st.session_state.reg_centro = "Marín"
-        elif centro_val == "o": st.session_state.reg_centro = "O Grove"
-        if st.session_state.reg_centro:
-            # EVOLUCIÓN: Recuperación de ID Registro Aleatorio
+        centro_input = st.session_state.reg_centro.strip().lower()
+        if centro_input == "m": st.session_state.reg_centro = "Marín"
+        elif centro_input == "o": st.session_state.reg_centro = "O Grove"
+        
+        # EVOLUCIÓN: Generación de ID robusta y persistente
+        if st.session_state.reg_centro and not st.session_state.reg_id:
             iniciales = "".join([word[0] for word in st.session_state.reg_centro.split()]).upper()[:3]
             st.session_state.reg_id = f"PAC-{iniciales}{random.randint(10000, 99999)}"
 
@@ -428,12 +440,10 @@ with tabs[2]:
 
 with tabs[3]:
     st.markdown("### 📈 Dashboard de Gestión Renal")
-    # Consolidar datos para el Dashboard
     df_v_dash = st.session_state["df_sync_val"].copy()
     df_m_dash = st.session_state["df_sync_meds"].copy()
     
     if not df_v_dash.empty:
-        # Asegurar tipos numéricos en la fuente de datos
         cols_num = ["EDAD", "FG_CG", "Nº_TOTAL_MEDS_PAC", "Nº_TOT_AFEC_CG"]
         for c_num in cols_num:
             if c_num in df_v_dash.columns:
@@ -449,45 +459,37 @@ with tabs[3]:
             with f_col3:
                 rango_fg = st.slider("Filtrado Glomerular", 0.0, 150.0, (0.0, 150.0))
 
-        # Aplicar Filtros
         mask = (df_v_dash['EDAD'].between(rango_edad[0], rango_edad[1])) & (df_v_dash['FG_CG'].between(rango_fg[0], rango_fg[1]))
         if filtro_centro: mask &= df_v_dash['CENTRO'].isin(filtro_centro)
         df_filtered_val = df_v_dash[mask]
 
-        # =================================================================
-        # EVOLUCIÓN: DASHBOARD VINCULADO A PESTAÑA ANALISIS Y SUMA K:K
-        # =================================================================
         df_anal_sync = st.session_state.get("df_sync_analisis", pd.DataFrame())
 
-        # KPI 1: Pacientes Revisados (B2 de ANALISIS -> iloc[0,1])
         try:
             total_pacientes = int(df_anal_sync.iloc[0, 1]) if not df_anal_sync.empty else df_filtered_val["ID_REGISTRO"].nunique()
         except: total_pacientes = df_filtered_val["ID_REGISTRO"].nunique()
 
-        # KPI 2: Total Medicamentos Revisados (B3 de ANALISIS -> iloc[1,1])
         try:
             total_meds_revisados = int(df_anal_sync.iloc[1, 1]) if not df_anal_sync.empty else df_filtered_val["Nº_TOTAL_MEDS_PAC"].sum()
         except: total_meds_revisados = df_filtered_val["Nº_TOTAL_MEDS_PAC"].sum()
 
-        # KPI 3: Alertas Detectadas (Suma de Columna K / Nº_TOT_AFEC_CG)
-        # Sumamos todos los medicamentos afectados registrados en la tabla de validaciones
         afectados_total = int(df_filtered_val["Nº_TOT_AFEC_CG"].sum())
         porcentaje_afec = (afectados_total / total_meds_revisados * 100) if total_meds_revisados > 0 else 0
 
-        # KPI 4: Promedio FG (B5 de ANALISIS -> iloc[4,1])
         try:
             promedio_fg = float(df_anal_sync.iloc[4, 1]) if not df_anal_sync.empty else df_filtered_val['FG_CG'].mean()
         except: promedio_fg = df_filtered_val['FG_CG'].mean()
 
+        # KPIs CON COLORES EVOLUCIONADOS
         kpi_c1, kpi_c2, kpi_c3, kpi_c4 = st.columns(4)
         with kpi_c1:
-            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Pacientes Revisados</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{total_pacientes}</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="db-glow-box db-blue"><div style="font-size: 0.75rem; color: #BBBBBB;">Pacientes Revisados</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{total_pacientes}</div></div>', unsafe_allow_html=True)
         with kpi_c2:
-            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Total medicamentos revisados</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{total_meds_revisados}</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="db-glow-box db-green"><div style="font-size: 0.75rem; color: #BBBBBB;">Total medicamentos revisados</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{total_meds_revisados}</div></div>', unsafe_allow_html=True)
         with kpi_c3:
-            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Alertas Detectadas (Totales)</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{afectados_total} <span style="font-size: 0.9rem; color: #feb2b2;">({porcentaje_afec:.1f}%)</span></div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="db-glow-box db-red"><div style="font-size: 0.75rem; color: #BBBBBB;">Alertas Detectadas (Totales)</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{afectados_total} <span style="font-size: 0.9rem; color: #feb2b2;">({porcentaje_afec:.1f}%)</span></div></div>', unsafe_allow_html=True)
         with kpi_c4:
-            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Promedio FG</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{promedio_fg:.1f}</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="db-glow-box db-purple"><div style="font-size: 0.75rem; color: #BBBBBB;">Promedio FG</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{promedio_fg:.1f}</div></div>', unsafe_allow_html=True)
 
         g_col1, g_col2 = st.columns([0.6, 0.4])
         with g_col1:
@@ -509,15 +511,30 @@ with tabs[3]:
                     fig_pie = px.pie(df_top, values='Frecuencia', names='MEDICAMENTO', hole=.4)
                     fig_pie.update_layout(height=350, margin=dict(t=10, b=10, l=10, r=10), showlegend=False)
                     st.plotly_chart(fig_pie, use_container_width=True)
+        
+        # --- EVOLUCIÓN: VENTANA DE CHAT DE ANÁLISIS ---
+        st.write("---")
+        st.markdown("#### 🤖 Chat de Análisis de Datos")
+        chat_cont = st.container(height=300)
+        for msg in st.session_state.chat_history_graficos:
+            chat_cont.chat_message(msg["role"]).write(msg["content"])
+        
+        if prompt_chat := st.chat_input("Pide un análisis, tabla dinámica o relación de datos..."):
+            st.session_state.chat_history_graficos.append({"role": "user", "content": prompt_chat})
+            chat_cont.chat_message("user").write(prompt_chat)
+            # Conexión lógica futura: por ahora solo feedback de interfaz
+            resp_temp = "Conexión con el motor de análisis en desarrollo. Próximamente procesaré tablas y gráficos."
+            st.session_state.chat_history_graficos.append({"role": "assistant", "content": resp_temp})
+            chat_cont.chat_message("assistant").write(resp_temp)
+
     else:
         st.info("No hay datos sincronizados para mostrar el Dashboard.")
 
-st.markdown(f'<div style="position: fixed; bottom: 5px; right: 10px; font-size: 0.6rem; color: #999; font-family: monospace;">v. 20 mar 2026 12:45</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="position: fixed; bottom: 5px; right: 10px; font-size: 0.6rem; color: #999; font-family: monospace;">v. 20 mar 2026 18:30</div>', unsafe_allow_html=True)
 
 st.markdown("""
 <div class="warning-yellow">
-    <strong>AVISO LEGAL:</strong> Esta herramienta es un asistente de soporte a la decisión clínica basado en IA. 
-    Los cálculos y sugerencias deben ser verificados por un profesional sanitario antes de cualquier intervención. 
-    El uso de este software no sustituye el juicio clínico profesional.
+    <strong>AVISO LEGAL:</strong> Esta herramienta es un asistente de apoyo a la decisión clínica basado en IA. 
+    Toda recomendación debe ser validada por un profesional sanitario antes de su aplicación.
 </div>
 """, unsafe_allow_html=True)
