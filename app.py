@@ -462,10 +462,10 @@ with tabs[3]:
         # Recuperación de dato desde pestaña ANALISIS para el KPI 2
         try:
             df_anal_sync = st.session_state["df_sync_analisis"]
-            # Buscamos el valor en el DataFrame de análisis donde el nombre sea 'total farmacos revisados'
-            total_farmacos_revisados_val = df_anal_sync.iloc[0, 1] if not df_anal_sync.empty else 0
+            # Buscamos el valor en el DataFrame de análisis donde el nombre sea 'TOTAL MEDICAMENTOS REVISADOS'
+            TOTAL_MEDICAMENTOS_REVISADOS_val = df_anal_sync.iloc[0, 1] if not df_anal_sync.empty else 0
         except:
-            total_farmacos_revisados_val = len(df_filtered)
+            TOTAL_MEDICAMENTOS_REVISADOS_val = len(df_filtered)
 
         afectados = len(df_filtered[df_filtered["NIVEL_ADE_CG"] > 0]) if "NIVEL_ADE_CG" in df_filtered.columns else 0
         porcentaje_afec = (afectados / len(df_filtered) * 100) if not df_filtered.empty else 0
@@ -475,7 +475,7 @@ with tabs[3]:
         with kpi_c1:
             st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Pacientes Revisados</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{total_pacientes}</div></div>', unsafe_allow_html=True)
         with kpi_c2:
-            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Total Fármacos Revisados</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{total_farmacos_revisados_val}</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Total medicamentos revisados</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{TOTAL_MEDICAMENTOS_REVISADOS_val}</div></div>', unsafe_allow_html=True)
         with kpi_c3:
             st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Alertas Detectadas</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{afectados} <span style="font-size: 0.9rem; color: #feb2b2;">({porcentaje_afec:.1f}%)</span></div></div>', unsafe_allow_html=True)
         with kpi_c4:
