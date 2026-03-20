@@ -109,6 +109,18 @@ def test_volcado_simple(df_val_actual):
             st.error("DF vacío")
             return
 
+        # 🔥 LIMPIEZA CRÍTICA DF (ANTES DE VOLCAR)
+        df_val_actual = df_val_actual.copy()
+
+        for col in df_val_actual.columns:
+            df_val_actual[col] = df_val_actual[col].apply(
+                lambda x: "" if pd.isna(x) else (
+                    x.item() if hasattr(x, "item") else x
+                )
+            )
+
+        df_val_actual = df_val_actual.astype(object)
+
         fila = df_val_actual.iloc[0].to_dict()
         headers = ws.row_values(1)
         fila_final = []
