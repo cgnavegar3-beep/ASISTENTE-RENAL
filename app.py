@@ -1,4 +1,4 @@
-# v. 20 mar 2026 11:15 (ESTABILIZACIÓN DASHBOARD & ANÁLISIS)
+# v. 20 mar 2026 11:30 (ESTABILIZACIÓN DASHBOARD & ANÁLISIS)
 
 import streamlit as st
 import pandas as pd
@@ -27,28 +27,28 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                       "Filtrado Glomerular" (cuadro negro con glow morado).
+#                        "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                       - Cuadros negros superiores (ZONA y ACTIVO).
-#                       - Pestañas (Tabs) de navegación.
-#                       - Registro de Paciente: Estructura y función de fila única.
-#                       - Estructura del área de recorte y listado de medicación.
-#                       - Barra dual de validación (VALIDAR / RESET).
-#                       - Aviso legal amarillo inferior (Warning).
+#                        - Cuadros negros superiores (ZONA y ACTIVO).
+#                        - Pestañas (Tabs) de navegación.
+#                        - Registro de Paciente: Estructura y función de fila única.
+#                        - Estructura del área de recorte y listado de medicación.
+#                        - Barra dual de validación (VALIDAR / RESET).
+#                        - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                    "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                     "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                     principios antes y después de cada cambio. No se simplifican líneas.
+#                      principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#                     ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#                      ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#                     se considerará pérdida de principios.
+#                      se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#                       sus textos flotantes (placeholders) and los textos predefinidos en las
-#                       secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                        sus textos flotantes (placeholders) and los textos predefinidos en las
+#                        secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                       principio blindado; es informativo y no debe impedir la validación.
+#                        principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -274,7 +274,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 20 mar 2026 11:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 20 mar 2026 11:30</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -473,8 +473,14 @@ with tabs[3]:
         except:
             total_meds_revisados = len(df_filtered)
 
-        # KPI 3: Alertas Detectadas (Cálculo directo sobre columna K:K de VALIDACIONES / NIVEL_ADE_CG)
-        afectados = len(df_filtered[df_filtered["Nº_TOT_AFEC_CG"] > 0]) if "Nº_TOT_AFEC_CG" in df_filtered.columns else 0
+        # KPI 3: Alertas Detectadas (Cálculo directo sobre columna K:K de VALIDACIONES / Nº_TOT_AFEC_CG)
+        if "Nº_TOT_AFEC_CG" in df_filtered.columns:
+            # Convertimos a número por si la nube lo envía como texto
+            serie_afectados = pd.to_numeric(df_filtered["Nº_TOT_AFEC_CG"], errors='coerce').fillna(0)
+            afectados = serie_afectados.sum()
+        else:
+            afectados = 0
+            
         porcentaje_afec = (afectados / len(df_filtered) * 100) if not df_filtered.empty else 0
 
         # KPI 4: Promedio FG (Celda B5 de pestaña ANALISIS)
@@ -511,11 +517,4 @@ with tabs[3]:
                 if not df_top.empty:
                     frecuencias_top = df_top["Frecuencia"].nlargest(5).unique()
                     df_top = df_top[df_top["Frecuencia"].isin(frecuencias_top)].sort_values(by="Frecuencia", ascending=False)
-                    fig_pie = px.pie(df_top, values='Frecuencia', names='MEDICAMENTO', hole=.4)
-                    fig_pie.update_layout(height=350, margin=dict(t=10, b=10, l=10, r=10))
-                    st.plotly_chart(fig_pie, use_container_width=True)
-
-        st.write("---")
-        st.markdown("##### 💬 Consulta Inteligente sobre Histórico")
-        chat_container = st.container(border=True)
-        # (El resto del código del chat sigue igual...)
+                    st.dataframe(df_top, hide_index=True, use_container_width=True)
