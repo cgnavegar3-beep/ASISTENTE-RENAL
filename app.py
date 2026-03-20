@@ -1,4 +1,4 @@
-# v. 20 mar 2026 18:30 (EVO: DASHBOARD COLORS & CHAT ANALÍTICO)
+# v. 20 mar 2026 21:15 (EVO: HASH-LOCK API & DASHBOARD LABELS)
 
 import streamlit as st
 import pandas as pd
@@ -10,6 +10,7 @@ import re
 import os
 import json
 import constants as c 
+import hashlib
 
 # --- NUEVAS LIBRERÍAS PARA GOOGLE SHEETS & SERIALIZACIÓN ---
 import gspread
@@ -66,6 +67,10 @@ if "analisis_realizado" not in st.session_state:
    st.session_state.analisis_realizado = False
 if "resp_ia" not in st.session_state:
   st.session_state.resp_ia = None
+
+# EVO: HUELLA DIGITAL PARA BLOQUEO DE API
+if "ultima_huella" not in st.session_state:
+  st.session_state.ultima_huella = ""
 
 if "df_val" not in st.session_state:
   st.session_state.df_val = pd.DataFrame()
@@ -163,7 +168,7 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
         if id_actual not in ids_existentes:
             fila_dict = df_val_actual[df_val_actual["ID_REGISTRO"] == id_actual].iloc[-1].fillna("").to_dict()
             
-            # EVOLUCIÓN: Mapeo explícito de 27 columnas automáticas + 3 manuales (Total 30)
+            # EVO: Mapeo explícito de 27 columnas automáticas + 3 manuales (Total 30)
             columnas_ordenadas = [
                 "FECHA", "CENTRO", "RESIDENCIA", "ID_REGISTRO", "EDAD", "SEXO", "PESO", "CREATININA", "Nº_TOTAL_MEDS_PAC",
                 "FG_CG", "Nº_TOT_AFEC_CG", "Nº_PRECAU_CG", "Nº_AJUSTE_DOS_CG", "Nº_TOXICID_CG", "Nº_CONTRAIND_CG",
@@ -237,14 +242,14 @@ def reset_registro():
     for key in ["calc_e", "calc_p", "calc_c", "calc_s"]: 
         if key in st.session_state:
             st.session_state[key] = None
-    st.session_state.analisis_realizado = False; st.session_state.resp_ia = None
+    st.session_state.analisis_realizado = False; st.session_state.resp_ia = None; st.session_state.ultima_huella = ""
 
 def reset_meds():
     st.session_state.main_meds = ""
     st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
     st.session_state.soip_o = ""; st.session_state.soip_i = ""; st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
     st.session_state.ic_inter = ""; st.session_state.ic_clinica = ""
-    st.session_state.analisis_realizado = False; st.session_state.resp_ia = None
+    st.session_state.analisis_realizado = False; st.session_state.resp_ia = None; st.session_state.ultima_huella = ""
 
 def inject_styles():
     st.markdown("""
@@ -256,7 +261,6 @@ def inject_styles():
     .sub-version { text-align: center; font-size: 0.6rem; color: #bbb; margin-top: -5px; margin-bottom: 20px; font-family: monospace; }
     .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
     
-    /* DASHBOARDS EVOLUCIONADOS */
     .db-glow-box { background-color: #000000; color: #FFFFFF; border: 1.5px solid #4a5568; padding: 12px; border-radius: 12px; text-align: center; display: flex; flex-direction: column; justify-content: center; margin-bottom: 10px; }
     .db-blue { border-color: #63b3ed !important; box-shadow: 0 0 8px #63b3ed; }
     .db-green { border-color: #68d391 !important; box-shadow: 0 0 8px #68d391; }
@@ -285,7 +289,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 20 mar 2026 18:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 20 mar 2026 21:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -297,7 +301,6 @@ with tabs[0]:
         if centro_input == "m": st.session_state.reg_centro = "Marín"
         elif centro_input == "o": st.session_state.reg_centro = "O Grove"
         
-        # EVOLUCIÓN: Generación de ID robusta y persistente
         if st.session_state.reg_centro and not st.session_state.reg_id:
             iniciales = "".join([word[0] for word in st.session_state.reg_centro.split()]).upper()[:3]
             st.session_state.reg_id = f"PAC-{iniciales}{random.randint(10000, 99999)}"
@@ -352,12 +355,21 @@ with tabs[0]:
     b2.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
 
     if btn_val:
-        if not st.session_state.main_meds: st.error("Introduce medicamentos.")
+        if not st.session_state.main_meds: 
+            st.error("Introduce medicamentos.")
         else:
-            with st.spinner("Analizando..."):
-                prompt_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
-                st.session_state.resp_ia = llamar_ia_en_cascada(prompt_final)
+            # EVO: CALCULO DE HUELLA DIGITAL (HASH)
+            huella_actual = hashlib.md5(f"{st.session_state.reg_id}{calc_e}{calc_p}{calc_c}{calc_s}{val_mdrd}{val_ckd}{st.session_state.main_meds}".encode()).hexdigest()
+            
+            if huella_actual == st.session_state.ultima_huella and st.session_state.resp_ia:
+                st.toast("ℹ️ Análisis recuperado de memoria (Datos idénticos)", icon="🧠")
                 st.session_state.analisis_realizado = True
+            else:
+                with st.spinner("Analizando..."):
+                    prompt_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
+                    st.session_state.resp_ia = llamar_ia_en_cascada(prompt_final)
+                    st.session_state.ultima_huella = huella_actual
+                    st.session_state.analisis_realizado = True
 
     if st.session_state.analisis_realizado and st.session_state.resp_ia:
         resp = st.session_state.resp_ia[st.session_state.resp_ia.find("|||"):] if "|||" in st.session_state.resp_ia else st.session_state.resp_ia
@@ -426,7 +438,7 @@ with tabs[2]:
         if not st.session_state.df_val.empty:
             guardar_en_google_sheets(st.session_state.df_val, st.session_state.df_meds)
             sincronizar_desde_nube()
-            st.session_state.analisis_realizado = False
+            st.session_state.analisis_realizado = False; st.session_state.ultima_huella = ""
 
     st.write("---")
     st.markdown("### 📜 Detalle de Histórico")
@@ -508,11 +520,12 @@ with tabs[3]:
                 df_top = df_m_dash[df_m_dash["NIVEL_ADE_CG"] > 0].groupby("MEDICAMENTO").size().reset_index(name='Frecuencia')
                 if not df_top.empty:
                     df_top = df_top.nlargest(5, "Frecuencia")
+                    # EVO: RECUPERACIÓN DE NOMBRES EN GRÁFICO (LEYENDA Y TEXTO)
                     fig_pie = px.pie(df_top, values='Frecuencia', names='MEDICAMENTO', hole=.4)
-                    fig_pie.update_layout(height=350, margin=dict(t=10, b=10, l=10, r=10), showlegend=False)
+                    fig_pie.update_traces(textinfo='percent+label', textposition='inside')
+                    fig_pie.update_layout(height=350, margin=dict(t=30, b=10, l=10, r=10), showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5))
                     st.plotly_chart(fig_pie, use_container_width=True)
         
-        # --- EVOLUCIÓN: VENTANA DE CHAT DE ANÁLISIS ---
         st.write("---")
         st.markdown("#### 🤖 Chat de Análisis de Datos")
         chat_cont = st.container(height=300)
@@ -521,20 +534,9 @@ with tabs[3]:
         
         if prompt_chat := st.chat_input("Pide un análisis, tabla dinámica o relación de datos..."):
             st.session_state.chat_history_graficos.append({"role": "user", "content": prompt_chat})
+            # Lógica para respuesta de chat analítico (se puede expandir)
             chat_cont.chat_message("user").write(prompt_chat)
-            # Conexión lógica futura: por ahora solo feedback de interfaz
-            resp_temp = "Conexión con el motor de análisis en desarrollo. Próximamente procesaré tablas y gráficos."
-            st.session_state.chat_history_graficos.append({"role": "assistant", "content": resp_temp})
-            chat_cont.chat_message("assistant").write(resp_temp)
+            chat_cont.chat_message("assistant").write("Funcionalidad analítica en desarrollo...")
 
-    else:
-        st.info("No hay datos sincronizados para mostrar el Dashboard.")
-
-st.markdown(f'<div style="position: fixed; bottom: 5px; right: 10px; font-size: 0.6rem; color: #999; font-family: monospace;">v. 20 mar 2026 18:30</div>', unsafe_allow_html=True)
-
-st.markdown("""
-<div class="warning-yellow">
-    <strong>AVISO LEGAL:</strong> Esta herramienta es un asistente de apoyo a la decisión clínica basado en IA. 
-    Toda recomendación debe ser validada por un profesional sanitario antes de su aplicación.
-</div>
-""", unsafe_allow_html=True)
+st.markdown(f'<div style="position: fixed; bottom: 5px; right: 10px; font-size: 0.6rem; color: #999; font-family: monospace;">v. 20 mar 2026 21:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un apoyo a la decisión clínica. El farmacéutico y el médico son los responsables finales de la prescripción y validación del tratamiento.</div>', unsafe_allow_html=True)
