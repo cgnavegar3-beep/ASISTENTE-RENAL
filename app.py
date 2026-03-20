@@ -463,7 +463,7 @@ with tabs[3]:
 
         # KPI 1: Pacientes Revisados (Celda B2 de pestaña ANALISIS)
         try:
-            total_pacientes = df_anal_sync.iloc[1, 1] if not df_anal_sync.empty else df_filtered["ID_REGISTRO"].nunique()
+            total_pacientes = df_anal_sync.iloc[0, 1] if not df_anal_sync.empty else df_filtered["ID_REGISTRO"].nunique()
         except:
             total_pacientes = df_filtered["ID_REGISTRO"].nunique() if "ID_REGISTRO" in df_filtered.columns else 0
 
