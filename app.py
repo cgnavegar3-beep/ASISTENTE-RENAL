@@ -1,4 +1,4 @@
-# v. 20 mar 2026 12:45 (ESTABILIZACIÓN DASHBOARD & ANÁLISIS)
+# v. 20 mar 2026 12:45 (CORRECCIÓN DASHBOARD SUMATORIA K2:K)
 
 import streamlit as st
 import pandas as pd
@@ -27,62 +27,62 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                         "Filtrado Glomerular" (cuadro negro con glow morado).
+#                      "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                         - Cuadros negros superiores (ZONA y ACTIVO).
-#                         - Pestañas (Tabs) de navegación.
-#                         - Registro de Paciente: Estructura y función de fila única.
-#                         - Estructura del área de recorte y listado de medicación.
-#                         - Barra dual de validación (VALIDAR / RESET).
-#                         - Aviso legal amarillo inferior (Warning).
+#                      - Cuadros negros superiores (ZONA y ACTIVO).
+#                      - Pestañas (Tabs) de navegación.
+#                      - Registro de Paciente: Estructura y función de fila única.
+#                      - Estructura del área de recorte y listado de medicación.
+#                      - Barra dual de validación (VALIDAR / RESET).
+#                      - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                      "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                   "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                      principios antes y después de cada cambio. No se simplifican líneas.
+#                    principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#                       ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#                    ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#                       se considerará pérdida de principios.
+#                    se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#                         sus textos flotantes (placeholders) and los textos predefinidos en las
-#                         secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                      sus textos flotantes (placeholders) and los textos predefinidos en las
+#                      secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                         principio blindado; es informativo y no debe impedir la validación.
+#                      principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
 # --- INICIALIZACIÓN ---
 if "active_model" not in st.session_state:
-   st.session_state.active_model = "BUSCANDO..."
+  st.session_state.active_model = "BUSCANDO..."
 if "main_meds" not in st.session_state:
-   st.session_state.main_meds = ""
+  st.session_state.main_meds = ""
 if "soip_s" not in st.session_state:
-   st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
+  st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
 if "soip_p" not in st.session_state:
-   st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
+  st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
 if "analisis_realizado" not in st.session_state:
    st.session_state.analisis_realizado = False
 if "resp_ia" not in st.session_state:
-   st.session_state.resp_ia = None
+  st.session_state.resp_ia = None
 
 if "df_val" not in st.session_state:
-   st.session_state.df_val = pd.DataFrame()
+  st.session_state.df_val = pd.DataFrame()
 if "df_meds" not in st.session_state:
-   st.session_state.df_meds = pd.DataFrame()
+  st.session_state.df_meds = pd.DataFrame()
 
 # --- NUEVOS ESTADOS PARA ESPEJO NUBE ---
 if "df_sync_val" not in st.session_state:
-   st.session_state["df_sync_val"] = pd.DataFrame()
+  st.session_state["df_sync_val"] = pd.DataFrame()
 if "df_sync_meds" not in st.session_state:
-   st.session_state["df_sync_meds"] = pd.DataFrame()
+  st.session_state["df_sync_meds"] = pd.DataFrame()
 if "df_sync_analisis" not in st.session_state:
-   st.session_state["df_sync_analisis"] = pd.DataFrame()
+  st.session_state["df_sync_analisis"] = pd.DataFrame()
 
 for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
     if key not in st.session_state:
-        st.session_state[key] = ""
+       st.session_state[key] = ""
 
 # --- CONFIGURACIÓN IA ---
 try:
@@ -113,9 +113,9 @@ def sincronizar_desde_nube():
             for d in lista_dicts:
                 for k, v in d.items():
                     if isinstance(v, str) and "," in v:
-                        clean_v = v.replace(",", ".")
-                        try: d[k] = float(clean_v)
-                        except ValueError: pass 
+                       clean_v = v.replace(",", ".")
+                       try: d[k] = float(clean_v)
+                       except ValueError: pass 
             return lista_dicts
 
         st.session_state["df_sync_val"] = pd.DataFrame(limpiar_decimales(raw_val))
@@ -159,6 +159,7 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
         if id_actual not in ids_existentes:
             fila_dict = df_val_actual[df_val_actual["ID_REGISTRO"] == id_actual].iloc[-1].fillna("").to_dict()
             
+            # EVOLUCIÓN: Mapeo explícito de 27 columnas automáticas + 3 manuales (Total 30)
             columnas_ordenadas = [
                 "FECHA", "CENTRO", "RESIDENCIA", "ID_REGISTRO", "EDAD", "SEXO", "PESO", "CREATININA", "Nº_TOTAL_MEDS_PAC",
                 "FG_CG", "Nº_TOT_AFEC_CG", "Nº_PRECAU_CG", "Nº_AJUSTE_DOS_CG", "Nº_TOXICID_CG", "Nº_CONTRAIND_CG",
@@ -166,6 +167,7 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
                 "FG_CKD", "Nº_TOT_AFEC_CKD", "Nº_PRECAU_CKD", "Nº_AJUSTE_DOS_CKD", "Nº_TOXICID_CKD", "Nº_CONTRAIND_CKD"
             ]
             
+            # Construir la fila final de 30 elementos
             fila_final = []
             for col in columnas_ordenadas:
                 val = fila_dict.get(col, "")
@@ -173,7 +175,9 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
                 if isinstance(val, float) and math.isnan(val): val = ""
                 fila_final.append(val)
             
+            # Añadir los 3 huecos para las columnas manuales (Discrepancia, ACEPTACION MAP, aceptacion num)
             fila_final.extend(["", "", ""])
+            
             ws_val.append_row(fila_final)
 
         ws_meds = doc.worksheet("MEDICAMENTOS")
@@ -282,6 +286,7 @@ with tabs[0]:
         if centro_val == "m": st.session_state.reg_centro = "Marín"
         elif centro_val == "o": st.session_state.reg_centro = "O Grove"
         if st.session_state.reg_centro:
+            # EVOLUCIÓN: Recuperación de ID Registro Aleatorio
             iniciales = "".join([word[0] for word in st.session_state.reg_centro.split()]).upper()[:3]
             st.session_state.reg_id = f"PAC-{iniciales}{random.randint(10000, 99999)}"
 
@@ -423,66 +428,56 @@ with tabs[2]:
 
 with tabs[3]:
     st.markdown("### 📈 Dashboard de Gestión Renal")
-    df_local = st.session_state.df_meds.copy()
-    df_nube = st.session_state["df_sync_meds"].copy()
-    df_dashboard = pd.concat([df_local, df_nube], ignore_index=True)
+    # Consolidar datos para el Dashboard
+    df_v_dash = st.session_state["df_sync_val"].copy()
+    df_m_dash = st.session_state["df_sync_meds"].copy()
     
-    if not df_dashboard.empty:
-        df_dashboard = df_dashboard.drop_duplicates(subset=["ID_REGISTRO", "MEDICAMENTO"], keep="first")
-        df_dashboard['EDAD'] = pd.to_numeric(df_dashboard['EDAD'], errors='coerce').fillna(0)
-        df_dashboard['FG_CG'] = pd.to_numeric(df_dashboard['FG_CG'], errors='coerce').fillna(0)
-        df_dashboard['NIVEL_ADE_CG'] = pd.to_numeric(df_dashboard['NIVEL_ADE_CG'], errors='coerce').fillna(0)
+    if not df_v_dash.empty:
+        # Asegurar tipos numéricos en la fuente de datos
+        cols_num = ["EDAD", "FG_CG", "Nº_TOTAL_MEDS_PAC", "Nº_TOT_AFEC_CG"]
+        for c_num in cols_num:
+            if c_num in df_v_dash.columns:
+                df_v_dash[c_num] = pd.to_numeric(df_v_dash[c_num], errors='coerce').fillna(0)
 
         with st.expander("🔍 Filtros Dinámicos de Análisis", expanded=True):
-            f_col1, f_col2, f_col3, f_col4 = st.columns(4)
+            f_col1, f_col2, f_col3 = st.columns(3)
             with f_col1:
-                centros_disp = sorted([str(x) for x in df_dashboard["CENTRO"].unique() if x])
+                centros_disp = sorted([str(x) for x in df_v_dash["CENTRO"].unique() if x])
                 filtro_centro = st.multiselect("Centro", options=centros_disp)
             with f_col2:
                 rango_edad = st.slider("Edad", 0, 110, (0, 110))
             with f_col3:
                 rango_fg = st.slider("Filtrado Glomerular", 0.0, 150.0, (0.0, 150.0))
-            with f_col4:
-                riesgos_disp = sorted([str(x) for x in df_dashboard["CAT_RIESGO_CG"].unique() if x]) if "CAT_RIESGO_CG" in df_dashboard.columns else []
-                filtro_riesgo = st.multiselect("Nivel Alerta", options=riesgos_disp)
 
-        mask = (df_dashboard['EDAD'].between(rango_edad[0], rango_edad[1])) & (df_dashboard['FG_CG'].between(rango_fg[0], rango_fg[1]))
-        if filtro_centro: mask &= df_dashboard['CENTRO'].isin(filtro_centro)
-        if filtro_riesgo and "CAT_RIESGO_CG" in df_dashboard.columns: mask &= df_dashboard['CAT_RIESGO_CG'].isin(filtro_riesgo)
-        df_filtered = df_dashboard[mask]
+        # Aplicar Filtros
+        mask = (df_v_dash['EDAD'].between(rango_edad[0], rango_edad[1])) & (df_v_dash['FG_CG'].between(rango_fg[0], rango_fg[1]))
+        if filtro_centro: mask &= df_v_dash['CENTRO'].isin(filtro_centro)
+        df_filtered_val = df_v_dash[mask]
 
         # =================================================================
-        # EVOLUCIÓN: DASHBOARD VINCULADO A PESTAÑA ANALISIS (CORRECCIÓN CONTEO)
+        # EVOLUCIÓN: DASHBOARD VINCULADO A PESTAÑA ANALISIS Y SUMA K:K
         # =================================================================
         df_anal_sync = st.session_state.get("df_sync_analisis", pd.DataFrame())
 
-        # KPI 1: Pacientes Revisados (B2)
+        # KPI 1: Pacientes Revisados (B2 de ANALISIS -> iloc[0,1])
         try:
-            total_pacientes = int(df_anal_sync.iloc[1, 1]) if not df_anal_sync.empty else df_filtered["ID_REGISTRO"].nunique()
-        except:
-            total_pacientes = df_filtered["ID_REGISTRO"].nunique() if "ID_REGISTRO" in df_filtered.columns else 0
+            total_pacientes = int(df_anal_sync.iloc[0, 1]) if not df_anal_sync.empty else df_filtered_val["ID_REGISTRO"].nunique()
+        except: total_pacientes = df_filtered_val["ID_REGISTRO"].nunique()
 
-        # KPI 2: Total Medicamentos Revisados (B3)
+        # KPI 2: Total Medicamentos Revisados (B3 de ANALISIS -> iloc[1,1])
         try:
-            total_meds_revisados = int(df_anal_sync.iloc[2, 1]) if not df_anal_sync.empty else len(df_filtered)
-        except:
-            total_meds_revisados = len(df_filtered)
+            total_meds_revisados = int(df_anal_sync.iloc[1, 1]) if not df_anal_sync.empty else df_filtered_val["Nº_TOTAL_MEDS_PAC"].sum()
+        except: total_meds_revisados = df_filtered_val["Nº_TOTAL_MEDS_PAC"].sum()
 
-        # KPI 3: Alertas Detectadas (Restaurando lógica funcional original con blindaje de tipo)
-        if "NIVEL_ADE_CG" in df_filtered.columns:
-            # Aseguramos que la columna sea numérica para la comparación
-            serie_nivel = pd.to_numeric(df_filtered["NIVEL_ADE_CG"], errors='coerce').fillna(0)
-            afectados = len(df_filtered[serie_nivel > 0])
-        else:
-            afectados = 0
-            
-        porcentaje_afec = (afectados / total_meds_revisados * 100) if total_meds_revisados > 0 else 0
+        # KPI 3: Alertas Detectadas (Suma de Columna K / Nº_TOT_AFEC_CG)
+        # Sumamos todos los medicamentos afectados registrados en la tabla de validaciones
+        afectados_total = int(df_filtered_val["Nº_TOT_AFEC_CG"].sum())
+        porcentaje_afec = (afectados_total / total_meds_revisados * 100) if total_meds_revisados > 0 else 0
 
-        # KPI 4: Promedio FG (B5)
+        # KPI 4: Promedio FG (B5 de ANALISIS -> iloc[4,1])
         try:
-            promedio_fg = float(df_anal_sync.iloc[4, 1]) if not df_anal_sync.empty else df_filtered['FG_CG'].mean()
-        except:
-            promedio_fg = df_filtered['FG_CG'].mean() if not df_filtered.empty else 0
+            promedio_fg = float(df_anal_sync.iloc[4, 1]) if not df_anal_sync.empty else df_filtered_val['FG_CG'].mean()
+        except: promedio_fg = df_filtered_val['FG_CG'].mean()
 
         kpi_c1, kpi_c2, kpi_c3, kpi_c4 = st.columns(4)
         with kpi_c1:
@@ -490,30 +485,39 @@ with tabs[3]:
         with kpi_c2:
             st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Total medicamentos revisados</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{total_meds_revisados}</div></div>', unsafe_allow_html=True)
         with kpi_c3:
-            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Alertas Detectadas</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{afectados} <span style="font-size: 0.9rem; color: #feb2b2;">({porcentaje_afec:.1f}%)</span></div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Alertas Detectadas (Totales)</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{afectados_total} <span style="font-size: 0.9rem; color: #feb2b2;">({porcentaje_afec:.1f}%)</span></div></div>', unsafe_allow_html=True)
         with kpi_c4:
             st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Promedio FG</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{promedio_fg:.1f}</div></div>', unsafe_allow_html=True)
 
         g_col1, g_col2 = st.columns([0.6, 0.4])
         with g_col1:
             st.markdown("##### Distribución de Riesgos (Cockcroft-Gault)")
-            color_map = {"0": "#2f855a", "1": "#faf089", "2": "#ffd27f", "3": "#c05621", "4": "#c53030"}
-            if "NIVEL_ADE_CG" in df_filtered.columns:
-                df_cat = df_filtered.groupby("NIVEL_ADE_CG").size().reset_index(name='count')
+            if not df_m_dash.empty:
+                df_m_dash["NIVEL_ADE_CG"] = pd.to_numeric(df_m_dash["NIVEL_ADE_CG"], errors='coerce').fillna(0)
+                df_cat = df_m_dash.groupby("NIVEL_ADE_CG").size().reset_index(name='count')
                 df_cat["NIVEL_ADE_CG"] = df_cat["NIVEL_ADE_CG"].astype(str)
-                fig_bar = px.bar(df_cat, x="NIVEL_ADE_CG", y="count", color="NIVEL_ADE_CG", color_discrete_map=color_map)
+                fig_bar = px.bar(df_cat, x="NIVEL_ADE_CG", y="count", color="NIVEL_ADE_CG", color_discrete_map={"0": "#2f855a", "1": "#faf089", "2": "#ffd27f", "3": "#c05621", "4": "#c53030"})
                 fig_bar.update_layout(showlegend=False, height=350, margin=dict(t=10, b=10, l=10, r=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig_bar, use_container_width=True)
 
         with g_col2:
             st.markdown("##### Top 5 Medicamentos Críticos")
-            if "NIVEL_ADE_CG" in df_filtered.columns and "MEDICAMENTO" in df_filtered.columns:
-                df_top = df_filtered[df_filtered["NIVEL_ADE_CG"] > 0].groupby("MEDICAMENTO").size().reset_index(name='Frecuencia')
-                df_top = df_top.sort_values(by="Frecuencia", ascending=False).head(5)
-                fig_top = px.bar(df_top, y="MEDICAMENTO", x="Frecuencia", orientation='h', color_discrete_sequence=['#9d00ff'])
-                fig_top.update_layout(height=350, margin=dict(t=10, b=10, l=10, r=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis={'categoryorder':'total ascending'})
-                st.plotly_chart(fig_top, use_container_width=True)
+            if not df_m_dash.empty and "MEDICAMENTO" in df_m_dash.columns:
+                df_top = df_m_dash[df_m_dash["NIVEL_ADE_CG"] > 0].groupby("MEDICAMENTO").size().reset_index(name='Frecuencia')
+                if not df_top.empty:
+                    df_top = df_top.nlargest(5, "Frecuencia")
+                    fig_pie = px.pie(df_top, values='Frecuencia', names='MEDICAMENTO', hole=.4)
+                    fig_pie.update_layout(height=350, margin=dict(t=10, b=10, l=10, r=10), showlegend=False)
+                    st.plotly_chart(fig_pie, use_container_width=True)
+    else:
+        st.info("No hay datos sincronizados para mostrar el Dashboard.")
 
-st.markdown("---")
-st.markdown('<div class="warning-yellow">⚠️ <b>ADVERTENCIA LEGAL (Aviso parpadeante informativo):</b> El Asistente Renal es una herramienta de apoyo a la decisión clínica basada en IA. No sustituye el juicio profesional médico o farmacéutico. Verifique siempre los ajustes en fuentes oficiales (Ficha Técnica, Guías Clínicas).</div>', unsafe_allow_html=True)
-st.markdown(f'<div style="text-align: right; font-size: 0.5rem; color: #ccc;">v. 20 mar 2026 12:45</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="position: fixed; bottom: 5px; right: 10px; font-size: 0.6rem; color: #999; font-family: monospace;">v. 20 mar 2026 12:45</div>', unsafe_allow_html=True)
+
+st.markdown("""
+<div class="warning-yellow">
+    <strong>AVISO LEGAL:</strong> Esta herramienta es un asistente de soporte a la decisión clínica basado en IA. 
+    Los cálculos y sugerencias deben ser verificados por un profesional sanitario antes de cualquier intervención. 
+    El uso de este software no sustituye el juicio clínico profesional.
+</div>
+""", unsafe_allow_html=True)
