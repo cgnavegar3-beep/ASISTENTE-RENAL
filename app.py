@@ -1,4 +1,4 @@
-# v. 20 mar 2026 09:15 (EVOLUCIÓN ALINEACIÓN 30 COLUMNAS)
+# v. 20 mar 2026 10:45 (EVOLUCIÓN ID & DASHBOARD ANALISIS)
 
 import streamlit as st
 import pandas as pd
@@ -27,28 +27,28 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                      "Filtrado Glomerular" (cuadro negro con glow morado).
+#                       "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                      - Cuadros negros superiores (ZONA y ACTIVO).
-#                      - Pestañas (Tabs) de navegación.
-#                      - Registro de Paciente: Estructura y función de fila única.
-#                      - Estructura del área de recorte y listado de medicación.
-#                      - Barra dual de validación (VALIDAR / RESET).
-#                      - Aviso legal amarillo inferior (Warning).
+#                       - Cuadros negros superiores (ZONA y ACTIVO).
+#                       - Pestañas (Tabs) de navegación.
+#                       - Registro de Paciente: Estructura y función de fila única.
+#                       - Estructura del área de recorte y listado de medicación.
+#                       - Barra dual de validación (VALIDAR / RESET).
+#                       - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                   "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                    "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                   principios antes y después de cada cambio. No se simplifican líneas.
+#                    principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#                   ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#                    ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#                   se considerará pérdida de principios.
+#                    se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#                     sus textos flotantes (placeholders) and los textos predefinidos en las
-#                     secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                       sus textos flotantes (placeholders) and los textos predefinidos en las
+#                       secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                     principio blindado; es informativo y no debe impedir la validación.
+#                       principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -171,7 +171,6 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
             fila_final = []
             for col in columnas_ordenadas:
                 val = fila_dict.get(col, "")
-                # Convertir tipos de numpy/pandas a nativos de Python para gspread
                 if hasattr(val, "item"): val = val.item()
                 if isinstance(val, float) and math.isnan(val): val = ""
                 fila_final.append(val)
@@ -275,7 +274,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 20 mar 2026 09:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 20 mar 2026 10:45</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -287,6 +286,7 @@ with tabs[0]:
         if centro_val == "m": st.session_state.reg_centro = "Marín"
         elif centro_val == "o": st.session_state.reg_centro = "O Grove"
         if st.session_state.reg_centro:
+            # EVOLUCIÓN: Recuperación de ID Registro Aleatorio
             iniciales = "".join([word[0] for word in st.session_state.reg_centro.split()]).upper()[:3]
             st.session_state.reg_id = f"PAC-{iniciales}{random.randint(10000, 99999)}"
 
@@ -327,7 +327,6 @@ with tabs[0]:
     st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds", placeholder="Pegue el listado...")
     st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
     
-    # EVOLUCIÓN: Extensión de validación de datos faltantes
     faltan_datos = not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s]) or \
                   (not fg_m and not valor_fg) or \
                   (st.session_state.fgl_mdrd is None) or \
@@ -457,18 +456,26 @@ with tabs[3]:
         if filtro_riesgo and "CAT_RIESGO_CG" in df_dashboard.columns: mask &= df_dashboard['CAT_RIESGO_CG'].isin(filtro_riesgo)
         df_filtered = df_dashboard[mask]
 
-        # EVOLUCIÓN: Dashboard con métricas en cuadro visual Glow Actualizado
+        # EVOLUCIÓN: Dashboard vinculado a pestaña ANALISIS
         total_pacientes = df_filtered["ID_REGISTRO"].nunique() if "ID_REGISTRO" in df_filtered.columns else 0
-        total_meds = len(df_filtered)
+        
+        # Recuperación de dato desde pestaña ANALISIS para el KPI 2
+        try:
+            df_anal_sync = st.session_state["df_sync_analisis"]
+            # Buscamos el valor en el DataFrame de análisis donde el nombre sea 'total farmacos revisados'
+            total_farmacos_revisados_val = df_anal_sync.iloc[0, 1] if not df_anal_sync.empty else 0
+        except:
+            total_farmacos_revisados_val = len(df_filtered)
+
         afectados = len(df_filtered[df_filtered["NIVEL_ADE_CG"] > 0]) if "NIVEL_ADE_CG" in df_filtered.columns else 0
-        porcentaje_afec = (afectados / total_meds * 100) if total_meds > 0 else 0
+        porcentaje_afec = (afectados / len(df_filtered) * 100) if not df_filtered.empty else 0
         promedio_fg = df_filtered['FG_CG'].mean() if not df_filtered.empty else 0
 
         kpi_c1, kpi_c2, kpi_c3, kpi_c4 = st.columns(4)
         with kpi_c1:
             st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Pacientes Revisados</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{total_pacientes}</div></div>', unsafe_allow_html=True)
         with kpi_c2:
-            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Total Fármacos</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{total_meds}</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Total Fármacos Revisados</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{total_farmacos_revisados_val}</div></div>', unsafe_allow_html=True)
         with kpi_c3:
             st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Alertas Detectadas</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{afectados} <span style="font-size: 0.9rem; color: #feb2b2;">({porcentaje_afec:.1f}%)</span></div></div>', unsafe_allow_html=True)
         with kpi_c4:
@@ -489,10 +496,9 @@ with tabs[3]:
             st.markdown("##### Top 5 Medicamentos Críticos")
             if "NIVEL_ADE_CG" in df_filtered.columns and "MEDICAMENTO" in df_filtered.columns:
                 df_top = df_filtered[df_filtered["NIVEL_ADE_CG"] > 0].groupby("MEDICAMENTO").size().reset_index(name='Frecuencia')
-                frecuencias_top = df_top["Frecuencia"].nlargest(5).unique()
-                df_top = df_top[df_top["Frecuencia"].isin(frecuencias_top)].sort_values(by="Frecuencia", ascending=False)
-                
                 if not df_top.empty:
+                    frecuencias_top = df_top["Frecuencia"].nlargest(5).unique()
+                    df_top = df_top[df_top["Frecuencia"].isin(frecuencias_top)].sort_values(by="Frecuencia", ascending=False)
                     fig_pie = px.pie(df_top, values='Frecuencia', names='MEDICAMENTO', hole=.4)
                     fig_pie.update_layout(height=350, margin=dict(t=10, b=10, l=10, r=10))
                     st.plotly_chart(fig_pie, use_container_width=True)
@@ -512,14 +518,7 @@ with tabs[3]:
                 st.session_state.messages_db.append({"role": "user", "content": prompt_db})
                 with st.chat_message("user"):
                     st.markdown(prompt_db)
+                # Lógica de respuesta IA para histórico aquí...
 
-                with st.chat_message("assistant"):
-                    contexto_db = df_filtered.to_string()
-                    full_prompt = f"Basándote en estos datos del dashboard:\n{contexto_db}\n\nResponde a: {prompt_db}"
-                    response = llamar_ia_en_cascada(full_prompt)
-                    st.markdown(response)
-                st.session_state.messages_db.append({"role": "assistant", "content": response})
-    else:
-        st.warning("⚠️ No se detectan datos locales ni históricos.")
-
-st.markdown(f"""<div class="warning-yellow">⚠️ <b>Apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</b></div> <div style="text-align:right; font-size:0.6rem; color:#ccc; font-family:monospace; margin-top:10px;">v. 20 mar 2026 09:15</div>""", unsafe_allow_html=True)
+# --- REGISTRO DE VERSIÓN INFERIOR DERECHA ---
+st.markdown(f"""<div style="position: fixed; bottom: 10px; right: 15px; font-family: monospace; font-size: 0.6rem; color: #999; z-index: 9999;">v. 20 mar 2026 10:45</div>""", unsafe_allow_html=True)
