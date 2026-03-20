@@ -479,7 +479,7 @@ with tabs[3]:
 
         # KPI 4: Promedio FG (Celda B5 de pestaña ANALISIS)
         try:
-            promedio_fg = df_anal_sync.iloc[4, 1] if not df_anal_sync.empty else df_filtered['FG_CG'].mean()
+            promedio_fg = df_anal_sync.iloc[3, 1] if not df_anal_sync.empty else df_filtered['FG_CG'].mean()
         except:
             promedio_fg = df_filtered['FG_CG'].mean() if not df_filtered.empty else 0
 
