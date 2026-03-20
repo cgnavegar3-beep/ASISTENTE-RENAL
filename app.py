@@ -474,7 +474,7 @@ with tabs[3]:
             total_meds_revisados = len(df_filtered)
 
         # KPI 3: Alertas Detectadas (Cálculo directo sobre columna K:K de VALIDACIONES / NIVEL_ADE_CG)
-        afectados = len(df_filtered[df_filtered["NIVEL_ADE_CG"] > 0]) if "NIVEL_ADE_CG" in df_filtered.columns else 0
+        afectados = len(df_filtered[df_filtered["Nº_TOT_AFEC_CG"] > 0]) if "Nº_TOT_AFEC_CG" in df_filtered.columns else 0
         porcentaje_afec = (afectados / len(df_filtered) * 100) if not df_filtered.empty else 0
 
         # KPI 4: Promedio FG (Celda B5 de pestaña ANALISIS)
