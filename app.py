@@ -469,7 +469,7 @@ with tabs[3]:
 
         # KPI 2: Total Medicamentos Revisados (Celda B3 de pestaña ANALISIS)
         try:
-            total_meds_revisados = df_anal_sync.iloc[2, 1] if not df_anal_sync.empty else len(df_filtered)
+            total_meds_revisados = df_anal_sync.iloc[1, 1] if not df_anal_sync.empty else len(df_filtered)
         except:
             total_meds_revisados = len(df_filtered)
 
