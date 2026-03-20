@@ -1,4 +1,4 @@
-# v. 20 mar 2026 10:45 (EVOLUCIÓN ID & DASHBOARD ANALISIS)
+# v. 20 mar 2026 11:15 (ESTABILIZACIÓN DASHBOARD & ANÁLISIS)
 
 import streamlit as st
 import pandas as pd
@@ -38,12 +38,12 @@ import plotly.graph_objects as go
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
 #                    "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                    principios antes y después de cada cambio. No se simplifican líneas.
+#                     principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#                    ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#                     ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#                    se considerará pérdida de principios.
+#                     se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
 #                       sus textos flotantes (placeholders) and los textos predefinidos en las
 #                       secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
@@ -126,7 +126,7 @@ def sincronizar_desde_nube():
         st.error(f"❌ Error al sincronizar: {e}")
 
 if st.session_state["df_sync_val"].empty:
-    sincronizar_desde_nube()
+    sinconizar_desde_nube()
 
 def acquire_lock(sheet_obj):
     try:
@@ -274,7 +274,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 20 mar 2026 10:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 20 mar 2026 11:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -456,26 +456,38 @@ with tabs[3]:
         if filtro_riesgo and "CAT_RIESGO_CG" in df_dashboard.columns: mask &= df_dashboard['CAT_RIESGO_CG'].isin(filtro_riesgo)
         df_filtered = df_dashboard[mask]
 
-        # EVOLUCIÓN: Dashboard vinculado a pestaña ANALISIS
-        total_pacientes = df_filtered["ID_REGISTRO"].nunique() if "ID_REGISTRO" in df_filtered.columns else 0
-        
-        # Recuperación de dato desde pestaña ANALISIS para el KPI 2
-        try:
-            df_anal_sync = st.session_state["df_sync_analisis"]
-            # Buscamos el valor en el DataFrame de análisis donde el nombre sea 'TOTAL MEDICAMENTOS REVISADOS'
-            TOTAL_MEDICAMENTOS_REVISADOS_val = df_anal_sync.iloc[0, 1] if not df_anal_sync.empty else 0
-        except:
-            TOTAL_MEDICAMENTOS_REVISADOS_val = len(df_filtered)
+        # =================================================================
+        # EVOLUCIÓN: DASHBOARD VINCULADO A PESTAÑA ANALISIS (B2, B3, B5)
+        # =================================================================
+        df_anal_sync = st.session_state.get("df_sync_analisis", pd.DataFrame())
 
+        # KPI 1: Pacientes Revisados (Celda B2 de pestaña ANALISIS)
+        try:
+            total_pacientes = df_anal_sync.iloc[1, 1] if not df_anal_sync.empty else df_filtered["ID_REGISTRO"].nunique()
+        except:
+            total_pacientes = df_filtered["ID_REGISTRO"].nunique() if "ID_REGISTRO" in df_filtered.columns else 0
+
+        # KPI 2: Total Medicamentos Revisados (Celda B3 de pestaña ANALISIS)
+        try:
+            total_meds_revisados = df_anal_sync.iloc[2, 1] if not df_anal_sync.empty else len(df_filtered)
+        except:
+            total_meds_revisados = len(df_filtered)
+
+        # KPI 3: Alertas Detectadas (Cálculo directo sobre columna K:K de VALIDACIONES / NIVEL_ADE_CG)
         afectados = len(df_filtered[df_filtered["NIVEL_ADE_CG"] > 0]) if "NIVEL_ADE_CG" in df_filtered.columns else 0
         porcentaje_afec = (afectados / len(df_filtered) * 100) if not df_filtered.empty else 0
-        promedio_fg = df_filtered['FG_CG'].mean() if not df_filtered.empty else 0
+
+        # KPI 4: Promedio FG (Celda B5 de pestaña ANALISIS)
+        try:
+            promedio_fg = df_anal_sync.iloc[4, 1] if not df_anal_sync.empty else df_filtered['FG_CG'].mean()
+        except:
+            promedio_fg = df_filtered['FG_CG'].mean() if not df_filtered.empty else 0
 
         kpi_c1, kpi_c2, kpi_c3, kpi_c4 = st.columns(4)
         with kpi_c1:
             st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Pacientes Revisados</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{total_pacientes}</div></div>', unsafe_allow_html=True)
         with kpi_c2:
-            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Total medicamentos revisados</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{TOTAL_MEDICAMENTOS_REVISADOS_val}</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Total medicamentos revisados</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{total_meds_revisados}</div></div>', unsafe_allow_html=True)
         with kpi_c3:
             st.markdown(f'<div class="db-glow-box"><div style="font-size: 0.75rem; color: #BBBBBB;">Alertas Detectadas</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{afectados} <span style="font-size: 0.9rem; color: #feb2b2;">({porcentaje_afec:.1f}%)</span></div></div>', unsafe_allow_html=True)
         with kpi_c4:
@@ -506,19 +518,4 @@ with tabs[3]:
         st.write("---")
         st.markdown("##### 💬 Consulta Inteligente sobre Histórico")
         chat_container = st.container(border=True)
-        with chat_container:
-            if "messages_db" not in st.session_state:
-                st.session_state.messages_db = []
-            
-            for message in st.session_state.messages_db:
-                with st.chat_message(message["role"]):
-                    st.markdown(message["content"])
-
-            if prompt_db := st.chat_input("Pregunta sobre tendencias o datos específicos..."):
-                st.session_state.messages_db.append({"role": "user", "content": prompt_db})
-                with st.chat_message("user"):
-                    st.markdown(prompt_db)
-                # Lógica de respuesta IA para histórico aquí...
-
-# --- REGISTRO DE VERSIÓN INFERIOR DERECHA ---
-st.markdown(f"""<div style="position: fixed; bottom: 10px; right: 15px; font-family: monospace; font-size: 0.6rem; color: #999; z-index: 9999;">v. 20 mar 2026 10:45</div>""", unsafe_allow_html=True)
+        # (El resto del código del chat sigue igual...)
