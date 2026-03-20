@@ -1,4 +1,4 @@
-# v. 20 mar 2026 11:30 (ESTABILIZACIÓN DASHBOARD & ANÁLISIS)
+# v. 20 mar 2026 12:45 (ESTABILIZACIÓN DASHBOARD & ANÁLISIS)
 
 import streamlit as st
 import pandas as pd
@@ -27,28 +27,28 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                        "Filtrado Glomerular" (cuadro negro con glow morado).
+#                         "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                        - Cuadros negros superiores (ZONA y ACTIVO).
-#                        - Pestañas (Tabs) de navegación.
-#                        - Registro de Paciente: Estructura y función de fila única.
-#                        - Estructura del área de recorte y listado de medicación.
-#                        - Barra dual de validación (VALIDAR / RESET).
-#                        - Aviso legal amarillo inferior (Warning).
+#                         - Cuadros negros superiores (ZONA y ACTIVO).
+#                         - Pestañas (Tabs) de navegación.
+#                         - Registro de Paciente: Estructura y función de fila única.
+#                         - Estructura del área de recorte y listado de medicación.
+#                         - Barra dual de validación (VALIDAR / RESET).
+#                         - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                     "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                      "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
 #                      principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#                      ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#                       ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#                      se considerará pérdida de principios.
+#                       se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#                        sus textos flotantes (placeholders) and los textos predefinidos en las
-#                        secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                         sus textos flotantes (placeholders) and los textos predefinidos en las
+#                         secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                        principio blindado; es informativo y no debe impedir la validación.
+#                         principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -159,7 +159,6 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
         if id_actual not in ids_existentes:
             fila_dict = df_val_actual[df_val_actual["ID_REGISTRO"] == id_actual].iloc[-1].fillna("").to_dict()
             
-            # EVOLUCIÓN: Mapeo explícito de 27 columnas automáticas + 3 manuales (Total 30)
             columnas_ordenadas = [
                 "FECHA", "CENTRO", "RESIDENCIA", "ID_REGISTRO", "EDAD", "SEXO", "PESO", "CREATININA", "Nº_TOTAL_MEDS_PAC",
                 "FG_CG", "Nº_TOT_AFEC_CG", "Nº_PRECAU_CG", "Nº_AJUSTE_DOS_CG", "Nº_TOXICID_CG", "Nº_CONTRAIND_CG",
@@ -167,7 +166,6 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
                 "FG_CKD", "Nº_TOT_AFEC_CKD", "Nº_PRECAU_CKD", "Nº_AJUSTE_DOS_CKD", "Nº_TOXICID_CKD", "Nº_CONTRAIND_CKD"
             ]
             
-            # Construir la fila final de 30 elementos
             fila_final = []
             for col in columnas_ordenadas:
                 val = fila_dict.get(col, "")
@@ -175,9 +173,7 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
                 if isinstance(val, float) and math.isnan(val): val = ""
                 fila_final.append(val)
             
-            # Añadir los 3 huecos para las columnas manuales (Discrepancia, ACEPTACION MAP, aceptacion num)
             fila_final.extend(["", "", ""])
-            
             ws_val.append_row(fila_final)
 
         ws_meds = doc.worksheet("MEDICAMENTOS")
@@ -274,7 +270,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 20 mar 2026 11:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 20 mar 2026 12:45</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -286,7 +282,6 @@ with tabs[0]:
         if centro_val == "m": st.session_state.reg_centro = "Marín"
         elif centro_val == "o": st.session_state.reg_centro = "O Grove"
         if st.session_state.reg_centro:
-            # EVOLUCIÓN: Recuperación de ID Registro Aleatorio
             iniciales = "".join([word[0] for word in st.session_state.reg_centro.split()]).upper()[:3]
             st.session_state.reg_id = f"PAC-{iniciales}{random.randint(10000, 99999)}"
 
@@ -457,35 +452,35 @@ with tabs[3]:
         df_filtered = df_dashboard[mask]
 
         # =================================================================
-        # EVOLUCIÓN: DASHBOARD VINCULADO A PESTAÑA ANALISIS (B2, B3, B5)
+        # EVOLUCIÓN: DASHBOARD VINCULADO A PESTAÑA ANALISIS (CORRECCIÓN CONTEO)
         # =================================================================
         df_anal_sync = st.session_state.get("df_sync_analisis", pd.DataFrame())
 
-        # KPI 1: Pacientes Revisados (Celda B2 de pestaña ANALISIS)
+        # KPI 1: Pacientes Revisados (B2)
         try:
-            total_pacientes = df_anal_sync.iloc[0, 1] if not df_anal_sync.empty else df_filtered["ID_REGISTRO"].nunique()
+            total_pacientes = int(df_anal_sync.iloc[1, 1]) if not df_anal_sync.empty else df_filtered["ID_REGISTRO"].nunique()
         except:
             total_pacientes = df_filtered["ID_REGISTRO"].nunique() if "ID_REGISTRO" in df_filtered.columns else 0
 
-        # KPI 2: Total Medicamentos Revisados (Celda B3 de pestaña ANALISIS)
+        # KPI 2: Total Medicamentos Revisados (B3)
         try:
-            total_meds_revisados = df_anal_sync.iloc[1, 1] if not df_anal_sync.empty else len(df_filtered)
+            total_meds_revisados = int(df_anal_sync.iloc[2, 1]) if not df_anal_sync.empty else len(df_filtered)
         except:
             total_meds_revisados = len(df_filtered)
 
-        # KPI 3: Alertas Detectadas (Cálculo directo sobre columna K:K de VALIDACIONES / Nº_TOT_AFEC_CG)
-        if "Nº_TOT_AFEC_CG" in df_filtered.columns:
-            # Convertimos a número por si la nube lo envía como texto
-            serie_afectados = pd.to_numeric(df_filtered["Nº_TOT_AFEC_CG"], errors='coerce').fillna(0)
-            afectados = serie_afectados.sum()
+        # KPI 3: Alertas Detectadas (Restaurando lógica funcional original con blindaje de tipo)
+        if "NIVEL_ADE_CG" in df_filtered.columns:
+            # Aseguramos que la columna sea numérica para la comparación
+            serie_nivel = pd.to_numeric(df_filtered["NIVEL_ADE_CG"], errors='coerce').fillna(0)
+            afectados = len(df_filtered[serie_nivel > 0])
         else:
             afectados = 0
             
-        porcentaje_afec = (afectados / len(df_filtered) * 100) if not df_filtered.empty else 0
+        porcentaje_afec = (afectados / total_meds_revisados * 100) if total_meds_revisados > 0 else 0
 
-        # KPI 4: Promedio FG (Celda B5 de pestaña ANALISIS)
+        # KPI 4: Promedio FG (B5)
         try:
-            promedio_fg = df_anal_sync.iloc[3, 1] if not df_anal_sync.empty else df_filtered['FG_CG'].mean()
+            promedio_fg = float(df_anal_sync.iloc[4, 1]) if not df_anal_sync.empty else df_filtered['FG_CG'].mean()
         except:
             promedio_fg = df_filtered['FG_CG'].mean() if not df_filtered.empty else 0
 
@@ -514,7 +509,11 @@ with tabs[3]:
             st.markdown("##### Top 5 Medicamentos Críticos")
             if "NIVEL_ADE_CG" in df_filtered.columns and "MEDICAMENTO" in df_filtered.columns:
                 df_top = df_filtered[df_filtered["NIVEL_ADE_CG"] > 0].groupby("MEDICAMENTO").size().reset_index(name='Frecuencia')
-                if not df_top.empty:
-                    frecuencias_top = df_top["Frecuencia"].nlargest(5).unique()
-                    df_top = df_top[df_top["Frecuencia"].isin(frecuencias_top)].sort_values(by="Frecuencia", ascending=False)
-                    st.dataframe(df_top, hide_index=True, use_container_width=True)
+                df_top = df_top.sort_values(by="Frecuencia", ascending=False).head(5)
+                fig_top = px.bar(df_top, y="MEDICAMENTO", x="Frecuencia", orientation='h', color_discrete_sequence=['#9d00ff'])
+                fig_top.update_layout(height=350, margin=dict(t=10, b=10, l=10, r=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis={'categoryorder':'total ascending'})
+                st.plotly_chart(fig_top, use_container_width=True)
+
+st.markdown("---")
+st.markdown('<div class="warning-yellow">⚠️ <b>ADVERTENCIA LEGAL (Aviso parpadeante informativo):</b> El Asistente Renal es una herramienta de apoyo a la decisión clínica basada en IA. No sustituye el juicio profesional médico o farmacéutico. Verifique siempre los ajustes en fuentes oficiales (Ficha Técnica, Guías Clínicas).</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align: right; font-size: 0.5rem; color: #ccc;">v. 20 mar 2026 12:45</div>', unsafe_allow_html=True)
