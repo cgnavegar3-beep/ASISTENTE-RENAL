@@ -1,5 +1,5 @@
-# v. 22 mar 2026 10:30 (EVO: PUENTE DE PEAJE DECIMAL - SINCRONIZACIÓN BIOMÉTRICA)
- 
+# v. 22 mar 2026 11:20 (EVO: INTEROPERABILIDAD NUMÉRICA TOTAL - PUREZA DECIMAL)
+
 import streamlit as st
 import pandas as pd
 import io
@@ -11,33 +11,33 @@ import os
 import json
 import constants as c 
 import hashlib
- 
+
 # --- NUEVAS LIBRERÍAS PARA GOOGLE SHEETS & SERIALIZACIÓN ---
 import gspread
 from google.oauth2.service_account import Credentials
 import time
 import math
- 
+
 # MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (IMPORTACIONES VISUALIZACIÓN)
 import plotly.express as px
 import plotly.graph_objects as go
- 
+
 # =================================================================
 # PRINCIPIOS FUNDAMENTALES (ESCRITOS DE PE A PA - PROHIBIDO ELIMINAR)
 # =================================================================
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                      "Filtrado Glomerular" (cuadro negro con glow morado).
+#                       "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                      - Cuadros negros superiores (ZONA y ACTIVO).
-#                      - Pestañas (Tabs) de navegación.
-#                      - Registro de Paciente: Estructura y función de fila única.
-#                      - Estructura del área de recorte y listado de medicación.
-#                      - Barra dual de validación (VALIDAR / RESET).
-#                      - Aviso legal amarillo inferior (Warning).
+#                       - Cuadros negros superiores (ZONA y ACTIVO).
+#                       - Pestañas (Tabs) de navegación.
+#                       - Registro de Paciente: Estructura y función de fila única.
+#                       - Estructura del área de recorte y listado de medicación.
+#                       - Barra dual de validación (VALIDAR / RESET).
+#                       - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                   "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                    "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
 #                    principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
@@ -46,14 +46,14 @@ import plotly.graph_objects as go
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
 #                    se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#                      sus textos flotantes (placeholders) and los textos predefinidos en las
-#                      secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                       sus textos flotantes (placeholders) and los textos predefinidos en las
+#                       secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                       principio blindado; es informativo y no debe impedir la validación.
+#                        principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
- 
+
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
- 
+
 # --- INICIALIZACIÓN ---
 if "active_model" not in st.session_state:
  st.session_state.active_model = "BUSCANDO..."
@@ -67,16 +67,16 @@ if "analisis_realizado" not in st.session_state:
    st.session_state.analisis_realizado = False
 if "resp_ia" not in st.session_state:
  st.session_state.resp_ia = None
- 
+
 # EVO: HUELLA DIGITAL PARA BLOQUEO DE API
 if "ultima_huella" not in st.session_state:
  st.session_state.ultima_huella = ""
- 
+
 if "df_val" not in st.session_state:
  st.session_state.df_val = pd.DataFrame()
 if "df_meds" not in st.session_state:
  st.session_state.df_meds = pd.DataFrame()
- 
+
 # --- NUEVOS ESTADOS PARA ESPEJO NUBE ---
 if "df_sync_val" not in st.session_state:
  st.session_state["df_sync_val"] = pd.DataFrame()
@@ -84,15 +84,15 @@ if "df_sync_meds" not in st.session_state:
  st.session_state["df_sync_meds"] = pd.DataFrame()
 if "df_sync_analisis" not in st.session_state:
  st.session_state["df_sync_analisis"] = pd.DataFrame()
- 
+
 # --- ESTADO PARA CHAT DE ANÁLISIS ---
 if "chat_history_graficos" not in st.session_state:
    st.session_state.chat_history_graficos = []
- 
+
 for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
     if key not in st.session_state:
        st.session_state[key] = ""
- 
+
 # --- CONFIGURACIÓN IA ---
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
@@ -100,22 +100,22 @@ try:
 except:
     API_KEY = None
     st.sidebar.error("API Key no encontrada.")
- 
+
 # --- FUNCIONES DE PERSISTENCIA SEGURA (GOOGLE SHEETS) ---
 def conectar_google_sheets():
     scopes = ["https://www.googleapis.com/auth/spreadsheets"]
     creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scopes)
     client = gspread.authorize(creds)
     return client.open_by_key(st.secrets["GOOGLE_SHEET_ID"])
- 
+
 def sincronizar_desde_nube():
     try:
         doc = conectar_google_sheets()
         
         # EVO: Función interna de normalización de lectura "Puente de Entrada"
+        # Simplificada para Interoperabilidad Numérica Total
         def raw_to_clean_df(ws_name):
             ws = doc.worksheet(ws_name)
-            # Obtenemos valores sin formato para preservar la cadena original
             rows = ws.get_all_values()
             if not rows: return pd.DataFrame()
             
@@ -126,33 +126,29 @@ def sincronizar_desde_nube():
             for row in data:
                 new_row = []
                 for val in row:
-                    # Si detecta coma como separador decimal en cadena
-                    if isinstance(val, str) and "," in val and any(c.isdigit() for c in val):
-                        temp_val = val.replace(",", ".")
+                    # Intento de conversión numérica pura (Interoperabilidad Pilar C)
+                    if isinstance(val, str):
+                        clean_val = val.replace(",", ".").strip()
                         try:
-                            new_row.append(float(temp_val))
+                            if clean_val == "": new_row.append(None)
+                            else: new_row.append(float(clean_val))
                         except ValueError:
                             new_row.append(val)
                     else:
-                        # Intento de conversión numérica estándar para evitar strings de números
-                        try:
-                            if val.strip() == "": new_row.append(None)
-                            else: new_row.append(float(val))
-                        except (ValueError, AttributeError):
-                            new_row.append(val)
+                        new_row.append(val)
                 clean_data.append(new_row)
             return pd.DataFrame(clean_data, columns=headers)
 
         st.session_state["df_sync_val"] = raw_to_clean_df("VALIDACIONES")
         st.session_state["df_sync_meds"] = raw_to_clean_df("MEDICAMENTOS")
         st.session_state["df_sync_analisis"] = raw_to_clean_df("ANALISIS")
-        st.toast("✅ Nube sincronizada (Decimales OK)", icon="🔄")
+        st.toast("✅ Nube sincronizada (Valores Numéricos OK)", icon="🔄")
     except Exception as e:
         st.error(f"❌ Error al sincronizar: {e}")
- 
+
 if st.session_state["df_sync_val"].empty:
     sincronizar_desde_nube()
- 
+
 def acquire_lock(sheet_obj):
     try:
         ws_lock = sheet_obj.worksheet("LOCK")
@@ -162,20 +158,13 @@ def acquire_lock(sheet_obj):
     if lock_val: return False
     ws_lock.update_acell("A1", f"LOCKED_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
     return True
- 
+
 def release_lock(sheet_obj):
     try:
         ws_lock = sheet_obj.worksheet("LOCK")
         ws_lock.update_acell("A1", "")
     except: pass
 
-# EVO: Traductor de Salida (Cortesía Regional)
-def to_spanish_num(val):
-    if isinstance(val, (int, float)):
-        if pd.isna(val): return ""
-        return str(val).replace(".", ",")
-    return val
- 
 def guardar_en_google_sheets(df_val_actual, df_meds_actual):
     try:
         doc = conectar_google_sheets()
@@ -183,7 +172,7 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
         while not acquire_lock(doc) and intentos < 5:
             time.sleep(2); intentos += 1
         if intentos >= 5: return
- 
+
         id_actual = st.session_state.reg_id
         ws_val = doc.worksheet("VALIDACIONES")
         ids_existentes = ws_val.col_values(4) 
@@ -201,14 +190,14 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
             fila_final = []
             for col in columnas_ordenadas:
                 val = fila_dict.get(col, "")
+                # EVO: PILAR A - Envío en formato nativo (Float/Int) sin conversión a coma string
                 if hasattr(val, "item"): val = val.item()
                 if isinstance(val, float) and math.isnan(val): val = ""
-                # Aplicamos traductor de cortesía para la nube
-                fila_final.append(to_spanish_num(val))
+                fila_final.append(val)
             
             fila_final.extend(["", "", ""])
-            ws_val.append_row(fila_final)
- 
+            ws_val.append_row(fila_final, value_input_option='USER_ENTERED')
+
         ws_meds = doc.worksheet("MEDICAMENTOS")
         data_meds_nube = ws_meds.get_all_records()
         df_nube_meds = pd.DataFrame(data_meds_nube)
@@ -221,18 +210,20 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
                 existe = df_nube_meds[(df_nube_meds["ID_REGISTRO"] == id_actual) & (df_nube_meds["MEDICAMENTO"] == fila["MEDICAMENTO"])]
                 if not existe.empty: ya_existe = True
             if not ya_existe:
-                # Conversión de tipos y formato decimal para cada celda de la fila
+                # EVO: PILAR A - Envío de medicación con tipos puros
                 fila_conv = []
                 for v in fila.values.tolist():
                     val_conv = v.item() if hasattr(v, "item") else v
-                    fila_conv.append(to_spanish_num(val_conv))
+                    fila_conv.append(val_conv)
                 filas_nuevas.append(fila_conv)
-        if filas_nuevas: ws_meds.append_rows(filas_nuevas)
+        if filas_nuevas: 
+            ws_meds.append_rows(filas_nuevas, value_input_option='USER_ENTERED')
+        
         release_lock(doc)
     except:
         try: release_lock(doc)
         except: pass
- 
+
 # --- FUNCIONES NÚCLEO ---
 def llamar_ia_en_cascada(prompt):
     if not API_KEY: return "⚠️ Error: API Key no configurada."
@@ -246,20 +237,20 @@ def llamar_ia_en_cascada(prompt):
                 return model.generate_content(prompt, generation_config={"temperature": 0.1}).text
             except: continue
     return "⚠️ Error en la generación."
- 
+
 def obtener_glow_class(sintesis_texto):
     if "⛔" in sintesis_texto: return "glow-red"
     elif "⚠️⚠️⚠️" in sintesis_texto: return "glow-orange"
     elif "⚠️⚠️" in sintesis_texto: return "glow-yellow-dark"
     elif "⚠️" in sintesis_texto: return "glow-yellow"
     else: return "glow-green"
- 
+
 def procesar_y_limpiar_meds():
     texto = st.session_state.main_meds
     if texto:
         prompt = f"Actúa como farmacéutico clínico. Reescribe este listado: [Principio Activo] + [Dosis] + (Marca). Una línea por fármaco. Sin explicaciones:\n{texto}"
         st.session_state.main_meds = llamar_ia_en_cascada(prompt)
- 
+
 def reset_registro():
     for key in ["reg_centro", "reg_res", "reg_id", "fgl_ckd", "fgl_mdrd", "main_meds"]: 
         st.session_state[key] = ""
@@ -267,14 +258,14 @@ def reset_registro():
         if key in st.session_state:
             st.session_state[key] = None
     st.session_state.analisis_realizado = False; st.session_state.resp_ia = None; st.session_state.ultima_huella = ""
- 
+
 def reset_meds():
     st.session_state.main_meds = ""
     st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
     st.session_state.soip_o = ""; st.session_state.soip_i = ""; st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
     st.session_state.ic_inter = ""; st.session_state.ic_clinica = ""
     st.session_state.analisis_realizado = False; st.session_state.resp_ia = None; st.session_state.ultima_huella = ""
- 
+
 def inject_styles():
     st.markdown("""
     <style>
@@ -290,7 +281,7 @@ def inject_styles():
     .db-green { border-color: #68d391 !important; box-shadow: 0 0 8px #68d391; }
     .db-red { border-color: #fc8181 !important; box-shadow: 0 0 8px #fc8181; }
     .db-purple { border-color: #b794f4 !important; box-shadow: 0 0 8px #b794f4; }
- 
+
     .unit-label { font-size: 0.65rem; color: #888; margin-top: -10px; margin-bottom: 5px; font-family: sans-serif; text-align: center; }
     .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; line-height: 1.6; }
     .glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; box-shadow: 0 0 12px #feb2b2; }
@@ -308,15 +299,15 @@ def inject_styles():
     .blink-text, .blink-text-grabar { animation: blinker 1s linear infinite; color: #c53030; font-weight: bold; padding: 10px; border: 1px solid #c53030; border-radius: 5px; background: #fff5f5; text-align: center; margin-bottom: 15px; }
     </style>
     """, unsafe_allow_html=True)
- 
+
 inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 22 mar 2026 10:30</div>', unsafe_allow_html=True)
- 
+st.markdown('<div class="sub-version">v. 22 mar 2026 11:20</div>', unsafe_allow_html=True)
+
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
- 
+
 with tabs[0]:
    st.markdown("### Registro de Paciente")
    c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1.5, 0.4])
@@ -328,13 +319,13 @@ with tabs[0]:
        if st.session_state.reg_centro and not st.session_state.reg_id:
            iniciales = "".join([word[0] for word in st.session_state.reg_centro.split()]).upper()[:3]
            st.session_state.reg_id = f"PAC-{iniciales}{random.randint(10000, 99999)}"
- 
+
    with c1: st.text_input("Centro", placeholder="M / G", key="reg_centro", on_change=on_centro_change)
    with c2: st.selectbox("¿Residencia?", ["No", "Sí"], index=None, placeholder="Sí / No", key="reg_res")
    with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
    with c4: st.text_input("ID Registro", key="reg_id", disabled=True)
    with c5: st.write(""); st.button("🗑️", on_click=reset_registro, key="btn_reset_reg")
- 
+
    col_izq, col_der = st.columns(2, gap="large")
    with col_izq:
        st.markdown("#### 📋 Calculadora")
@@ -344,7 +335,7 @@ with tabs[0]:
            calc_c = st.number_input("Creatinina (mg/dL)", key="calc_c", placeholder="Creatinina (Ej: 1.2)", value=None)
            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=None, placeholder="Seleccionar sexo...", key="calc_s")
            fg = round(((140 - calc_e) * calc_p) / (72 * (calc_c if calc_c and calc_c > 0 else 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if all([calc_e, calc_p, calc_c, calc_s]) else 0.0
- 
+
    with col_der:
        st.markdown("#### 💊 Filtrado Glomerular")
        fg_m = st.text_input("Ajuste Manual", placeholder="Fórmula Cockcroft-Gault: manual")
@@ -360,7 +351,7 @@ with tabs[0]:
             st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
             val_ckd = st.number_input("CKD-EPI", value=None, placeholder="CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
             st.markdown('</div><div class="unit-label">mL/min/1,73m²</div>', unsafe_allow_html=True)
- 
+
    st.write(""); st.markdown("---")
    st.markdown("#### 📝 Listado de medicamentos")
    st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds", placeholder="Pegue el listado...")
@@ -369,20 +360,19 @@ with tabs[0]:
    faltan_datos = not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s]) or \
                   (not fg_m and not valor_fg) or \
                   (st.session_state.fgl_mdrd is None) or \
-                 (st.session_state.fgl_ckd is None)
- 
+                  (st.session_state.fgl_ckd is None)
+
    if st.session_state.main_meds and faltan_datos and not st.session_state.analisis_realizado:
        st.markdown('<div class="blink-text">⚠️ FALTAN DATOS EN REGISTRO, CALCULADORA O FGs (MDRD/CKD)</div>', unsafe_allow_html=True)
- 
+
    b1, b2 = st.columns([0.85, 0.15])
    btn_val = b1.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True)
    b2.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
- 
+
    if btn_val:
        if not st.session_state.main_meds: 
            st.error("Introduce medicamentos.")
        else:
-           # EVO: CALCULO DE HUELLA DIGITAL (HASH)
            huella_actual = hashlib.md5(f"{st.session_state.reg_id}{calc_e}{calc_p}{calc_c}{calc_s}{val_mdrd}{val_ckd}{st.session_state.main_meds}".encode()).hexdigest()
            
            if huella_actual == st.session_state.ultima_huella and st.session_state.resp_ia:
@@ -394,7 +384,7 @@ with tabs[0]:
                    st.session_state.resp_ia = llamar_ia_en_cascada(prompt_final)
                    st.session_state.ultima_huella = huella_actual
                    st.session_state.analisis_realizado = True
- 
+
    if st.session_state.analisis_realizado and st.session_state.resp_ia:
        resp = st.session_state.resp_ia[st.session_state.resp_ia.find("|||"):] if "|||" in st.session_state.resp_ia else st.session_state.resp_ia
        try:
@@ -418,7 +408,7 @@ with tabs[0]:
            st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{sintesis_limpia}"
            analisis_clinico_limpio = detalle_limpio.split('⚠️ NOTA IMPORTANTE:')[0].replace('BLOQUE 3: ANÁLISIS CLÍNICO (EXCLUSIVO COCKCROFT-GAULT)', '').strip()
            st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{analisis_clinico_limpio}"
- 
+
            try:
                json_data_str = re.sub(r"```json|```", "", json_data_str).strip()
                data = json.loads(json_data_str)
@@ -444,12 +434,12 @@ with tabs[0]:
                            st.session_state.df_meds = pd.concat([st.session_state.df_meds, pd.DataFrame([med_row])], ignore_index=True)
            except: pass
        except: pass
- 
+
 with tabs[1]:
     for label, key, h in [("Subjetivo (S)", "soip_s", 70), ("Objetivo (O)", "soip_o", 70), ("Interpretación (I)", "soip_i", 120), ("Plan (P)", "soip_p", 100), ("INTERCONSULTA", "ic_inter", 150), ("INFORMACIÓN CLÍNICA", "ic_clinica", 250)]:
         st.markdown(f'<div class="linea-discreta-soip">{label}</div>', unsafe_allow_html=True)
         st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed")
- 
+
 with tabs[2]:
    st.markdown("### 📊 Gestión de Datos")
    st.session_state.df_val = st.data_editor(st.session_state.df_val, num_rows="dynamic", use_container_width=True, key="editor_val")
@@ -463,29 +453,29 @@ with tabs[2]:
            guardar_en_google_sheets(st.session_state.df_val, st.session_state.df_meds)
            sincronizar_desde_nube()
            st.session_state.analisis_realizado = False; st.session_state.ultima_huella = ""
- 
+
    st.write("---")
    st.markdown("### 📜 Detalle de Histórico")
    sub_hist = st.tabs(["📊 VALIDACIONES", "💊 MEDICAMENTOS", "📝 ANÁLISIS"])
    with sub_hist[0]: st.dataframe(st.session_state["df_sync_val"], use_container_width=True)
    with sub_hist[1]: st.dataframe(st.session_state["df_sync_meds"], use_container_width=True)
    with sub_hist[2]: st.dataframe(st.session_state["df_sync_analisis"], use_container_width=True)
- 
+
    if st.button("🔄 REFRESCAR DESDE NUBE", use_container_width=True):
        sincronizar_desde_nube(); st.rerun()
- 
+
 with tabs[3]:
    st.markdown("### 📈 Dashboard de Gestión Renal")
    df_v_dash = st.session_state["df_sync_val"].copy()
    df_m_dash = st.session_state["df_sync_meds"].copy()
    
    if not df_v_dash.empty:
-       # Conversión numérica forzada para asegurar que los decimales recuperados operen
+       # Conversión numérica ya no es "forzada" sino nativa
        cols_num = ["EDAD", "FG_CG", "Nº_TOTAL_MEDS_PAC", "Nº_TOT_AFEC_CG", "PESO", "CREATININA"]
        for c_num in cols_num:
            if c_num in df_v_dash.columns:
                df_v_dash[c_num] = pd.to_numeric(df_v_dash[c_num], errors='coerce').fillna(0)
- 
+
        with st.expander("🔍 Filtros Dinámicos de Análisis", expanded=True):
            f_col1, f_col2, f_col3 = st.columns(3)
            with f_col1:
@@ -495,30 +485,28 @@ with tabs[3]:
                rango_edad = st.slider("Edad", 0, 110, (0, 110))
            with f_col3:
                rango_fg = st.slider("Filtrado Glomerular", 0.0, 150.0, (0.0, 150.0))
- 
+
        mask = (df_v_dash['EDAD'].between(rango_edad[0], rango_edad[1])) & (df_v_dash['FG_CG'].between(rango_fg[0], rango_fg[1]))
        if filtro_centro: mask &= df_v_dash['CENTRO'].isin(filtro_centro)
        df_filtered_val = df_v_dash[mask]
- 
+
        df_anal_sync = st.session_state.get("df_sync_analisis", pd.DataFrame())
- 
+
        try:
            total_pacientes = int(df_anal_sync.iloc[0, 1]) if not df_anal_sync.empty else df_filtered_val["ID_REGISTRO"].nunique()
        except: total_pacientes = df_filtered_val["ID_REGISTRO"].nunique()
- 
+
        try:
            total_meds_revisados = int(df_anal_sync.iloc[1, 1]) if not df_anal_sync.empty else df_filtered_val["Nº_TOTAL_MEDS_PAC"].sum()
        except: total_meds_revisados = df_filtered_val["Nº_TOTAL_MEDS_PAC"].sum()
- 
+
        afectados_total = int(df_filtered_val["Nº_TOT_AFEC_CG"].sum())
        porcentaje_afec = (afectados_total / total_meds_revisados * 100) if total_meds_revisados > 0 else 0
- 
+
        try:
-           # Ahora el promedio de FG es real gracias a la recuperación de decimales
            promedio_fg = float(df_anal_sync.iloc[4, 1]) if not df_anal_sync.empty else df_filtered_val['FG_CG'].mean()
        except: promedio_fg = df_filtered_val['FG_CG'].mean()
- 
-       # KPIs CON COLORES EVOLUCIONADOS
+
        kpi_c1, kpi_c2, kpi_c3, kpi_c4 = st.columns(4)
        with kpi_c1:
            st.markdown(f'<div class="db-glow-box db-blue"><div style="font-size: 0.75rem; color: #BBBBBB;">Pacientes Revisados</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{total_pacientes}</div></div>', unsafe_allow_html=True)
@@ -528,24 +516,24 @@ with tabs[3]:
            st.markdown(f'<div class="db-glow-box db-red"><div style="font-size: 0.75rem; color: #BBBBBB;">Alertas Detectadas (Totales)</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{afectados_total} <span style="font-size: 0.9rem; color: #feb2b2;">({porcentaje_afec:.1f}%)</span></div></div>', unsafe_allow_html=True)
        with kpi_c4:
            st.markdown(f'<div class="db-glow-box db-purple"><div style="font-size: 0.75rem; color: #BBBBBB;">Promedio FG</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{promedio_fg:.1f}</div></div>', unsafe_allow_html=True)
- 
+
        g_col1, g_col2 = st.columns([0.6, 0.4])
        with g_col1:
            st.markdown("##### Distribución de Riesgos (Cockcroft-Gault)")
            if not df_m_dash.empty:
-               df_m_dash["NIVEL_ADE_CG"] = pd.to_numeric(df_m_dash["NIVEL_ADE_CG"], errors='coerce').fillna(0)
-               df_cat = df_m_dash.groupby("NIVEL_ADE_CG").size().reset_index(name='count')
-               df_cat["NIVEL_ADE_CG"] = df_cat["NIVEL_ADE_CG"].astype(str)
-               fig_bar = px.bar(df_cat, x="NIVEL_ADE_CG", y="count", color="NIVEL_ADE_CG", color_discrete_map={"0": "#2f855a", "1": "#faf089", "2": "#ffd27f", "3": "#c05621", "4": "#c53030"})
-               fig_bar.update_layout(showlegend=False, height=350, margin=dict(t=10, b=10, l=10, r=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-               st.plotly_chart(fig_bar, use_container_width=True)
- 
+                df_m_dash["NIVEL_ADE_CG"] = pd.to_numeric(df_m_dash["NIVEL_ADE_CG"], errors='coerce').fillna(0)
+                df_cat = df_m_dash.groupby("NIVEL_ADE_CG").size().reset_index(name='count')
+                df_cat["NIVEL_ADE_CG"] = df_cat["NIVEL_ADE_CG"].astype(str)
+                fig_bar = px.bar(df_cat, x="NIVEL_ADE_CG", y="count", color="NIVEL_ADE_CG", color_discrete_map={"0": "#2f855a", "1": "#faf089", "2": "#ffd27f", "3": "#c05621", "4": "#c53030"})
+                fig_bar.update_layout(showlegend=False, height=350, margin=dict(t=10, b=10, l=10, r=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                st.plotly_chart(fig_bar, use_container_width=True)
+
        with g_col2:
            st.markdown("##### Top 5 Medicamentos Críticos")
            if not df_m_dash.empty and "MEDICAMENTO" in df_m_dash.columns:
-               df_top = df_m_dash[df_m_dash["NIVEL_ADE_CG"] > 0].groupby("MEDICAMENTO").size().reset_index(name='Frecuencia')
-               if not df_top.empty:
-                   df_top = df_top.nlargest(5, "Frecuencia")
-                   fig_pie = px.pie(df_top, values='Frecuencia', names='MEDICAMENTO', color_discrete_sequence=px.colors.sequential.RdBu)
-                   fig_pie.update_layout(height=350, margin=dict(t=10, b=10, l=10, r=10), paper_bgcolor='rgba(0,0,0,0)')
-                   st.plotly_chart(fig_pie, use_container_width=True)
+                df_top = df_m_dash[df_m_dash["NIVEL_ADE_CG"] > 0].groupby("MEDICAMENTO").size().reset_index(name='Frecuencia')
+                if not df_top.empty:
+                    df_top = df_top.nlargest(5, "Frecuencia")
+                    fig_pie = px.pie(df_top, values='Frecuencia', names='MEDICAMENTO', color_discrete_sequence=px.colors.sequential.RdBu)
+                    fig_pie.update_layout(height=350, margin=dict(t=10, b=10, l=10, r=10), paper_bgcolor='rgba(0,0,0,0)')
+                    st.plotly_chart(fig_pie, use_container_width=True)
