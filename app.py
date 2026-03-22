@@ -1,4 +1,4 @@
-# v. 20 mar 2026 21:15 (EVO: HASH-LOCK API & DASHBOARD LABELS)
+# v. 22 mar 2026 09:20 (EVO: DECIMAL-PRECISION MIRROR & TYPE-CASTING)
 
 import streamlit as st
 import pandas as pd
@@ -49,7 +49,7 @@ import plotly.graph_objects as go
 #                       sus textos flotantes (placeholders) and los textos predefinidos en las
 #                       secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                       principio blindado; es informativo y no debe impedir la validación.
+#                        principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -118,19 +118,33 @@ def sincronizar_desde_nube():
         raw_meds = ws_meds.get_all_records()
         raw_anal = ws_anal.get_all_records()
 
+        # EVO: TRADUCTOR DE TIPOS REFORZADO (EVITA 63,6 -> 636)
         def limpiar_decimales(lista_dicts):
             for d in lista_dicts:
                 for k, v in d.items():
-                    if isinstance(v, str) and "," in v:
-                       clean_v = v.replace(",", ".")
-                       try: d[k] = float(clean_v)
-                       except ValueError: pass 
+                    if isinstance(v, str):
+                        # Detecta si es una cadena con formato numérico decimal (coma)
+                        if re.match(r'^-?\d+,\d+$', v.strip()):
+                            clean_v = v.replace(",", ".")
+                            try: d[k] = float(clean_v)
+                            except ValueError: pass 
+                        # Detecta si es un número que gspread leyó como string pero es entero
+                        elif v.strip().isdigit():
+                            try: d[k] = int(v)
+                            except ValueError: pass
             return lista_dicts
 
-        st.session_state["df_sync_val"] = pd.DataFrame(limpiar_decimales(raw_val))
+        # Creación y Tipado Explícito para el Espejo
+        df_v = pd.DataFrame(limpiar_decimales(raw_val))
+        cols_num_v = ["EDAD", "PESO", "CREATININA", "FG_CG", "FG_MDRD", "FG_CKD"]
+        for col in cols_num_v:
+            if col in df_v.columns:
+                df_v[col] = pd.to_numeric(df_v[col], errors='coerce')
+
+        st.session_state["df_sync_val"] = df_v
         st.session_state["df_sync_meds"] = pd.DataFrame(limpiar_decimales(raw_meds))
         st.session_state["df_sync_analisis"] = pd.DataFrame(limpiar_decimales(raw_anal))
-        st.toast("✅ Nube sincronizada", icon="🔄")
+        st.toast("✅ Nube sincronizada (Precisión Decimal)", icon="🔄")
     except Exception as e:
         st.error(f"❌ Error al sincronizar: {e}")
 
@@ -182,12 +196,14 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
                 val = fila_dict.get(col, "")
                 if hasattr(val, "item"): val = val.item()
                 if isinstance(val, float) and math.isnan(val): val = ""
+                # Asegurar formato string con coma para Sheets si es decimal
+                if isinstance(val, float): val = str(val).replace(".", ",")
                 fila_final.append(val)
             
             # Añadir los 3 huecos para las columnas manuales (Discrepancia, ACEPTACION MAP, aceptacion num)
             fila_final.extend(["", "", ""])
             
-            ws_val.append_row(fila_final)
+            ws_val.append_row(fila_final, value_input_option='USER_ENTERED')
 
         ws_meds = doc.worksheet("MEDICAMENTOS")
         data_meds_nube = ws_meds.get_all_records()
@@ -201,9 +217,9 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
                 existe = df_nube_meds[(df_nube_meds["ID_REGISTRO"] == id_actual) & (df_nube_meds["MEDICAMENTO"] == fila["MEDICAMENTO"])]
                 if not existe.empty: ya_existe = True
             if not ya_existe:
-                fila_conv = [v.item() if hasattr(v, "item") else v for v in fila.values.tolist()]
+                fila_conv = [str(v).replace(".", ",") if isinstance(v, float) else (v.item() if hasattr(v, "item") else v) for v in fila.values.tolist()]
                 filas_nuevas.append(fila_conv)
-        if filas_nuevas: ws_meds.append_rows(filas_nuevas)
+        if filas_nuevas: ws_meds.append_rows(filas_nuevas, value_input_option='USER_ENTERED')
         release_lock(doc)
     except:
         try: release_lock(doc)
@@ -289,7 +305,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 20 mar 2026 21:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 22 mar 2026 09:20</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -520,23 +536,21 @@ with tabs[3]:
                 df_top = df_m_dash[df_m_dash["NIVEL_ADE_CG"] > 0].groupby("MEDICAMENTO").size().reset_index(name='Frecuencia')
                 if not df_top.empty:
                     df_top = df_top.nlargest(5, "Frecuencia")
-                    # EVO: RECUPERACIÓN DE NOMBRES EN GRÁFICO (LEYENDA Y TEXTO)
-                    fig_pie = px.pie(df_top, values='Frecuencia', names='MEDICAMENTO', hole=.4)
-                    fig_pie.update_traces(textinfo='percent+label', textposition='inside')
-                    fig_pie.update_layout(height=350, margin=dict(t=30, b=10, l=10, r=10), showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5))
+                    fig_pie = px.pie(df_top, values='Frecuencia', names='MEDICAMENTO', hole=.4, color_discrete_sequence=px.colors.sequential.RdBu)
+                    fig_pie.update_layout(height=350, margin=dict(t=10, b=10, l=10, r=10), paper_bgcolor='rgba(0,0,0,0)')
                     st.plotly_chart(fig_pie, use_container_width=True)
-        
-        st.write("---")
-        st.markdown("#### 🤖 Chat de Análisis de Datos")
-        chat_cont = st.container(height=300)
-        for msg in st.session_state.chat_history_graficos:
-            chat_cont.chat_message(msg["role"]).write(msg["content"])
-        
-        if prompt_chat := st.chat_input("Pide un análisis, tabla dinámica o relación de datos..."):
-            st.session_state.chat_history_graficos.append({"role": "user", "content": prompt_chat})
-            # Lógica para respuesta de chat analítico (se puede expandir)
-            chat_cont.chat_message("user").write(prompt_chat)
-            chat_cont.chat_message("assistant").write("Funcionalidad analítica en desarrollo...")
 
-st.markdown(f'<div style="position: fixed; bottom: 5px; right: 10px; font-size: 0.6rem; color: #999; font-family: monospace;">v. 20 mar 2026 21:15</div>', unsafe_allow_html=True)
-st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un apoyo a la decisión clínica. El farmacéutico y el médico son los responsables finales de la prescripción y validación del tratamiento.</div>', unsafe_allow_html=True)
+st.markdown("""
+<div class="warning-yellow">
+    <strong>⚠️ ADVERTENCIA LEGAL:</strong> Este asistente es una herramienta de apoyo a la decisión clínica para profesionales farmacéuticos y médicos. 
+    Los cálculos y recomendaciones de la IA deben ser validados siempre por un profesional colegiado antes de cualquier intervención clínica. 
+    La responsabilidad final del tratamiento recae en el profesional sanitario.
+</div>
+""", unsafe_allow_html=True)
+
+# EVO: REGISTRO DE VERSIÓN LOCAL EN ESQUINA INFERIOR DERECHA
+st.markdown(f'''
+    <div style="position: fixed; bottom: 5px; right: 10px; font-size: 0.5rem; color: #ddd; font-family: monospace; z-index: 999999;">
+        v. 22 mar 2026 09:20 | ASISTENTE RENAL
+    </div>
+''', unsafe_allow_html=True)
