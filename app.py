@@ -1,4 +1,4 @@
-# v. 23 mar 2026 11:30 (EVOLUCIÓN: DASHBOARD COMPACTO + TOP 5 EMPATES)
+# v. 23 mar 2026 12:45 (EVOLUCIÓN: DASHBOARD QUIRÚRGICO + ORDEN LEYENDA + TOP 5 SECTORES)
 
 import streamlit as st
 import pandas as pd
@@ -28,28 +28,28 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                       "Filtrado Glomerular" (cuadro negro con glow morado).
+#                        "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                       - Cuadros negros superiores (ZONA y ACTIVO).
-#                       - Pestañas (Tabs) de navegación.
-#                       - Registro de Paciente: Estructura y función de fila única.
-#                       - Estructura del área de recorte y listado de medicación.
-#                       - Barra dual de validación (VALIDAR / RESET).
-#                       - Aviso legal amarillo inferior (Warning).
+#                        - Cuadros negros superiores (ZONA y ACTIVO).
+#                        - Pestañas (Tabs) de navegación.
+#                        - Registro de Paciente: Estructura y función de fila única.
+#                        - Estructura del área de recorte y listado de medicación.
+#                        - Barra dual de validación (VALIDAR / RESET).
+#                        - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                    "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                     "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                     principios antes y después de cada cambio. No se simplifican líneas.
+#                      principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#                     ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#                      ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#                     se considerará pérdida de principios.
+#                      se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#                       sus textos flotantes (placeholders) and los textos predefinidos en las
-#                       secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                        sus textos flotantes (placeholders) and los textos predefinidos en las
+#                        secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                        principio blindado; es informativo y no debe impedir la validación.
+#                         principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -299,7 +299,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 23 mar 2026 11:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 23 mar 2026 12:45</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -511,14 +511,13 @@ with tabs[3]:
        with kpi_c4:
            st.markdown(f'<div class="db-glow-box db-purple"><div style="font-size: 0.75rem; color: #BBBBBB;">Promedio FG</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{promedio_fg:.1f}</div></div>', unsafe_allow_html=True)
 
-       # EVO: ESTRUCTURA DE 2 COLUMNAS OPTIMIZADA
        g_col1, g_col2 = st.columns(2)
        
        with g_col1:
            st.markdown("##### Distribución de Riesgos")
            if not df_m_dash.empty:
                df_m_dash["NIVEL_ADE_CG"] = pd.to_numeric(df_m_dash["NIVEL_ADE_CG"], errors='coerce').fillna(0)
-               df_cat = df_m_dash.groupby("NIVEL_ADE_CG").size().reset_index(name='count')
+               df_cat = df_m_dash.groupby("NIVEL_ADE_CG").size().reset_index(name='count').sort_values(by="count", ascending=False)
                
                map_riesgos = { 0: "Sin ajuste", 1: "Precaución", 2: "Ajuste dosis", 3: "Toxicidad", 4: "Contraindicado" }
                color_map = {
@@ -527,12 +526,13 @@ with tabs[3]:
                }
                df_cat["ETIQUETA"] = df_cat["NIVEL_ADE_CG"].map(map_riesgos)
 
-               # EVO: Selector de Interfaz para Distribución
                tipo_graf_riesgo = st.selectbox("Visualización", ["Sectores", "Barras H", "Barras V"], key="sel_riesgo", label_visibility="collapsed")
                
                if tipo_graf_riesgo == "Sectores":
                    fig_riesgo = px.pie(df_cat, names="ETIQUETA", values="count", color="ETIQUETA", color_discrete_map=color_map, hole=0.4)
-                   fig_riesgo.update_layout(height=300, margin=dict(t=10, b=10, l=40, r=10), showlegend=True, legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=-0.2))
+                   fig_riesgo.update_layout(height=300, margin=dict(t=10, b=10, l=40, r=10), showlegend=True, 
+                                          legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.05))
+                   fig_riesgo.update_traces(sort=False) # Mantiene el orden de df_cat
                elif tipo_graf_riesgo == "Barras H":
                    fig_riesgo = px.bar(df_cat, y="ETIQUETA", x="count", color="ETIQUETA", text="count", orientation='h', color_discrete_map=color_map)
                    fig_riesgo.update_layout(showlegend=False, height=300, margin=dict(t=10, b=10, l=10, r=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
@@ -547,11 +547,10 @@ with tabs[3]:
            if not df_m_dash.empty:
                df_alertas = df_m_dash[pd.to_numeric(df_m_dash["NIVEL_ADE_CG"], errors='coerce') > 0]
                if not df_alertas.empty:
-                   tipo_graf_top = st.selectbox("Formato Top", ["Barras Horizontales", "Barras Verticales"], key="sel_top", label_visibility="collapsed")
+                   tipo_graf_top = st.selectbox("Formato Top", ["Barras Horizontales", "Barras Verticales", "Sectores"], key="sel_top", label_visibility="collapsed")
                    
                    df_top = df_alertas.groupby("MEDICAMENTO").size().reset_index(name='count').sort_values(by="count", ascending=False)
                    
-                   # EVO: Lógica de empates para el Top 5
                    if len(df_top) > 5:
                        min_count_top = df_top.iloc[4]["count"]
                        df_top_final = df_top[df_top["count"] >= min_count_top]
@@ -561,9 +560,14 @@ with tabs[3]:
                    if tipo_graf_top == "Barras Horizontales":
                        fig_top = px.bar(df_top_final, x="count", y="MEDICAMENTO", orientation='h', text="count", color="count", color_continuous_scale="Reds")
                        fig_top.update_layout(height=300, yaxis={'categoryorder':'total ascending'}, coloraxis_showscale=False)
-                   else:
+                       fig_top.update_traces(textangle=0, textposition='inside')
+                   elif tipo_graf_top == "Barras Verticales":
                        fig_top = px.bar(df_top_final, x="MEDICAMENTO", y="count", text="count", color="count", color_continuous_scale="Reds")
                        fig_top.update_layout(height=300, xaxis={'categoryorder':'total descending'}, coloraxis_showscale=False)
+                   else: # Sectores
+                       fig_top = px.pie(df_top_final, names="MEDICAMENTO", values="count", color="count", color_discrete_sequence=px.colors.sequential.Reds_r, hole=0.4)
+                       fig_top.update_layout(height=300, margin=dict(t=10, b=10, l=10, r=10), showlegend=True,
+                                           legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.05))
                    
                    fig_top.update_layout(margin=dict(t=10, b=10, l=10, r=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                    st.plotly_chart(fig_top, use_container_width=True)
@@ -571,7 +575,6 @@ with tabs[3]:
                    st.info("Sin alertas detectadas.")
 
 st.markdown('<div class="warning-yellow">⚠️ <b>AVISO LEGAL:</b> Esta herramienta es un asistente de apoyo basado en IA. Las recomendaciones deben ser validadas por un profesional sanitario antes de cualquier intervención clínica.</div>', unsafe_allow_html=True)
-st.markdown(f'<div style="position: fixed; bottom: 5px; right: 10px; font-size: 0.5rem; color: #ccc; font-family: monospace;">v. 23 mar 2026 11:30</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="position: fixed; bottom: 5px; right: 10px; font-size: 0.5rem; color: #ccc; font-family: monospace;">v. 23 mar 2026 12:45</div>', unsafe_allow_html=True)
 
-# CONFIRMACIÓN FINAL
 # He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
