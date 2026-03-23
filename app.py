@@ -1,5 +1,5 @@
 # v. 23 mar 2026 14:00
-(EVOLUCIÓN: 📊 Chat-IA / Análisis avanzado INTEGRADO)
+# (EVOLUCIÓN: 📊 Chat-IA / Análisis avanzado INTEGRADO)
 
 import streamlit as st
 import pandas as pd
