@@ -1,4 +1,4 @@
-# v. 23 mar 2026 12:45 (EVOLUCIÓN: DASHBOARD QUIRÚRGICO + ORDEN LEYENDA + TOP 5 SECTORES)
+# v. 23 mar 2026 13:15 (EVOLUCIÓN: % PACIENTES AFECTADOS KPI B11)
 
 import streamlit as st
 import pandas as pd
@@ -28,28 +28,28 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                        "Filtrado Glomerular" (cuadro negro con glow morado).
+#                         "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                        - Cuadros negros superiores (ZONA y ACTIVO).
-#                        - Pestañas (Tabs) de navegación.
-#                        - Registro de Paciente: Estructura y función de fila única.
-#                        - Estructura del área de recorte y listado de medicación.
-#                        - Barra dual de validación (VALIDAR / RESET).
-#                        - Aviso legal amarillo inferior (Warning).
+#                         - Cuadros negros superiores (ZONA y ACTIVO).
+#                         - Pestañas (Tabs) de navegación.
+#                         - Registro de Paciente: Estructura y función de fila única.
+#                         - Estructura del área de recorte y listado de medicación.
+#                         - Barra dual de validación (VALIDAR / RESET).
+#                         - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                     "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                      "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                      principios antes y después de cada cambio. No se simplifican líneas.
+#                       principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#                      ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#                       ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#                      se considerará pérdida de principios.
+#                       se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#                        sus textos flotantes (placeholders) and los textos predefinidos en las
-#                        secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                         sus textos flotantes (placeholders) and los textos predefinidos en las
+#                         secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                         principio blindado; es informativo y no debe impedir la validación.
+#                          principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -299,7 +299,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 23 mar 2026 12:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 23 mar 2026 13:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -497,9 +497,10 @@ with tabs[3]:
        afectados_total = int(df_filtered_val["Nº_TOT_AFEC_CG"].sum())
        porcentaje_afec = (afectados_total / total_meds_revisados * 100) if total_meds_revisados > 0 else 0
 
+       # EVOLUCIÓN QUIRÚRGICA: KPI % PACIENTES AFECTADOS DESDE B11
        try:
-           promedio_fg = float(df_anal_sync.iloc[4, 1]) if not df_anal_sync.empty else df_filtered_val['FG_CG'].mean()
-       except: promedio_fg = df_filtered_val['FG_CG'].mean()
+           pac_afectados_pct = df_anal_sync.iloc[10, 1] if not df_anal_sync.empty else "0%"
+       except: pac_afectados_pct = "0%"
 
        kpi_c1, kpi_c2, kpi_c3, kpi_c4 = st.columns(4)
        with kpi_c1:
@@ -509,7 +510,7 @@ with tabs[3]:
        with kpi_c3:
            st.markdown(f'<div class="db-glow-box db-red"><div style="font-size: 0.75rem; color: #BBBBBB;">Alertas Detectadas (Totales)</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{afectados_total} <span style="font-size: 0.9rem; color: #feb2b2;">({porcentaje_afec:.1f}%)</span></div></div>', unsafe_allow_html=True)
        with kpi_c4:
-           st.markdown(f'<div class="db-glow-box db-purple"><div style="font-size: 0.75rem; color: #BBBBBB;">Promedio FG</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{promedio_fg:.1f}</div></div>', unsafe_allow_html=True)
+           st.markdown(f'<div class="db-glow-box db-purple"><div style="font-size: 0.75rem; color: #BBBBBB;">% de pacientes afectados</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{pac_afectados_pct}</div></div>', unsafe_allow_html=True)
 
        g_col1, g_col2 = st.columns(2)
        
@@ -575,6 +576,6 @@ with tabs[3]:
                    st.info("Sin alertas detectadas.")
 
 st.markdown('<div class="warning-yellow">⚠️ <b>AVISO LEGAL:</b> Esta herramienta es un asistente de apoyo basado en IA. Las recomendaciones deben ser validadas por un profesional sanitario antes de cualquier intervención clínica.</div>', unsafe_allow_html=True)
-st.markdown(f'<div style="position: fixed; bottom: 5px; right: 10px; font-size: 0.5rem; color: #ccc; font-family: monospace;">v. 23 mar 2026 12:45</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="position: fixed; bottom: 5px; right: 10px; font-size: 0.5rem; color: #ccc; font-family: monospace;">v. 23 mar 2026 13:15</div>', unsafe_allow_html=True)
 
 # He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
