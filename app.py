@@ -1,4 +1,4 @@
-# v. 23 mar 2026 13:15 (EVOLUCIÓN: % PACIENTES AFECTADOS KPI B11)
+# v. 23 mar 2026 15:45 (EVOLUCIÓN: 📊 Chat-IA / Análisis avanzado)
 
 import streamlit as st
 import pandas as pd
@@ -28,16 +28,16 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                         "Filtrado Glomerular" (cuadro negro con glow morado).
+#                           "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                         - Cuadros negros superiores (ZONA y ACTIVO).
-#                         - Pestañas (Tabs) de navegación.
-#                         - Registro de Paciente: Estructura y función de fila única.
-#                         - Estructura del área de recorte y listado de medicación.
-#                         - Barra dual de validación (VALIDAR / RESET).
-#                         - Aviso legal amarillo inferior (Warning).
+#                           - Cuadros negros superiores (ZONA y ACTIVO).
+#                           - Pestañas (Tabs) de navegación.
+#                           - Registro de Paciente: Estructura y función de fila única.
+#                           - Estructura del área de recorte y listado de medicación.
+#                           - Barra dual de validación (VALIDAR / RESET).
+#                           - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                      "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                       "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
 #                       principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
@@ -46,10 +46,10 @@ import plotly.graph_objects as go
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
 #                       se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#                         sus textos flotantes (placeholders) and los textos predefinidos en las
-#                         secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                           sus textos flotantes (placeholders) and los textos predefinidos en las
+#                           secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                          principio blindado; es informativo y no debe impedir la validación.
+#                           principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -86,8 +86,8 @@ if "df_sync_analisis" not in st.session_state:
  st.session_state["df_sync_analisis"] = pd.DataFrame()
 
 # --- ESTADO PARA CHAT DE ANÁLISIS ---
-if "chat_history_graficos" not in st.session_state:
-   st.session_state.chat_history_graficos = []
+if "chat_history_analista" not in st.session_state:
+   st.session_state.chat_history_analista = []
 
 for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
     if key not in st.session_state:
@@ -299,9 +299,10 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 23 mar 2026 13:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 23 mar 2026 15:45</div>', unsafe_allow_html=True)
 
-tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
+# EVO: Pestaña Chat-IA añadida al final
+tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS", "📊 Chat-IA / Análisis avanzado"])
 
 with tabs[0]:
    st.markdown("### Registro de Paciente")
@@ -575,7 +576,73 @@ with tabs[3]:
                else:
                    st.info("Sin alertas detectadas.")
 
+# EVO: LÓGICA DE LA NUEVA PESTAÑA Chat-IA
+with tabs[4]:
+    st.markdown("### 🧠 Analista IA / Consultas Avanzadas")
+    
+    # 1. Preparar Contexto de Datos (Snapshot de solo lectura)
+    df_v = st.session_state["df_sync_val"].copy()
+    df_m = st.session_state["df_sync_meds"].copy()
+    df_a = st.session_state["df_sync_analisis"].copy()
+    
+    # Inyectamos el esquema de datos para que la IA sepa qué consultar
+    esquema_contexto = f"""
+    Eres un Analista de Datos Senior. Tienes acceso a 3 tablas:
+    1. df_v (Validaciones): Contiene datos de pacientes (FECHA, CENTRO, EDAD, SEXO, FG_CG, FG_MDRD, FG_CKD, Nº_TOTAL_MEDS_PAC, Nº_TOT_AFEC_CG).
+    2. df_m (Medicamentos): Contiene el detalle de fármacos (ID_REGISTRO, MEDICAMENTO, NIVEL_ADE_CG, OBSERVACIONES).
+    3. df_a (Análisis): Contiene KPIs globales como Ahorro Estimado, % Concordancia, etc.
+    
+    REGLAS:
+    - Si el usuario pide un gráfico, usa Plotly Express (px).
+    - Genera solo el código Python necesario dentro de un bloque ```python.
+    - Los resultados se guardarán en una variable llamada 'resultado_final'.
+    - Si es un gráfico, asígnalo a 'resultado_final = fig'.
+    """
+
+    for msg in st.session_state.chat_history_analista:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+            if "fig" in msg: st.plotly_chart(msg["fig"], use_container_width=True)
+            if "table" in msg: st.dataframe(msg["table"], use_container_width=True)
+
+    if prompt_chat := st.chat_input("Ej: ¿Cuántos pacientes de Marín tienen más de 80 años?"):
+        st.session_state.chat_history_analista.append({"role": "user", "content": prompt_chat})
+        with st.chat_message("user"):
+            st.markdown(prompt_chat)
+
+        with st.chat_message("assistant"):
+            with st.spinner("Analizando base de datos..."):
+                prompt_analista = f"{esquema_contexto}\n\nConsulta del usuario: {prompt_chat}\n\nGenera el código Python para responder. Usa los DataFrames df_v, df_m y df_a."
+                respuesta_ia = llamar_ia_en_cascada(prompt_analista)
+                
+                # Extraer código y ejecutar en Sandbox
+                code_match = re.search(r'```python\n(.*?)```', respuesta_ia, re.DOTALL)
+                if code_match:
+                    code = code_match.group(1)
+                    local_vars = {'df_v': df_v, 'df_m': df_m, 'df_a': df_a, 'px': px, 'go': go, 'pd': pd}
+                    try:
+                        exec(code, {}, local_vars)
+                        res = local_vars.get('resultado_final', "No se pudo generar un resultado concreto.")
+                        
+                        msg_data = {"role": "assistant", "content": "Aquí tienes el análisis solicitado:"}
+                        if isinstance(res, (go.Figure, px.express._chart_types.Cartesian)):
+                            st.plotly_chart(res, use_container_width=True)
+                            msg_data["fig"] = res
+                        elif isinstance(res, pd.DataFrame):
+                            st.dataframe(res, use_container_width=True)
+                            msg_data["table"] = res
+                        else:
+                            st.markdown(str(res))
+                            msg_data["content"] = str(res)
+                        
+                        st.session_state.chat_history_analista.append(msg_data)
+                    except Exception as e:
+                        st.error(f"Error en la ejecución: {e}")
+                else:
+                    st.markdown(respuesta_ia)
+                    st.session_state.chat_history_analista.append({"role": "assistant", "content": respuesta_ia})
+
 st.markdown('<div class="warning-yellow">⚠️ <b>AVISO LEGAL:</b> Esta herramienta es un asistente de apoyo basado en IA. Las recomendaciones deben ser validadas por un profesional sanitario antes de cualquier intervención clínica.</div>', unsafe_allow_html=True)
-st.markdown(f'<div style="position: fixed; bottom: 5px; right: 10px; font-size: 0.5rem; color: #ccc; font-family: monospace;">v. 23 mar 2026 13:15</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="position: fixed; bottom: 5px; right: 10px; font-size: 0.5rem; color: #ccc; font-family: monospace;">v. 23 mar 2026 15:45</div>', unsafe_allow_html=True)
 
 # He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
