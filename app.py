@@ -1,4 +1,4 @@
-# v. 22 mar 2026 11:20 (EVO: INTEROPERABILIDAD NUMÉRICA TOTAL - PUREZA DECIMAL)
+# v. 23 mar 2026 09:00 (EVO: GRÁFICA SEMÁNTICA - COLUMNAS ESTILIZADAS)
 
 import streamlit as st
 import pandas as pd
@@ -304,7 +304,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 22 mar 2026 11:20</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 23 mar 2026 09:00</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
@@ -521,19 +521,75 @@ with tabs[3]:
        with g_col1:
            st.markdown("##### Distribución de Riesgos (Cockcroft-Gault)")
            if not df_m_dash.empty:
+                # EVO: Implementación de Mapeo Semántico y Estrechamiento de Columnas
                 df_m_dash["NIVEL_ADE_CG"] = pd.to_numeric(df_m_dash["NIVEL_ADE_CG"], errors='coerce').fillna(0)
                 df_cat = df_m_dash.groupby("NIVEL_ADE_CG").size().reset_index(name='count')
+                
+                # Diccionario de Mapeo Semántico
+                map_riesgos = {
+                    0: "Sin ajuste",
+                    1: "Precaución",
+                    2: "Ajuste dosis",
+                    3: "Toxicidad",
+                    4: "Contraindicado"
+                }
+                
+                # Creación de columna de etiquetas descriptivas
+                df_cat["ETIQUETA"] = df_cat["NIVEL_ADE_CG"].map(map_riesgos)
                 df_cat["NIVEL_ADE_CG"] = df_cat["NIVEL_ADE_CG"].astype(str)
-                fig_bar = px.bar(df_cat, x="NIVEL_ADE_CG", y="count", color="NIVEL_ADE_CG", color_discrete_map={"0": "#2f855a", "1": "#faf089", "2": "#ffd27f", "3": "#c05621", "4": "#c53030"})
-                fig_bar.update_layout(showlegend=False, height=350, margin=dict(t=10, b=10, l=10, r=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                
+                # Configuración de gráfico con etiquetas automáticas
+                fig_bar = px.bar(
+                    df_cat, 
+                    x="ETIQUETA", 
+                    y="count", 
+                    color="NIVEL_ADE_CG", 
+                    text="count",
+                    color_discrete_map={"0": "#2f855a", "1": "#faf089", "2": "#ffd27f", "3": "#c05621", "4": "#c53030"}
+                )
+                
+                # Ajuste de diseño: Estrechamiento de columnas (bargap) y posición de texto
+                fig_bar.update_layout(
+                    showlegend=False, 
+                    height=350, 
+                    margin=dict(t=30, b=10, l=10, r=10), 
+                    paper_bgcolor='rgba(0,0,0,0)', 
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    bargap=0.6,
+                    xaxis_title=None,
+                    yaxis_title="Cantidad de Fármacos"
+                )
+                fig_bar.update_traces(textposition='outside', textfont_size=12)
                 st.plotly_chart(fig_bar, use_container_width=True)
+           else:
+                st.info("Sin datos de medicamentos para mostrar.")
 
        with g_col2:
-           st.markdown("##### Top 5 Medicamentos Críticos")
-           if not df_m_dash.empty and "MEDICAMENTO" in df_m_dash.columns:
-                df_top = df_m_dash[df_m_dash["NIVEL_ADE_CG"] > 0].groupby("MEDICAMENTO").size().reset_index(name='Frecuencia')
-                if not df_top.empty:
-                    df_top = df_top.nlargest(5, "Frecuencia")
-                    fig_pie = px.pie(df_top, values='Frecuencia', names='MEDICAMENTO', color_discrete_sequence=px.colors.sequential.RdBu)
-                    fig_pie.update_layout(height=350, margin=dict(t=10, b=10, l=10, r=10), paper_bgcolor='rgba(0,0,0,0)')
-                    st.plotly_chart(fig_pie, use_container_width=True)
+           st.markdown("##### Frecuencia por Centro")
+           if not df_filtered_val.empty:
+               df_centros = df_filtered_val["CENTRO"].value_counts().reset_index()
+               fig_pie = px.pie(df_centros, names="CENTRO", values="count", hole=0.4, color_discrete_sequence=px.colors.qualitative.Pastel)
+               fig_pie.update_layout(showlegend=True, height=350, margin=dict(t=10, b=10, l=10, r=10), paper_bgcolor='rgba(0,0,0,0)')
+               st.plotly_chart(fig_pie, use_container_width=True)
+
+       st.markdown("---")
+       st.markdown("##### 💬 Análisis Inteligente de Datos")
+       for message in st.session_state.chat_history_graficos:
+           with st.chat_message(message["role"]):
+               st.markdown(message["content"])
+       
+       if prompt_ana := st.chat_input("Pregunta sobre los datos (ej: ¿Cuál es el riesgo predominante en O Grove?)"):
+           st.session_state.chat_history_graficos.append({"role": "user", "content": prompt_ana})
+           with st.chat_message("user"): st.markdown(prompt_ana)
+           
+           with st.chat_message("assistant"):
+               contexto_datos = f"Datos actuales filtrados: {df_filtered_val.to_string()}\nMedicación: {df_m_dash.to_string()}"
+               full_prompt = f"Analiza estos datos de gestión renal y responde brevemente:\n{contexto_datos}\n\nPregunta: {prompt_ana}"
+               respuesta = llamar_ia_en_cascada(full_prompt)
+               st.markdown(respuesta)
+               st.session_state.chat_history_graficos.append({"role": "assistant", "content": respuesta})
+   else:
+       st.warning("No hay datos sincronizados para mostrar el Dashboard.")
+
+st.markdown(f'<div style="position: fixed; bottom: 5px; right: 10px; font-size: 0.5rem; color: #ddd; font-family: monospace;">v. 23 mar 2026 09:00</div>', unsafe_allow_html=True)
+st.markdown("""<div class="warning-yellow"><b>⚠️ AVISO LEGAL:</b> Esta herramienta es un asistente de apoyo a la decisión clínica basado en IA (Gemini).<br>La responsabilidad final de la validación terapéutica y el ajuste de dosis recae exclusivamente en el profesional sanitario facultativo.<br>Verifique siempre los resultados con las fichas técnicas oficiales y las guías clínicas vigentes.</div>""", unsafe_allow_html=True)
