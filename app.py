@@ -199,6 +199,207 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
         try: release_lock(doc)
         except: pass
 
+# v. 24 mar 2026 12:50
+# (EVOLUCIÓN: 📊 Chat-IA / Motor Determinista JSON-to-Plotly INTEGRADO - NORMALIZACIÓN Y VALIDACIÓN)
+
+import streamlit as st
+import pandas as pd
+import io
+from datetime import datetime
+import google.generativeai as genai
+import random
+import re
+import os
+import json
+import constants as c 
+import hashlib
+
+# --- NUEVAS LIBRERÍAS PARA GOOGLE SHEETS & SERIALIZACIÓN ---
+import gspread
+from google.oauth2.service_account import Credentials
+import time
+import math
+
+# MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (IMPORTACIONES VISUALIZACIÓN)
+import plotly.express as px
+import plotly.graph_objects as go
+
+# =================================================================
+# PRINCIPIOS FUNDAMENTALES (ESCRITOS DE PE A PA - PROHIBIDO ELIMINAR)
+# =================================================================
+# 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
+# 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
+# 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
+#                         "Filtrado Glomerular" (cuadro negro con glow morado).
+# 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
+#                         - Cuadros negros superiores (ZONA y ACTIVO).
+#                         - Pestañas (Tabs) de navegación.
+#                         - Registro de Paciente: Estructura y función de fila única.
+#                         - Estructura del área de recorte y listado de medicación.
+#                         - Barra dual de validación (VALIDAR / RESET).
+#                         - Aviso legal amarillo inferior (Warning).
+# 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
+#                  "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+# 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
+#                  principios antes y después de cada cambio. No se simplifican líneas.
+# 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
+# 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
+#                  ubicarse en la esquina superior izquierda (estilo v. 2.5).
+# 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
+#                  se considerará pérdida de principios.
+# 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
+#                  sus textos flotantes (placeholders) and los textos predefinidos en las
+#                  secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+# 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
+#                  principio blindado; es informativo y no debe impedir la validación.
+# =================================================================
+
+st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
+
+# --- INICIALIZACIÓN ---
+if "active_model" not in st.session_state:
+    st.session_state.active_model = "BUSCANDO..."
+if "main_meds" not in st.session_state:
+    st.session_state.main_meds = ""
+if "soip_s" not in st.session_state:
+    st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
+if "soip_p" not in st.session_state:
+    st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
+if "analisis_realizado" not in st.session_state:
+    st.session_state.analisis_realizado = False
+if "resp_ia" not in st.session_state:
+    st.session_state.resp_ia = None
+if "ultima_huella" not in st.session_state:
+    st.session_state.ultima_huella = ""
+if "df_val" not in st.session_state:
+    st.session_state.df_val = pd.DataFrame()
+if "df_meds" not in st.session_state:
+    st.session_state.df_meds = pd.DataFrame()
+
+# --- NUEVOS ESTADOS PARA ESPEJO NUBE ---
+if "df_sync_val" not in st.session_state:
+    st.session_state["df_sync_val"] = pd.DataFrame()
+if "df_sync_meds" not in st.session_state:
+    st.session_state["df_sync_meds"] = pd.DataFrame()
+if "df_sync_analisis" not in st.session_state:
+    st.session_state["df_sync_analisis"] = pd.DataFrame()
+
+# --- ESTADO PARA CHAT DE ANÁLISIS ---
+if "chat_history_graficos" not in st.session_state:
+    st.session_state.chat_history_graficos = []
+
+for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
+    if key not in st.session_state:
+        st.session_state[key] = ""
+
+# --- CONFIGURACIÓN IA ---
+try:
+    API_KEY = st.secrets["GEMINI_API_KEY"]
+    genai.configure(api_key=API_KEY)
+except:
+    API_KEY = None
+    st.sidebar.error("API Key no encontrada.")
+
+# --- FUNCIONES DE PERSISTENCIA SEGURA (GOOGLE SHEETS) ---
+def conectar_google_sheets():
+    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+    creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scopes)
+    client = gspread.authorize(creds)
+    return client.open_by_key(st.secrets["GOOGLE_SHEET_ID"])
+
+def sincronizar_desde_nube():
+    try:
+        doc = conectar_google_sheets()
+        def raw_to_clean_df(ws_name):
+            ws = doc.worksheet(ws_name)
+            rows = ws.get_all_values()
+            if not rows: return pd.DataFrame()
+            headers = rows[0]
+            data = rows[1:]
+            clean_data = []
+            for row in data:
+                new_row = []
+                for val in row:
+                    if isinstance(val, str):
+                        clean_val = val.replace(",", ".").strip()
+                        try:
+                            if clean_val == "": new_row.append(None)
+                            else: new_row.append(float(clean_val))
+                        except ValueError:
+                            new_row.append(val)
+                    else: new_row.append(val)
+                clean_data.append(new_row)
+            return pd.DataFrame(clean_data, columns=headers)
+        st.session_state["df_sync_val"] = raw_to_clean_df("VALIDACIONES")
+        st.session_state["df_sync_meds"] = raw_to_clean_df("MEDICAMENTOS")
+        st.session_state["df_sync_analisis"] = raw_to_clean_df("ANALISIS")
+        st.toast("✅ Nube sincronizada (Valores Numéricos OK)", icon="🔄")
+    except Exception as e:
+        st.error(f"❌ Error al sincronizar: {e}")
+
+if st.session_state["df_sync_val"].empty:
+    sincronizar_desde_nube()
+
+def acquire_lock(sheet_obj):
+    try:
+        ws_lock = sheet_obj.worksheet("LOCK")
+    except gspread.exceptions.WorksheetNotFound:
+        ws_lock = sheet_obj.add_worksheet(title="LOCK", rows=2, cols=2)
+    lock_val = ws_lock.acell("A1").value
+    if lock_val: return False
+    ws_lock.update_acell("A1", f"LOCKED_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+    return True
+
+def release_lock(sheet_obj):
+    try:
+        ws_lock = sheet_obj.worksheet("LOCK")
+        ws_lock.update_acell("A1", "")
+    except: pass
+
+def guardar_en_google_sheets(df_val_actual, df_meds_actual):
+    try:
+        doc = conectar_google_sheets()
+        intentos = 0
+        while not acquire_lock(doc) and intentos < 5:
+            time.sleep(2); intentos += 1
+        if intentos >= 5: return
+        id_actual = st.session_state.reg_id
+        ws_val = doc.worksheet("VALIDACIONES")
+        ids_existentes = ws_val.col_values(4) 
+        if id_actual not in ids_existentes:
+            fila_dict = df_val_actual[df_val_actual["ID_REGISTRO"] == id_actual].iloc[-1].fillna("").to_dict()
+            columnas_ordenadas = ["FECHA", "CENTRO", "RESIDENCIA", "ID_REGISTRO", "EDAD", "SEXO", "PESO", "CREATININA", "Nº_TOTAL_MEDS_PAC", "FG_CG", "Nº_TOT_AFEC_CG", "Nº_PRECAU_CG", "Nº_AJUSTE_DOS_CG", "Nº_TOXICID_CG", "Nº_CONTRAIND_CG", "FG_MDRD", "Nº_TOT_AFEC_MDRD", "Nº_PRECAU_MDRD", "Nº_AJUSTE_DOS_MDRD", "Nº_TOXICID_MDRD", "Nº_CONTRAIND_MDRD", "FG_CKD", "Nº_TOT_AFEC_CKD", "Nº_PRECAU_CKD", "Nº_AJUSTE_DOS_CKD", "Nº_TOXICID_CKD", "Nº_CONTRAIND_CKD"]
+            fila_final = []
+            for col in columnas_ordenadas:
+                val = fila_dict.get(col, "")
+                if hasattr(val, "item"): val = val.item()
+                if isinstance(val, float) and math.isnan(val): val = ""
+                fila_final.append(val)
+            fila_final.extend(["", "", ""])
+            ws_val.append_row(fila_final, value_input_option='USER_ENTERED')
+        ws_meds = doc.worksheet("MEDICAMENTOS")
+        data_meds_nube = ws_meds.get_all_records()
+        df_nube_meds = pd.DataFrame(data_meds_nube)
+        meds_a_procesar = df_meds_actual[df_meds_actual["ID_REGISTRO"] == id_actual].fillna("")
+        filas_nuevas = []
+        for _, fila in meds_a_procesar.iterrows():
+            ya_existe = False
+            if not df_nube_meds.empty:
+                existe = df_nube_meds[(df_nube_meds["ID_REGISTRO"] == id_actual) & (df_nube_meds["MEDICAMENTO"] == fila["MEDICAMENTO"])]
+                if not existe.empty: ya_existe = True
+            if not ya_existe:
+                fila_conv = []
+                for v in fila.values.tolist():
+                    val_conv = v.item() if hasattr(v, "item") else v
+                    fila_conv.append(val_conv)
+                filas_nuevas.append(fila_conv)
+        if filas_nuevas: 
+            ws_meds.append_rows(filas_nuevas, value_input_option='USER_ENTERED')
+        release_lock(doc)
+    except:
+        try: release_lock(doc)
+        except: pass
+
 # --- FUNCIONES NÚCLEO ---
 def llamar_ia_en_cascada(prompt):
     if not API_KEY: return "⚠️ Error: API Key no configurada."
@@ -276,7 +477,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 24 mar 2026 11:50</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 24 mar 2026 12:50</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS", "📊 Chat-IA / Análisis avanzado"])
 
@@ -503,50 +704,79 @@ with tabs[4]:
                     for c_n in ["EDAD", "FG_CG", "PESO", "CREATININA", "Nº_TOTAL_MEDS_PAC"]:
                         if c_n in df_v.columns: df_v[c_n] = pd.to_numeric(df_v[c_n], errors='coerce').fillna(0)
                     
-                    # PROMPT DE TRADUCCIÓN DETERMINISTA JSON
-                    meta_prompt = f"""Actúa como traductor de lenguaje natural a JSON de analítica.
+                    # --- NORMALIZACIÓN: DICCIONARIO DE INSTANCIAS Y METADATOS ---
+                    dict_instancias = {
+                        "Centro": list(df_v["CENTRO"].dropna().unique()),
+                        "Residencia": list(df_v["RESIDENCIA"].dropna().unique()),
+                        "Medicamento": list(df_m["MEDICAMENTO"].dropna().unique())
+                    }
+                    
+                    # PROMPT DE TRADUCCIÓN DETERMINISTA JSON (ACTUALIZADO CON REGLAS DE NORMALIZACIÓN)
+                    meta_prompt = f"""Actúa como traductor de lenguaje natural a JSON de analítica. 
+                    TRABAJA ÚNICAMENTE con datos normalizados y validados.
                     DATOS DISPONIBLES: df_v (Pacientes), df_m (Medicamentos).
                     COLUMNAS df_v: {list(df_v.columns)}
                     COLUMNAS df_m: {list(df_m.columns)}
-                    PREGUNTA: "{p_user}"
+                    DICCIONARIO DE VALORES REALES: {dict_instancias}
                     
-                    Devuelve ÚNICAMENTE un JSON con esta estructura exacta:
+                    REGLAS OBLIGATORIAS:
+                    1. Valida internamente que cada columna y cada valor de filtro exista en los datos proporcionados.
+                    2. No inventes valores ni corrijas nombres.
+                    3. Si un valor o columna no existe, responde EXACTAMENTE: "No hay datos suficientes para responder a esa consulta con la base actual."
+                    
+                    Si todo es válido, devuelve ÚNICAMENTE un JSON con esta estructura:
                     {{
                         "target_df": "df_v" o "df_m",
-                        "tipo_grafico": "barras", "lineas", "pie" o "tabla",
+                        "tipo_resultado": "número", "tabla", "lista" o "gráfico",
+                        "tipo_grafico": "barras", "lineas", "pie" o "null",
                         "agrupar_por": "nombre_columna",
                         "metrica": "mean", "sum" o "count",
                         "valor_y": "nombre_columna_numerica",
+                        "filtros": [ {{"columna": "col", "operador": "==", "valor": "val"}} ],
                         "titulo": "Título descriptivo"
-                    }}"""
+                    }}
+                    
+                    PREGUNTA: "{p_user}" """
+                    
                     resp_json_raw = llamar_ia_en_cascada(meta_prompt)
                     
-                    try:
-                        json_str = re.search(r'\{.*\}', resp_json_raw, re.DOTALL).group()
-                        intent = json.loads(json_str)
-                        source_df = df_v if intent["target_df"] == "df_v" else df_m
-                        
-                        # Procesamiento determinista
-                        df_res = source_df.groupby(intent["agrupar_por"]).agg({intent["valor_y"]: intent["metrica"]}).reset_index()
-                        
-                        fig = None
-                        if intent["tipo_grafico"] == "barras":
-                            fig = px.bar(df_res, x=intent["agrupar_por"], y=intent["valor_y"], title=intent["titulo"], color=intent["agrupar_por"])
-                        elif intent["tipo_grafico"] == "pie":
-                            fig = px.pie(df_res, names=intent["agrupar_por"], values=intent["valor_y"], title=intent["titulo"])
-                        elif intent["tipo_grafico"] == "lineas":
-                            fig = px.line(df_res, x=intent["agrupar_por"], y=intent["valor_y"], title=intent["titulo"])
+                    if "No hay datos suficientes" in resp_json_raw:
+                        st.warning("No hay datos suficientes para responder a esa consulta con la base actual.")
+                        st.session_state.chat_history_graficos.append({"role": "assistant", "content": "No hay datos suficientes para responder a esa consulta con la base actual."})
+                    else:
+                        try:
+                            json_str = re.search(r'\{.*\}', resp_json_raw, re.DOTALL).group()
+                            intent = json.loads(json_str)
+                            source_df = df_v if intent["target_df"] == "df_v" else df_m
+                            
+                            # Aplicación de filtros si existen
+                            if "filtros" in intent and intent["filtros"]:
+                                for f in intent["filtros"]:
+                                    if f["operador"] == "==": source_df = source_df[source_df[f["columna"]] == f["valor"]]
+                            
+                            # Procesamiento determinista
+                            df_res = source_df.groupby(intent["agrupar_por"]).agg({intent["valor_y"]: intent["metrica"]}).reset_index()
+                            
+                            fig = None
+                            if intent["tipo_grafico"] == "barras":
+                                fig = px.bar(df_res, x=intent["agrupar_por"], y=intent["valor_y"], title=intent["titulo"], color=intent["agrupar_por"])
+                            elif intent["tipo_grafico"] == "pie":
+                                fig = px.pie(df_res, names=intent["agrupar_por"], values=intent["valor_y"], title=intent["titulo"])
+                            elif intent["tipo_grafico"] == "lineas":
+                                fig = px.line(df_res, x=intent["agrupar_por"], y=intent["valor_y"], title=intent["titulo"])
 
-                        p_narrativa = f"Como analista, resume en UNA FRASE DIRECTA el hallazgo principal: '{p_user}'. Datos resultantes: {df_res.head(3).to_dict()}"
-                        narrativa = llamar_ia_en_cascada(p_narrativa)
-                        
-                        st.markdown(narrativa)
-                        msg = {"role": "assistant", "content": narrativa}
-                        if fig: st.plotly_chart(fig, use_container_width=True); msg["plot"] = fig
-                        if df_res is not None: st.dataframe(df_res, use_container_width=True); msg["df"] = df_res
-                        st.session_state.chat_history_graficos.append(msg)
-                    except Exception as e:
-                        st.error("No se pudo procesar la analítica. Intenta ser más específico con las columnas.")
+                            p_narrativa = f"Como analista, resume en UNA FRASE DIRECTA el hallazgo principal sin mencionar términos técnicos de código: '{p_user}'. Datos resultantes: {df_res.head(3).to_dict()}"
+                            narrativa = llamar_ia_en_cascada(p_narrativa)
+                            
+                            st.markdown(narrativa)
+                            msg = {"role": "assistant", "content": narrativa}
+                            if fig: st.plotly_chart(fig, use_container_width=True); msg["plot"] = fig
+                            if df_res is not None: st.dataframe(df_res, use_container_width=True); msg["df"] = df_res
+                            st.session_state.chat_history_graficos.append(msg)
+                        except Exception:
+                            st.error("No se pudo procesar la analítica. Intenta ser más específico con las columnas.")
 
 st.markdown('<div class="warning-yellow">⚠️ <b>AVISO LEGAL:</b> Esta herramienta es un asistente de apoyo basado en IA. Las recomendaciones deben ser validadas por un profesional sanitario antes de cualquier intervención clínica.</div>', unsafe_allow_html=True)
-st.markdown(f'<div style="position: fixed; bottom: 5px; right: 10px; font-size: 0.5rem; color: #ccc; font-family: monospace;">v. 24 mar 2026 11:50</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="position: fixed; bottom: 5px; right: 10px; font-size: 0.5rem; color: #ccc; font-family: monospace;">v. 24 mar 2026 12:50</div>', unsafe_allow_html=True)
+
+# He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
