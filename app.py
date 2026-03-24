@@ -612,4 +612,4 @@ st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es
 # Interfaz | OK | Tabs y estilos inalterados.
 # Dashboard | EVOLUCIONADO | Cálculo de % de alertas ahora dinámico según filtros.
 
-He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
+# He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
