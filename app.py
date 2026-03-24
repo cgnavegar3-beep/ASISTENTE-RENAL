@@ -29,28 +29,28 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                         "Filtrado Glomerular" (cuadro negro con glow morado).
+#                          "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                         - Cuadros negros superiores (ZONA y ACTIVO).
-#                         - Pestañas (Tabs) de navegación.
-#                         - Registro de Paciente: Estructura y función de fila única.
-#                         - Estructura del área de recorte y listado de medicación.
-#                         - Barra dual de validación (VALIDAR / RESET).
-#                         - Aviso legal amarillo inferior (Warning).
+#                          - Cuadros negros superiores (ZONA y ACTIVO).
+#                          - Pestañas (Tabs) de navegación.
+#                          - Registro de Paciente: Estructura y función de fila única.
+#                          - Estructura del área de recorte y listado de medicación.
+#                          - Barra dual de validación (VALIDAR / RESET).
+#                          - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                  "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                   "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                  principios antes y después de cada cambio. No se simplifican líneas.
+#                   principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#                  ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#                   ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#                  se considerará pérdida de principios.
+#                   se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#                  sus textos flotantes (placeholders) and los textos predefinidos en las
-#                  secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                   sus textos flotantes (placeholders) and los textos predefinidos en las
+#                   secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                  principio blindado; es informativo y no debe impedir la validación.
+#                   principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -343,7 +343,10 @@ with tabs[0]:
     st.markdown("### Registro de Paciente")
     c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1.5, 0.4])
     def on_centro_change():
-        centro_input = st.session_state.reg_centro.strip().lower()
+        if "reg_centro" not in st.session_state: return
+        val = st.session_state.get("reg_centro")
+        if not isinstance(val, str): return
+        centro_input = val.strip().lower()
         if centro_input == "m": st.session_state.reg_centro = "Marín"
         elif centro_input == "o": st.session_state.reg_centro = "O Grove"
         if st.session_state.reg_centro and not st.session_state.reg_id:
