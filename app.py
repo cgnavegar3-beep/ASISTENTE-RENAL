@@ -1,3 +1,4 @@
+
 # v. 24 mar 2026 19:40 (EVOLUCIÓN: REPARACIÓN DINÁMICA DE GRÁFICOS DASHBOARD)
 
 import streamlit as st
@@ -28,23 +29,23 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                         "Filtrado Glomerular" (cuadro negro con glow morado).
+#                           "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                         - Cuadros negros superiores (ZONA y ACTIVO).
-#                         - Pestañas (Tabs) de navegación.
-#                         - Registro de Paciente: Estructura y función de fila única.
-#                         - Estructura del área de recorte y listado de medicación.
-#                         - Barra dual de validación (VALIDAR / RESET).
-#                         - Aviso legal amarillo inferior (Warning).
+#                           - Cuadros negros superiores (ZONA y ACTIVO).
+#                           - Pestañas (Tabs) de navegación.
+#                           - Registro de Paciente: Estructura y función de fila única.
+#                           - Estructura del área de recorte y listado de medicación.
+#                           - Barra dual de validación (VALIDAR / RESET).
+#                           - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                      "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                       "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
 #                        principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#                       ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#                        ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#                       se considerará pérdida de principios.
+#                        se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
 #                        sus textos flotantes (placeholders) and los textos predefinidos en las
 #                        secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
@@ -270,7 +271,7 @@ import plotly.graph_objects as go
 #                        sus textos flotantes (placeholders) and los textos predefinidos en las
 #                        secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                          principio blindado; es informativo y no debe impedir la validación.
+#                         principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -776,27 +777,41 @@ with tabs[3]:
           st.markdown("##### Top 5 medicamentos")
           if not df_filtered_meds.empty:
               # Reparación técnica: Filtrar alertas sobre los datos ya filtrados por cohorte
-              df_alertas = df_filtered_meds[pd.to_numeric(df_filtered_meds["NIVEL_ADE_CG"], errors='coerce') > 0]
+              df_alertas = df_filtered_meds[pd.to_numeric(df_filtered_meds["NIVEL_ADE_CG"], errors='coerce') > 0].copy()
               if not df_alertas.empty:
                   tipo_graf_top = st.selectbox("Formato Top", ["Barras Horizontales", "Barras Verticales", "Sectores"], key="sel_top", label_visibility="collapsed")
                    
-                  df_top = df_alertas.groupby("MEDICAMENTO").size().reset_index(name='count').sort_values(by="count", ascending=False)
+                  # --- EVOLUCIÓN: NORMALIZACIÓN QUIRÚRGICA ---
+                  def normalizar_med(nombre):
+                      if not isinstance(nombre, str): return str(nombre)
+                      n = nombre.upper().strip()
+                      # Eliminar tildes
+                      repl = {"Á":"A", "É":"E", "Í":"I", "Ó":"O", "Ú":"U"}
+                      for k, v in repl.items(): n = n.replace(k, v)
+                      # Truncar dosis (asume que después del nombre viene un número o 'MG', 'G', 'ML')
+                      # Busca la primera aparición de un dígito seguido de espacio o letra
+                      match = re.search(r'\d', n)
+                      if match: n = n[:match.start()].strip()
+                      return n
+
+                  df_alertas["MED_NORM"] = df_alertas["MEDICAMENTO"].apply(normalizar_med)
+                  df_top = df_alertas.groupby("MED_NORM").size().reset_index(name='count').sort_values(by="count", ascending=False)
                    
-                   # Implementación dinámica de Top 5 (con gestión de empates si aplica)
+                  # Implementación dinámica de Top 5 (con gestión de empates si aplica)
                   if len(df_top) > 5:
                       df_top_final = df_top.head(5)
                   else:
                       df_top_final = df_top
 
                   if tipo_graf_top == "Barras Horizontales":
-                      fig_top = px.bar(df_top_final, x="count", y="MEDICAMENTO", orientation='h', text="count", color="count", color_continuous_scale="Reds")
-                      fig_top.update_layout(height=300, yaxis={'categoryorder':'total ascending'}, coloraxis_showscale=False)
+                      fig_top = px.bar(df_top_final, x="count", y="MED_NORM", orientation='h', text="count", color="count", color_continuous_scale="Reds")
+                      fig_top.update_layout(height=300, yaxis={'categoryorder':'total ascending', 'title': ''}, xaxis={'title': 'Frecuencia'}, coloraxis_showscale=False)
                       fig_top.update_traces(textangle=0, textposition='inside')
                   elif tipo_graf_top == "Barras Verticales":
-                      fig_top = px.bar(df_top_final, x="MEDICAMENTO", y="count", text="count", color="count", color_continuous_scale="Reds")
-                      fig_top.update_layout(height=300, xaxis={'categoryorder':'total descending'}, coloraxis_showscale=False)
+                      fig_top = px.bar(df_top_final, x="MED_NORM", y="count", text="count", color="count", color_continuous_scale="Reds")
+                      fig_top.update_layout(height=300, xaxis={'categoryorder':'total descending', 'title': ''}, yaxis={'title': 'Frecuencia'}, coloraxis_showscale=False)
                   else: # Sectores
-                      fig_top = px.pie(df_top_final, names="MEDICAMENTO", values="count", color="count", color_discrete_sequence=px.colors.sequential.Reds_r, hole=0.4)
+                      fig_top = px.pie(df_top_final, names="MED_NORM", values="count", color="count", color_discrete_sequence=px.colors.sequential.Reds_r, hole=0.4)
                       fig_top.update_layout(height=300, margin=dict(t=10, b=10, l=10, r=10), showlegend=True,
                                             legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.05))
                    
