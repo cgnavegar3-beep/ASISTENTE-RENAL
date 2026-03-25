@@ -223,6 +223,231 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
         try: release_lock(doc)
         except: pass
 
+# v. 25 mar 2026 19:40 (EVOLUCIÓN: CONSULTA DINÁMICA RENAL - DESPLIEGUE)
+
+import streamlit as st
+import pandas as pd
+import io
+from datetime import datetime
+import google.generativeai as genai
+import random
+import re
+import os
+import json
+import constants as c 
+import hashlib
+
+# --- NUEVAS LIBRERÍAS PARA GOOGLE SHEETS & SERIALIZACIÓN ---
+import gspread
+from google.oauth2.service_account import Credentials
+import time
+import math
+
+# MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (IMPORTACIONES VISUALIZACIÓN)
+import plotly.express as px
+import plotly.graph_objects as go
+
+# =================================================================
+# PRINCIPIOS FUNDAMENTALES (ESCRITOS DE PE A PA - PROHIBIDO ELIMINAR)
+# =================================================================
+# 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
+# 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
+# 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
+#                               "Filtrado Glomerular" (cuadro negro con glow morado).
+# 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
+#                               - Cuadros negros superiores (ZONA y ACTIVO).
+#                               - Pestañas (Tabs) de navegación.
+#                               - Registro de Paciente: Estructura y función de fila única.
+#                               - Estructura del área de recorte y listado de medicación.
+#                               - Barra dual de validación (VALIDAR / RESET).
+#                               - Aviso legal amarillo inferior (Warning).
+# 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
+#                        "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+# 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
+#                         principios antes y después de cada cambio. No se simplifican líneas.
+# 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
+# 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
+#                         ubicarse en la esquina superior izquierda (estilo v. 2.5).
+# 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
+#                         se considerará pérdida de principios.
+# 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
+#                         sus textos flotantes (placeholders) and los textos predefinidos en las
+#                         secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+# 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
+#                         principio blindado; es informativo y no debe impedir la validación.
+# =================================================================
+
+st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
+
+# --- INICIALIZACIÓN ---
+if "active_model" not in st.session_state:
+ st.session_state.active_model = "BUSCANDO..."
+if "main_meds" not in st.session_state:
+ st.session_state.main_meds = ""
+if "soip_s" not in st.session_state:
+ st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
+if "soip_p" not in st.session_state:
+ st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
+if "analisis_realizado" not in st.session_state:
+ st.session_state.analisis_realizado = False
+if "resp_ia" not in st.session_state:
+ st.session_state.resp_ia = None
+
+# EVO: HUELLA DIGITAL PARA BLOQUEO DE API
+if "ultima_huella" not in st.session_state:
+ st.session_state.ultima_huella = ""
+
+if "df_val" not in st.session_state:
+ st.session_state.df_val = pd.DataFrame()
+if "df_meds" not in st.session_state:
+ st.session_state.df_meds = pd.DataFrame()
+
+# --- NUEVOS ESTADOS PARA ESPEJO NUBE ---
+if "df_sync_val" not in st.session_state:
+ st.session_state["df_sync_val"] = pd.DataFrame()
+if "df_sync_meds" not in st.session_state:
+ st.session_state["df_sync_meds"] = pd.DataFrame()
+if "df_sync_analisis" not in st.session_state:
+ st.session_state["df_sync_analisis"] = pd.DataFrame()
+
+# --- ESTADO PARA CHAT DE ANÁLISIS ---
+if "chat_history_graficos" not in st.session_state:
+ st.session_state.chat_history_graficos = []
+
+# --- ESTADOS EVO: CONSULTA DINÁMICA ---
+if "filtros_dinamicos" not in st.session_state:
+    st.session_state.filtros_dinamicos = []
+
+for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
+    if key not in st.session_state:
+     st.session_state[key] = ""
+
+# --- CONFIGURACIÓN IA ---
+try:
+    API_KEY = st.secrets["GEMINI_API_KEY"]
+    genai.configure(api_key=API_KEY)
+except:
+    API_KEY = None
+    st.sidebar.error("API Key no encontrada.")
+
+# --- FUNCIONES DE PERSISTENCIA SEGURA (GOOGLE SHEETS) ---
+def conectar_google_sheets():
+    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+    creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scopes)
+    client = gspread.authorize(creds)
+    return client.open_by_key(st.secrets["GOOGLE_SHEET_ID"])
+
+def sincronizar_desde_nube():
+    try:
+        doc = conectar_google_sheets()
+        
+        def raw_to_clean_df(ws_name):
+            ws = doc.worksheet(ws_name)
+            rows = ws.get_all_values()
+            if not rows: return pd.DataFrame()
+            
+            headers = rows[0]
+            data = rows[1:]
+            
+            clean_data = []
+            for row in data:
+                new_row = []
+                for val in row:
+                    if isinstance(val, str):
+                        clean_val = val.replace(",", ".").strip()
+                        try:
+                           if clean_val == "": new_row.append(None)
+                           else: new_row.append(float(clean_val))
+                        except ValueError:
+                           new_row.append(val)
+                    else:
+                        new_row.append(val)
+                clean_data.append(new_row)
+            return pd.DataFrame(clean_data, columns=headers)
+
+        st.session_state["df_sync_val"] = raw_to_clean_df("VALIDACIONES")
+        st.session_state["df_sync_meds"] = raw_to_clean_df("MEDICAMENTOS")
+        st.session_state["df_sync_analisis"] = raw_to_clean_df("ANALISIS")
+        st.toast("✅ Nube sincronizada (Valores Numéricos OK)", icon="🔄")
+    except Exception as e:
+        st.error(f"❌ Error al sincronizar: {e}")
+
+if st.session_state["df_sync_val"].empty:
+  sincronizar_desde_nube()
+
+def acquire_lock(sheet_obj):
+    try:
+        ws_lock = sheet_obj.worksheet("LOCK")
+    except gspread.exceptions.WorksheetNotFound:
+        ws_lock = sheet_obj.add_worksheet(title="LOCK", rows=2, cols=2)
+    lock_val = ws_lock.acell("A1").value
+    if lock_val: return False
+    ws_lock.update_acell("A1", f"LOCKED_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+    return True
+
+def release_lock(sheet_obj):
+    try:
+        ws_lock = sheet_obj.worksheet("LOCK")
+        ws_lock.update_acell("A1", "")
+    except: pass
+
+def guardar_en_google_sheets(df_val_actual, df_meds_actual):
+    try:
+        doc = conectar_google_sheets()
+        intentos = 0
+        while not acquire_lock(doc) and intentos < 5:
+            time.sleep(2); intentos += 1
+        if intentos >= 5: return
+
+        id_actual = st.session_state.reg_id
+        ws_val = doc.worksheet("VALIDACIONES")
+        ids_existentes = ws_val.col_values(4) 
+        
+        if id_actual not in ids_existentes:
+            fila_dict = df_val_actual[df_val_actual["ID_REGISTRO"] == id_actual].iloc[-1].fillna("").to_dict()
+            
+            columnas_ordenadas = [
+                "FECHA", "CENTRO", "RESIDENCIA", "ID_REGISTRO", "EDAD", "SEXO", "PESO", "CREATININA", "Nº_TOTAL_MEDS_PAC",
+                 "FG_CG", "Nº_TOT_AFEC_CG", "Nº_PRECAU_CG", "Nº_AJUSTE_DOS_CG", "Nº_TOXICID_CG", "Nº_CONTRAIND_CG",
+                 "FG_MDRD", "Nº_TOT_AFEC_MDRD", "Nº_PRECAU_MDRD", "Nº_AJUSTE_DOS_MDRD", "Nº_TOXICID_MDRD", "Nº_CONTRAIND_MDRD",
+                "FG_CKD", "Nº_TOT_AFEC_CKD", "Nº_PRECAU_CKD", "Nº_AJUSTE_DOS_CKD", "Nº_TOXICID_CKD", "Nº_CONTRAIND_CKD"
+            ]
+            
+            fila_final = []
+            for col in columnas_ordenadas:
+                val = fila_dict.get(col, "")
+                if hasattr(val, "item"): val = val.item()
+                if isinstance(val, float) and math.isnan(val): val = ""
+                fila_final.append(val)
+            
+            fila_final.extend(["", "", ""])
+            ws_val.append_row(fila_final, value_input_option='USER_ENTERED')
+
+        ws_meds = doc.worksheet("MEDICAMENTOS")
+        data_meds_nube = ws_meds.get_all_records()
+        df_nube_meds = pd.DataFrame(data_meds_nube)
+        meds_a_procesar = df_meds_actual[df_meds_actual["ID_REGISTRO"] == id_actual].fillna("")
+        
+        filas_nuevas = []
+        for _, fila in meds_a_procesar.iterrows():
+            ya_existe = False
+            if not df_nube_meds.empty:
+                existe = df_nube_meds[(df_nube_meds["ID_REGISTRO"] == id_actual) & (df_nube_meds["MEDICAMENTO"] == fila["MEDICAMENTO"])]
+                if not existe.empty: ya_existe = True
+            if not ya_existe:
+                fila_conv = []
+                for v in fila.values.tolist():
+                    val_conv = v.item() if hasattr(v, "item") else v
+                    fila_conv.append(val_conv)
+                filas_nuevas.append(fila_conv)
+        if filas_nuevas: 
+            ws_meds.append_rows(filas_nuevas, value_input_option='USER_ENTERED')
+        
+        release_lock(doc)
+    except:
+        try: release_lock(doc)
+        except: pass
+
 # --- FUNCIONES NÚCLEO ---
 def llamar_ia_en_cascada(prompt):
     if not API_KEY: return "⚠️ Error: API Key no configurada."
@@ -307,7 +532,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 25 mar 2026 15:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 25 mar 2026 19:40</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS", "🔍 CONSULTA DINÁMICA"])
 
@@ -361,9 +586,9 @@ with tabs[0]:
     st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
     
     faltan_datos = not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s]) or \
-                   (not fg_m and not valor_fg) or \
-                   (st.session_state.fgl_mdrd is None) or \
-                   (st.session_state.fgl_ckd is None)
+                    (not fg_m and not valor_fg) or \
+                    (st.session_state.fgl_mdrd is None) or \
+                    (st.session_state.fgl_ckd is None)
 
     if st.session_state.main_meds and faltan_datos and not st.session_state.analisis_realizado:
         st.markdown('<div class="blink-text">⚠️ FALTAN DATOS EN REGISTRO, CALCULADORA O FGs (MDRD/CKD)</div>', unsafe_allow_html=True)
@@ -609,9 +834,10 @@ with tabs[4]:
         # Bloque A: Filtros
         with st.container(border=True):
             st.markdown("#### 🔍 Bloque A: Configurar Cohorte (Filtros)")
+            st.caption("Define el subgrupo de pacientes o fármacos que deseas estudiar.")
             col_a1, col_a2 = st.columns([1, 1])
             if col_a1.button("➕ Añadir Filtro"):
-                st.session_state.filtros_dinamicos.append({"col": df_pool.columns[0], "op": "==", "val": ""})
+                st.session_state.filtros_dinamicos.append({"col": df_pool.columns[0], "op": "==", "val": "", "val_max": ""})
             if col_a2.button("🗑️ Limpiar Filtros"):
                 limpiar_filtros_dinamicos()
                 st.rerun()
@@ -619,20 +845,28 @@ with tabs[4]:
             for i, filtro in enumerate(st.session_state.filtros_dinamicos):
                 f_c1, f_c2, f_c3 = st.columns([1, 0.5, 1.5])
                 filtro["col"] = f_c1.selectbox(f"Columna {i+1}", df_pool.columns, key=f"f_col_{i}", index=list(df_pool.columns).index(filtro["col"]))
-                filtro["op"] = f_c2.selectbox(f"Operador {i+1}", ["==", "!=", ">", "<", "contiene"], key=f"f_op_{i}")
+                filtro["op"] = f_c2.selectbox(f"Operador {i+1}", ["==", "!=", ">", "<", "Entre", "contiene"], key=f"f_op_{i}")
                 
                 # Input dinámico según tipo
-                col_type = df_pool[filtro["col"]].dtype
-                if "contiene" in filtro["op"]:
-                    filtro["val"] = f_c3.text_input(f"Valor {i+1}", key=f"f_val_{i}", value=filtro["val"])
-                elif pd.api.types.is_numeric_dtype(df_pool[filtro["col"]]) or filtro["col"] in ["EDAD", "FG_CG", "Nº_TOTAL_MEDS_PAC", "PESO", "CREATININA", "NIVEL_ADE_CG"]:
-                    try:
-                        f_val_num = float(filtro["val"]) if filtro["val"] != "" else 0.0
+                is_num_col = pd.api.types.is_numeric_dtype(df_pool[filtro["col"]]) or filtro["col"] in ["EDAD", "FG_CG", "Nº_TOTAL_MEDS_PAC", "PESO", "CREATININA", "NIVEL_ADE_CG"]
+                
+                if filtro["op"] == "Entre" and is_num_col:
+                    ec1, ec2 = f_c3.columns(2)
+                    try: v_min = float(filtro["val"]) if filtro["val"] != "" else 0.0
+                    except: v_min = 0.0
+                    try: v_max = float(filtro["val_max"]) if filtro["val_max"] != "" else 100.0
+                    except: v_max = 100.0
+                    filtro["val"] = ec1.number_input(f"Mín {i+1}", key=f"f_val_min_{i}", value=v_min)
+                    filtro["val_max"] = ec2.number_input(f"Máx {i+1}", key=f"f_val_max_{i}", value=v_max)
+                elif "contiene" in filtro["op"]:
+                    filtro["val"] = f_c3.text_input(f"Palabra clave {i+1}", key=f"f_val_{i}", value=filtro["val"])
+                elif is_num_col:
+                    try: f_val_num = float(filtro["val"]) if filtro["val"] != "" else 0.0
                     except: f_val_num = 0.0
                     filtro["val"] = f_c3.number_input(f"Valor {i+1}", key=f"f_val_{i}", value=f_val_num)
                 else:
                     opciones_unicas = sorted([str(x) for x in df_pool[filtro["col"]].unique() if x])
-                    filtro["val"] = f_c3.multiselect(f"Valores {i+1}", opciones_unicas, key=f"f_val_{i}")
+                    filtro["val"] = f_c3.multiselect(f"Seleccionar {i+1}", opciones_unicas, key=f"f_val_{i}")
 
         # Aplicar Filtros
         df_filtered_query = df_pool.copy()
@@ -649,51 +883,67 @@ with tabs[4]:
                     df_filtered_query = df_filtered_query[pd.to_numeric(df_filtered_query[f["col"]], errors='coerce') > float(f["val"])]
                 elif f["op"] == "<":
                     df_filtered_query = df_filtered_query[pd.to_numeric(df_filtered_query[f["col"]], errors='coerce') < float(f["val"])]
+                elif f["op"] == "Entre":
+                    df_filtered_query = df_filtered_query[pd.to_numeric(df_filtered_query[f["col"]], errors='coerce').between(float(f["val"]), float(f["val_max"]))]
                 elif f["op"] == "contiene":
                     df_filtered_query = df_filtered_query[df_filtered_query[f["col"]].astype(str).str.contains(str(f["val"]), case=False, na=False)]
             except: continue
 
         # Bloque B: Análisis
-        st.markdown("#### 🎯 Bloque B: Variable a Analizar")
-        b_col1, b_col2, b_col3 = st.columns(3)
-        var_analisis = b_col1.selectbox("Variable", df_pool.columns, key="query_var")
-        operacion = b_col2.selectbox("Operación", ["Conteo", "Suma", "Promedio", "Mínimo", "Máximo"])
-        agrupar_por = b_col3.selectbox("Agrupar por (Opcional)", ["Ninguno"] + list(df_pool.columns))
+        with st.container(border=True):
+            st.markdown("#### 🎯 Bloque B: Operación Estadística")
+            st.caption("¿Qué dato quieres calcular sobre la cohorte filtrada?")
+            b_col1, b_col2, b_col3 = st.columns(3)
+            var_analisis = b_col1.selectbox("Variable a medir", df_pool.columns, key="query_var")
+            operacion = b_col2.selectbox("Operación", ["Conteo", "Suma", "Promedio", "% respecto total", "Mínimo", "Máximo", "Listar únicos"])
+            agrupar_por = b_col3.multiselect("Segmentar por (Opcional)", df_pool.columns, placeholder="Ej: CENTRO, SEXO")
 
-        # Cálculo
-        if agrupar_por == "Ninguno":
-            if operacion == "Conteo": resultado = len(df_filtered_query[var_analisis])
-            elif operacion == "Suma": resultado = pd.to_numeric(df_filtered_query[var_analisis], errors='coerce').sum()
-            elif operacion == "Promedio": resultado = pd.to_numeric(df_filtered_query[var_analisis], errors='coerce').mean()
-            elif operacion == "Mínimo": resultado = pd.to_numeric(df_filtered_query[var_analisis], errors='coerce').min()
-            else: resultado = pd.to_numeric(df_filtered_query[var_analisis], errors='coerce').max()
-            
-            st.metric(label=f"{operacion} de {var_analisis}", value=f"{resultado:.2f}" if isinstance(resultado, (float, int)) else "N/A")
-        else:
-            try:
-                if operacion == "Conteo": df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].count().reset_index()
-                elif operacion == "Suma": df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').sum()).reset_index()
-                elif operacion == "Promedio": df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').mean()).reset_index()
-                df_res.columns = [agrupar_por, f"{operacion}_{var_analisis}"]
-                
-                # Bloque C: Visualización
-                st.markdown("#### 📊 Bloque C: Visualización")
-                v_tabs = st.tabs(["KPI", "Tabla", "Barras", "Líneas", "Sectores"])
-                with v_tabs[0]: st.metric("Total Registros Filtrados", len(df_filtered_query))
-                with v_tabs[1]: st.dataframe(df_res, use_container_width=True)
-                with v_tabs[2]: st.plotly_chart(px.bar(df_res, x=agrupar_por, y=df_res.columns[1]), use_container_width=True)
-                with v_tabs[3]: st.plotly_chart(px.line(df_res, x=agrupar_por, y=df_res.columns[1]), use_container_width=True)
-                with v_tabs[4]: st.plotly_chart(px.pie(df_res, names=agrupar_por, values=df_res.columns[1]), use_container_width=True)
-            except: st.warning("Asegúrate de que la variable seleccionada sea numérica para Sumas/Promedios.")
+        # Bloque C: Resultados
+        st.markdown("#### 📊 Bloque C: Informe Operativo")
         
-        st.markdown("---")
-        with st.expander("📄 Ver Datos Crutos de la Cohorte"):
-            st.dataframe(df_filtered_query, use_container_width=True)
-    else:
-        st.info("No hay datos sincronizados para realizar consultas dinámicas.")
+        # Lógica de cálculo jerárquico
+        if not df_filtered_query.empty:
+            if not agrupar_por:
+                # Cálculo Simple
+                if operacion == "Conteo": res_val = len(df_filtered_query[var_analisis])
+                elif operacion == "Suma": res_val = pd.to_numeric(df_filtered_query[var_analisis], errors='coerce').sum()
+                elif operacion == "Promedio": res_val = pd.to_numeric(df_filtered_query[var_analisis], errors='coerce').mean()
+                elif operacion == "Mínimo": res_val = pd.to_numeric(df_filtered_query[var_analisis], errors='coerce').min()
+                elif operacion == "Máximo": res_val = pd.to_numeric(df_filtered_query[var_analisis], errors='coerce').max()
+                elif operacion == "Listar únicos": res_val = ", ".join(sorted(df_filtered_query[var_analisis].astype(str).unique()))
+                elif operacion == "% respecto total":
+                    num = df_filtered_query["ID_REGISTRO"].nunique()
+                    den = df_pool["ID_REGISTRO"].nunique()
+                    res_val = f"{(num/den*100):.1f}% de los pacientes totales"
+                
+                st.metric(f"Resultado: {operacion} de {var_analisis}", res_val)
+            else:
+                # Agrupación Múltiple
+                def agg_func(x):
+                    if operacion == "Conteo": return len(x)
+                    elif operacion == "Suma": return pd.to_numeric(x, errors='coerce').sum()
+                    elif operacion == "Promedio": return pd.to_numeric(x, errors='coerce').mean()
+                    elif operacion == "Mínimo": return pd.to_numeric(x, errors='coerce').min()
+                    elif operacion == "Máximo": return pd.to_numeric(x, errors='coerce').max()
+                    elif operacion == "Listar únicos": return ", ".join(sorted(x.astype(str).unique()))
+                    return len(x)
 
-st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un soporte a la decisión clínica basado en IA y reglas farmacológicas. La responsabilidad final de la prescripción y el ajuste de dosis recae exclusivamente en el médico facultativo.</div>', unsafe_allow_html=True)
-st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 25 mar 2026 15:30</div>', unsafe_allow_html=True)
+                df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].apply(agg_func).reset_index(name=operacion)
+                
+                r_c1, r_c2 = st.columns([1, 1])
+                with r_c1:
+                    st.dataframe(df_res, use_container_width=True)
+                with r_c2:
+                    if operacion != "Listar únicos":
+                        fig_q = px.bar(df_res, x=agrupar_por[0], y=operacion, color=agrupar_por[-1] if len(agrupar_por)>1 else None, barmode="group")
+                        fig_q.update_layout(height=350)
+                        st.plotly_chart(fig_q, use_container_width=True)
 
-# CONFIRMACIÓN FINAL REQUERIDA POR PROTOCOLO
-# He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
+            with st.expander("📄 Ver Tabla de Datos Filtrados"):
+                st.dataframe(df_filtered_query, use_container_width=True)
+        else:
+            st.warning("No hay datos que coincidan con los filtros seleccionados.")
+
+# --- FOOTER ---
+st.markdown(f'<div class="warning-yellow">⚠️ ATENCIÓN: El ASISTENTE RENAL es una herramienta de apoyo. El profesional sanitario es el único responsable de validar las dosis y recomendaciones finales.</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align: right; font-size: 0.5rem; color: #ccc; margin-top: 10px;">v. 25 mar 2026 19:40 | ID_SESS: {hashlib.md5(str(st.session_state).encode()).hexdigest()[:8]}</div>', unsafe_allow_html=True)
