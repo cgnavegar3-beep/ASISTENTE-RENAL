@@ -1,4 +1,4 @@
-# v. 24 mar 2026 19:40 (EVOLUCIÓN: REPARACIÓN DINÁMICA DE GRÁFICOS DASHBOARD)
+# v. 25 mar 2026 11:10 (EVOLUCIÓN: REPARACIÓN DINÁMICA DE GRÁFICOS DASHBOARD)
 
 import streamlit as st
 import pandas as pd
@@ -42,14 +42,14 @@ import plotly.graph_objects as go
 #                        principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#                        ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#                       ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#                        se considerará pérdida de principios.
+#                       se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#                        sus textos flotantes (placeholders) and los textos predefinidos en las
-#                        secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                       sus textos flotantes (placeholders) and los textos predefinidos en las
+#                       secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                         principio blindado; es informativo y no debe impedir la validación.
+#                        principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -64,7 +64,7 @@ if "soip_s" not in st.session_state:
 if "soip_p" not in st.session_state:
  st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
 if "analisis_realizado" not in st.session_state:
-  st.session_state.analisis_realizado = False
+ st.session_state.analisis_realizado = False
 if "resp_ia" not in st.session_state:
  st.session_state.resp_ia = None
 
@@ -87,11 +87,11 @@ if "df_sync_analisis" not in st.session_state:
 
 # --- ESTADO PARA CHAT DE ANÁLISIS ---
 if "chat_history_graficos" not in st.session_state:
-  st.session_state.chat_history_graficos = []
+ st.session_state.chat_history_graficos = []
 
 for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
     if key not in st.session_state:
-      st.session_state[key] = ""
+     st.session_state[key] = ""
 
 # --- CONFIGURACIÓN IA ---
 try:
@@ -285,9 +285,9 @@ def inject_styles():
     .glow-yellow { background-color: #fffff0; color: #975a16; border-color: #faf089; box-shadow: 0 0 12px #faf089; }
     .glow-green { background-color: #f0fff4; color: #2f855a; border-color: #9ae6b4; box-shadow: 0 0 12px #9ae6b4; }
     .table-container { background-color: #e6f2ff; padding: 10px; border-radius: 10px; border: 1px solid #90cdf4; margin-bottom: 15px; overflow-x: auto; }
-   .clinical-detail-container { background-color: #e6f2ff; color: #1a365d; padding: 15px; border-radius: 10px; border: 1px solid #90cdf4; font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap; }
+  .clinical-detail-container { background-color: #e6f2ff; color: #1a365d; padding: 15px; border-radius: 10px; border: 1px solid #90cdf4; font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap; }
     .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
-   .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
+  .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
     .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
     .fg-special-border { border: 1.5px solid #9d00ff !important; border-radius: 5px; }
     @keyframes blinker { 50% { opacity: 0; } }
@@ -299,12 +299,12 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 24 mar 2026 19:40</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 25 mar 2026 11:10</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS"])
 
 with tabs[0]:
-  st.markdown("### Registro de Paciente")
+ st.markdown("### Registro de Paciente")
   c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1.5, 0.4])
   def on_centro_change():
       centro_input = st.session_state.reg_centro.strip().lower()
@@ -354,7 +354,7 @@ with tabs[0]:
   
   faltan_datos = not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s]) or \
                   (not fg_m and not valor_fg) or \
-                 (st.session_state.fgl_mdrd is None) or \
+                (st.session_state.fgl_mdrd is None) or \
                  (st.session_state.fgl_ckd is None)
 
   if st.session_state.main_meds and faltan_datos and not st.session_state.analisis_realizado:
@@ -416,9 +416,9 @@ with tabs[0]:
                       "FG_CG": valor_fg, "Nº_TOT_AFEC_CG": data["paciente"]["CG"]["TOT_AFECTADOS"], "Nº_PRECAU_CG": data["paciente"]["CG"]["PRECAUCION"], "Nº_AJUSTE_DOS_CG": data["paciente"]["CG"]["AJUSTE_DOSIS"], "Nº_TOXICID_CG": data["paciente"]["CG"]["TOXICIDAD"], "Nº_CONTRAIND_CG": data["paciente"]["CG"]["CONTRAINDICADOS"],
                       "FG_MDRD": val_mdrd, "Nº_TOT_AFEC_MDRD": data["paciente"]["MDRD"]["TOT_AFECTADOS"], "Nº_PRECAU_MDRD": data["paciente"]["MDRD"]["PRECAUCION"], "Nº_AJUSTE_DOS_MDRD": data["paciente"]["MDRD"]["AJUSTE_DOSIS"], "Nº_TOXICID_MDRD": data["paciente"]["MDRD"]["TOXICIDAD"], "Nº_CONTRAIND_MDRD": data["paciente"]["MDRD"]["CONTRAINDICADOS"],
                       "FG_CKD": val_ckd, "Nº_TOT_AFEC_CKD": data["paciente"]["CKD"]["TOT_AFECTADOS"], "Nº_PRECAU_CKD": data["paciente"]["CKD"]["PRECAUCION"], "Nº_AJUSTE_DOS_CKD": data["paciente"]["CKD"]["AJUSTE_DOSIS"], "Nº_TOXICID_CKD": data["paciente"]["CKD"]["TOXICIDAD"], "Nº_CONTRAIND_CKD": data["paciente"]["CKD"]["CONTRAINDICADOS"]
-                    }
+                     }
                   st.session_state.df_val = pd.concat([st.session_state.df_val, pd.DataFrame([pac_row])], ignore_index=True)
-                  
+                   
                   for m in data["medicamentos"]:
                       med_nombre = m.get("MEDICAMENTO", "")
                       ya_existe_med = False
@@ -436,9 +436,9 @@ with tabs[1]:
         st.text_area(key, st.session_state[key], height=h, label_visibility="collapsed")
 
 with tabs[2]:
-  st.markdown("### 📊 Gestión de Datos")
-  st.session_state.df_val = st.data_editor(st.session_state.df_val, num_rows="dynamic", use_container_width=True, key="editor_val")
-  st.session_state.df_meds = st.data_editor(st.session_state.df_meds, num_rows="dynamic", use_container_width=True, key="editor_meds")
+ st.markdown("### 📊 Gestión de Datos")
+ st.session_state.df_val = st.data_editor(st.session_state.df_val, num_rows="dynamic", use_container_width=True, key="editor_val")
+ st.session_state.df_meds = st.data_editor(st.session_state.df_meds, num_rows="dynamic", use_container_width=True, key="editor_meds")
   
   if st.session_state.analisis_realizado:
       st.markdown('<div class="blink-text-grabar">⚠️ VERIFICAR DATOS Y GRABAR</div>', unsafe_allow_html=True)
@@ -449,8 +449,8 @@ with tabs[2]:
           sincronizar_desde_nube()
           st.session_state.analisis_realizado = False; st.session_state.ultima_huella = ""
 
-  st.write("---")
-  st.markdown("### 📜 Detalle de Histórico")
+ st.write("---")
+ st.markdown("### 📜 Detalle de Histórico")
   
   # EVO QUIRÚRGICA: FUNCIÓN AUXILIAR DESCARGA EXCEL
   def to_excel(df):
@@ -479,7 +479,7 @@ with tabs[2]:
       sincronizar_desde_nube(); st.rerun()
 
 with tabs[3]:
-  st.markdown("### 📈 Dashboard de Gestión Renal")
+ st.markdown("### 📈 Dashboard de Gestión Renal")
   df_v_dash = st.session_state["df_sync_val"].copy()
   df_m_dash = st.session_state["df_sync_meds"].copy()
   
@@ -497,7 +497,7 @@ with tabs[3]:
           with f_col2:
               rango_edad = st.slider("Edad", 0, 110, (0, 110))
           with f_col3:
-              rango_fg = st.slider("Filtrado Glomerular", 0.0, 150.0, (0.0, 150.0))
+               rango_fg = st.slider("Filtrado Glomerular", 0.0, 150.0, (0.0, 150.0))
 
       mask = (df_v_dash['EDAD'].between(rango_edad[0], rango_edad[1])) & (df_v_dash['FG_CG'].between(rango_fg[0], rango_fg[1]))
       if filtro_centro: mask &= df_v_dash['CENTRO'].isin(filtro_centro)
@@ -510,9 +510,9 @@ with tabs[3]:
       df_anal_sync = st.session_state.get("df_sync_analisis", pd.DataFrame())
 
       try:
-        total_pacientes = int(df_anal_sync.iloc[0, 1]) if not df_anal_sync.empty else df_filtered_val["ID_REGISTRO"].nunique()
+       total_pacientes = int(df_anal_sync.iloc[0, 1]) if not df_anal_sync.empty else df_filtered_val["ID_REGISTRO"].nunique()
       except:
-        total_pacientes = df_filtered_val["ID_REGISTRO"].nunique()
+       total_pacientes = df_filtered_val["ID_REGISTRO"].nunique()
 
       # 1. Sumar todos los medicamentos prescritos a los pacientes que tenemos en el filtro actual
       total_meds_revisados = df_filtered_val["Nº_TOTAL_MEDS_PAC"].sum()
@@ -525,9 +525,9 @@ with tabs[3]:
 
       # EVOLUCIÓN QUIRÚRGICA: KPI % PACIENTES AFECTADOS DESDE B11
       try:
-        pac_afectados_pct = df_anal_sync.iloc[10, 1] if not df_anal_sync.empty else "0%"
+       pac_afectados_pct = df_anal_sync.iloc[10, 1] if not df_anal_sync.empty else "0%"
       except:
-        pac_afectados_pct = "0%"
+       pac_afectados_pct = "0%"
 
       kpi_c1, kpi_c2, kpi_c3, kpi_c4 = st.columns(4)
       with kpi_c1:
@@ -537,7 +537,7 @@ with tabs[3]:
       with kpi_c3:
           st.markdown(f'<div class="db-glow-box db-red"><div style="font-size: 0.75rem; color: #BBBBBB;">Alertas Detectadas (Totales)</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{afectados_total} <span style="font-size: 0.9rem; color: #feb2b2;">({porcentaje_afec:.1f}%)</span></div></div>', unsafe_allow_html=True)
       with kpi_c4:
-          st.markdown(f'<div class="db-glow-box db-purple"><div style="font-size: 0.75rem; color: #BBBBBB;">% de pacientes afectados</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{pac_afectados_pct}</div></div>', unsafe_allow_html=True)
+          st.markdown(f'<div class="db-glow-box db-purple"><div style="font-size: 0.75rem; color: #BBBBBB;">% de medicamentos afectados</div><div style="font-size: 1.8rem; font-weight: bold; color: #FFFFFF;">{pac_afectados_pct}</div></div>', unsafe_allow_html=True)
 
       g_col1, g_col2 = st.columns(2)
       
@@ -546,21 +546,21 @@ with tabs[3]:
           if not df_filtered_meds.empty:
               df_filtered_meds_riesgo = df_filtered_meds.copy()
               df_filtered_meds_riesgo["NIVEL_ADE_CG"] = pd.to_numeric(df_filtered_meds_riesgo["NIVEL_ADE_CG"], errors='coerce').fillna(0)
-              df_cat = df_filtered_meds_riesgo.groupby("NIVEL_ADE_CG").size().reset_index(name='count').sort_values(by="count", ascending=False)
+               df_cat = df_filtered_meds_riesgo.groupby("NIVEL_ADE_CG").size().reset_index(name='count').sort_values(by="count", ascending=False)
                
               map_riesgos = { 0: "Sin ajuste", 1: "Precaución", 2: "Ajuste dosis", 3: "Toxicidad", 4: "Contraindicado" }
-              color_map = {
+               color_map = {
                   "Sin ajuste": "#2f855a", "Precaución": "#faf089", 
                   "Ajuste dosis": "#ffd27f", "Toxicidad": "#c05621", "Contraindicado": "#c53030"
-               }
+                }
               df_cat["ETIQUETA"] = df_cat["NIVEL_ADE_CG"].map(map_riesgos)
 
               tipo_graf_riesgo = st.selectbox("Visualización", ["Sectores", "Barras H", "Barras V"], key="sel_riesgo", label_visibility="collapsed")
                
               if tipo_graf_riesgo == "Sectores":
-                  fig_riesgo = px.pie(df_cat, names="ETIQUETA", values="count", color="ETIQUETA", color_discrete_map=color_map, hole=0.4)
+                   fig_riesgo = px.pie(df_cat, names="ETIQUETA", values="count", color="ETIQUETA", color_discrete_map=color_map, hole=0.4)
                   fig_riesgo.update_layout(height=300, margin=dict(t=10, b=10, l=40, r=10), showlegend=True, 
-                                            legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.05))
+                                           legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.05))
                   fig_riesgo.update_traces(sort=False) # Mantiene el orden de df_cat
               elif tipo_graf_riesgo == "Barras H":
                   fig_riesgo = px.bar(df_cat, y="ETIQUETA", x="count", color="ETIQUETA", text="count", orientation='h', color_discrete_map=color_map)
@@ -572,7 +572,7 @@ with tabs[3]:
               st.plotly_chart(fig_riesgo, use_container_width=True)
 
       with g_col2:
-          st.markdown("##### Top 5 medicamentos")
+          st.markdown("##### Top medicamentos con alertas")
           if not df_filtered_meds.empty:
               # Reparación técnica: Filtrar alertas sobre los datos ya filtrados por cohorte
               df_alertas = df_filtered_meds[pd.to_numeric(df_filtered_meds["NIVEL_ADE_CG"], errors='coerce') > 0].copy()
@@ -587,41 +587,28 @@ with tabs[3]:
                       repl = {"Á":"A", "É":"E", "Í":"I", "Ó":"O", "Ú":"U"}
                       for k, v in repl.items(): n = n.replace(k, v)
                       # Truncar dosis (asume que después del nombre viene un número o 'MG', 'G', 'ML')
-                      # Busca la primera aparición de un dígito seguido de espacio o letra
                       match = re.search(r'\d', n)
                       if match: n = n[:match.start()].strip()
                       return n
 
                   df_alertas["MED_NORM"] = df_alertas["MEDICAMENTO"].apply(normalizar_med)
-                  df_top = df_alertas.groupby("MED_NORM").size().reset_index(name='count').sort_values(by="count", ascending=False)
-                   
-                  # Implementación dinámica de Top 5 (con gestión de empates si aplica)
-                  if len(df_top) > 5:
-                      df_top_final = df_top.head(5)
-                  else:
-                      df_top_final = df_top
+                  df_top = df_alertas.groupby("MED_NORM").size().reset_index(name='Frecuencia').sort_values(by="Frecuencia", ascending=False)
+                  
+                  # IMPLEMENTACIÓN DINÁMICA DE EMPATES (RANKING)
+                  df_top['Rank'] = df_top['Frecuencia'].rank(method='min', ascending=False)
+                  df_top_final = df_top[df_top['Rank'] <= 5].sort_values(by="Frecuencia", ascending=False)
 
                   if tipo_graf_top == "Barras Horizontales":
-                      fig_top = px.bar(df_top_final, x="count", y="MED_NORM", orientation='h', text="count", color="count", color_continuous_scale="Reds")
-                      fig_top.update_layout(height=300, yaxis={'categoryorder':'total ascending', 'title': ''}, xaxis={'title': 'Frecuencia'}, coloraxis_showscale=False)
-                      fig_top.update_traces(textangle=0, textposition='inside')
+                      fig_top = px.bar(df_top_final, y="MED_NORM", x="Frecuencia", orientation='h', text="Frecuencia", color="Frecuencia", color_continuous_scale="Reds")
+                      fig_top.update_layout(showlegend=False, height=300, margin=dict(t=10, b=10, l=10, r=10), yaxis={'categoryorder':'total ascending'})
                   elif tipo_graf_top == "Barras Verticales":
-                      fig_top = px.bar(df_top_final, x="MED_NORM", y="count", text="count", color="count", color_continuous_scale="Reds")
-                      fig_top.update_layout(height=300, xaxis={'categoryorder':'total descending', 'title': ''}, yaxis={'title': 'Frecuencia'}, coloraxis_showscale=False)
-                  else: # Sectores
-                      fig_top = px.pie(df_top_final, names="MED_NORM", values="count", color="count", color_discrete_sequence=px.colors.sequential.Reds_r, hole=0.4)
-                      fig_top.update_layout(height=300, margin=dict(t=10, b=10, l=10, r=10), showlegend=True,
-                                             legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.05))
+                      fig_top = px.bar(df_top_final, x="MED_NORM", y="Frecuencia", text="Frecuencia", color="Frecuencia", color_continuous_scale="Reds")
+                      fig_top.update_layout(showlegend=False, height=300, margin=dict(t=10, b=10, l=10, r=10))
+                  else:
+                      fig_top = px.pie(df_top_final, names="MED_NORM", values="Frecuencia", hole=0.4, color_discrete_sequence=px.colors.sequential.Reds_r)
+                      fig_top.update_layout(height=300, margin=dict(t=10, b=10, l=10, r=10))
                   
                   st.plotly_chart(fig_top, use_container_width=True)
 
-# INFORME DE INTEGRIDAD:
-# Bloque | Estado | Observación técnica
-# --- | --- | ---
-# UI Tabs | Protegido | Se mantienen los 4 tabs originales intactos.
-# Persistencia | Protegido | Funciones gspread y lógica de lock sin cambios.
-# Lógica IA | Protegido | Cascada de modelos y prompts blindados.
-# Evolución | Integrado | Añadida función to_excel y botones st.download_button en Tab 2.
-# Minimal Diff | Cumplido | No se ha refactorizado ni modificado una sola línea fuera de la adición necesaria.
-
-# He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
+st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un soporte a la decisión clínica basado en IA y reglas farmacológicas. La responsabilidad final de la prescripción y el ajuste de dosis recae exclusivamente en el médico facultativo.</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 25 mar 2026 11:10</div>', unsafe_allow_html=True)
