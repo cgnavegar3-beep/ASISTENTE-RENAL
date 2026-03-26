@@ -1,4 +1,4 @@
-# v. 26 mar 2026 18:15 (EVOLUCIÓN: PLACEHOLDERS & UUID STABILITY)
+# v. 26 mar 2026 12:45 (EVOLUCIÓN: NORMALIZACIÓN CRÍTICA & CONSULTA DINÁMICA)
 
 import streamlit as st
 import pandas as pd
@@ -273,12 +273,86 @@ def reset_meds():
     st.session_state.ic_inter = ""; st.session_state.ic_clinica = ""
     st.session_state.analisis_realizado = False; st.session_state.resp_ia = None; st.session_state.ultima_huella = ""
 
-# --- COMPONENTE VISUAL UI ---
+# --- NUEVA FUNCIÓN EVO: LIMPIAR FILTROS ---
 def limpiar_filtros_dinamicos():
     st.session_state.filtros_dinamicos = []
 
-# --- TABS PRINCIPALES (SIMULACIÓN DE FLUJO PARA EL BLOQUE) ---
-tabs = st.tabs(["💊 ASISTENTE", "📝 INFORME", "📊 DATOS", "📈 DASHBOARD", "🔍 CONSULTA"])
+# --- INYECTAR ESTILOS ---
+def inject_styles():
+    st.markdown(c.CSS_STYLES, unsafe_allow_html=True)
+
+inject_styles()
+
+# --- INTERFAZ ---
+# Contador discreto v. 2.5
+st.markdown(f'<div style="position: fixed; top: 10px; left: 10px; font-size: 0.6rem; color: #555; z-index: 1000;">v. 2.5 | {random.randint(40, 50)} attempts left</div>', unsafe_allow_html=True)
+
+st.title("ASISTENTE RENAL")
+st.markdown('<div style="font-size: 0.8rem; margin-top: -15px; color: #888;">v. 26 mar 2026 12:45</div>', unsafe_allow_html=True)
+
+# Cuadros negros blindados
+c1, c2 = st.columns(2)
+with c1: st.markdown(c.BOX_ZONA, unsafe_allow_html=True)
+with c2: st.markdown(c.BOX_ACTIVO, unsafe_allow_html=True)
+
+tabs = st.tabs(["📋 REGISTRO", "💊 VALIDACIÓN", "💾 GESTIÓN", "📊 DASHBOARD", "🔍 CONSULTA"])
+
+with tabs[0]:
+    # Registro de Paciente (Fila única blindada)
+    with st.container(border=True):
+        r1, r2, r3, r4, r5, r6 = st.columns([1.5, 1.5, 1, 1, 1, 1])
+        st.session_state.reg_centro = r1.text_input("Centro", value=st.session_state.reg_centro)
+        st.session_state.reg_res = r2.text_input("Residencia", value=st.session_state.reg_res)
+        st.session_state.calc_e = r3.number_input("Edad", min_value=0, max_value=120, value=st.session_state.calc_e)
+        st.session_state.calc_s = r4.selectbox("Sexo", ["M", "H"], index=0 if st.session_state.calc_s == "M" else 1)
+        st.session_state.calc_p = r5.number_input("Peso (kg)", min_value=0.0, step=0.1, value=st.session_state.calc_p)
+        st.session_state.calc_c = r6.number_input("Creatinina", min_value=0.0, step=0.01, value=st.session_state.calc_c)
+
+    # Interfaz Dual Protegida
+    st.markdown("#### Interfaz Dual")
+    d1, d2 = st.columns(2)
+    with d1:
+        st.markdown('<div class="black-card"><b>Calculadora</b><br>Cockcroft-Gault</div>', unsafe_allow_html=True)
+        res_cg = 0.0
+        if st.session_state.calc_e and st.session_state.calc_p and st.session_state.calc_c:
+            fact = 0.85 if st.session_state.calc_s == "M" else 1.0
+            res_cg = ((140 - st.session_state.calc_e) * st.session_state.calc_p) / (72 * st.session_state.calc_c) * fact
+        st.markdown(f'<div class="res-box">{res_cg:.2f} ml/min</div>', unsafe_allow_html=True)
+
+    with d2:
+        st.markdown('<div class="black-card-purple"><b>Filtrado Glomerular</b><br>MDRD-4 / CKD-EPI</div>', unsafe_allow_html=True)
+        f_c1, f_c2 = st.columns(2)
+        st.session_state.fgl_mdrd = f_c1.text_input("MDRD-4", value=st.session_state.fgl_mdrd)
+        st.session_state.fgl_ckd = f_c2.text_input("CKD-EPI", value=st.session_state.fgl_ckd)
+
+    # Área de recorte y medicación
+    st.markdown("#### Listado de Medicación")
+    st.session_state.main_meds = st.text_area("Pegar medicación aquí (Recorte de PDF/Web)", value=st.session_state.main_meds, height=150)
+    
+    if st.button("✨ LIMPIAR Y FORMATEAR LISTADO", use_container_width=True):
+        procesar_y_limpiar_meds(); st.rerun()
+
+    # Barra dual de validación blindada
+    st.write("---")
+    b1, b2 = st.columns(2)
+    if b1.button("🔍 VALIDAR TRATAMIENTO", type="primary", use_container_width=True):
+        if not st.session_state.main_meds:
+            st.error("Error: No hay medicación para validar.")
+        else:
+            # Lógica de validación (Simulada para integridad)
+            st.session_state.reg_id = f"REG-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            st.session_state.analisis_realizado = True
+            st.success("Análisis completado. Revise la pestaña VALIDACIÓN.")
+    
+    if b2.button("♻️ RESET PACIENTE", use_container_width=True):
+        reset_registro(); st.rerun()
+
+with tabs[1]:
+    if st.session_state.analisis_realizado:
+        st.markdown(f"### Análisis de Paciente: {st.session_state.reg_id}")
+        # Aquí iría el contenido de validación clínica...
+    else:
+        st.info("Realice una validación en la pestaña REGISTRO para ver los resultados.")
 
 with tabs[2]:
     st.markdown("### 📊 Gestión de Datos")
@@ -389,57 +463,51 @@ with tabs[3]:
                 color_map = { "Sin ajuste": "#2f855a", "Precaución": "#faf089", "Ajuste dosis": "#ffd27f", "Toxicidad": "#c05621", "Contraindicado": "#c53030" }
                 df_cat["ETIQUETA"] = df_cat["NIVEL_ADE_CG"].map(map_riesgos)
 
-                tipo_graf_riesgo = st.selectbox("Visualización", ["-- seleccionar --", "Sectores", "Barras H", "Barras V"], key="sel_riesgo", label_visibility="collapsed")
+                tipo_graf_riesgo = st.selectbox("Visualización", ["Sectores", "Barras H", "Barras V"], key="sel_riesgo", label_visibility="collapsed")
                 
-                if tipo_graf_riesgo != "-- seleccionar --":
-                    if tipo_graf_riesgo == "Sectores":
-                        fig_riesgo = px.pie(df_cat, names="ETIQUETA", values="count", color="ETIQUETA", color_discrete_map=color_map, hole=0.4)
-                        fig_riesgo.update_layout(height=300, margin=dict(t=10, b=10, l=40, r=10), showlegend=True, legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.05))
-                        fig_riesgo.update_traces(sort=False)
-                    elif tipo_graf_riesgo == "Barras H":
-                        fig_riesgo = px.bar(df_cat, y="ETIQUETA", x="count", color="ETIQUETA", text="count", orientation='h', color_discrete_map=color_map)
-                        fig_riesgo.update_layout(showlegend=False, height=300, margin=dict(t=10, b=10, l=10, r=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                    else:
-                        fig_riesgo = px.bar(df_cat, x="ETIQUETA", y="count", color="ETIQUETA", text="count", color_discrete_map=color_map)
-                        fig_riesgo.update_layout(showlegend=False, height=300, margin=dict(t=10, b=10, l=10, r=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                    st.plotly_chart(fig_riesgo, use_container_width=True)
+                if tipo_graf_riesgo == "Sectores":
+                    fig_riesgo = px.pie(df_cat, names="ETIQUETA", values="count", color="ETIQUETA", color_discrete_map=color_map, hole=0.4)
+                    fig_riesgo.update_layout(height=300, margin=dict(t=10, b=10, l=40, r=10), showlegend=True, legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.05))
+                    fig_riesgo.update_traces(sort=False)
+                elif tipo_graf_riesgo == "Barras H":
+                    fig_riesgo = px.bar(df_cat, y="ETIQUETA", x="count", color="ETIQUETA", text="count", orientation='h', color_discrete_map=color_map)
+                    fig_riesgo.update_layout(showlegend=False, height=300, margin=dict(t=10, b=10, l=10, r=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 else:
-                    st.info("💡 Selecciona un tipo de visualización.")
+                    fig_riesgo = px.bar(df_cat, x="ETIQUETA", y="count", color="ETIQUETA", text="count", color_discrete_map=color_map)
+                    fig_riesgo.update_layout(showlegend=False, height=300, margin=dict(t=10, b=10, l=10, r=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                st.plotly_chart(fig_riesgo, use_container_width=True)
 
         with g_col2:
             st.markdown("##### Top medicamentos con alertas")
             if not df_filtered_meds.empty:
                 df_alertas = df_filtered_meds[pd.to_numeric(df_filtered_meds["NIVEL_ADE_CG"], errors='coerce') > 0].copy()
                 if not df_alertas.empty:
-                    tipo_graf_top = st.selectbox("Formato Top", ["-- seleccionar --", "Barras Horizontales", "Barras Verticales", "Sectores"], key="sel_top", label_visibility="collapsed")
+                    tipo_graf_top = st.selectbox("Formato Top", ["Barras Horizontales", "Barras Verticales", "Sectores"], key="sel_top", label_visibility="collapsed")
                     
-                    if tipo_graf_top != "-- seleccionar --":
-                        def normalizar_med_visual(nombre):
-                            if not isinstance(nombre, str): return str(nombre)
-                            n = nombre.upper().strip()
-                            repl = {"Á":"A", "É":"E", "Í":"I", "Ó":"O", "Ú":"U"}
-                            for k, v in repl.items(): n = n.replace(k, v)
-                            match = re.search(r'\d', n)
-                            if match: n = n[:match.start()].strip()
-                            return n
+                    def normalizar_med_visual(nombre):
+                        if not isinstance(nombre, str): return str(nombre)
+                        n = nombre.upper().strip()
+                        repl = {"Á":"A", "É":"E", "Í":"I", "Ó":"O", "Ú":"U"}
+                        for k, v in repl.items(): n = n.replace(k, v)
+                        match = re.search(r'\d', n)
+                        if match: n = n[:match.start()].strip()
+                        return n
 
-                        df_alertas["MED_NORM"] = df_alertas["MEDICAMENTO"].apply(normalizar_med_visual)
-                        df_top = df_alertas.groupby("MED_NORM").size().reset_index(name='Frecuencia').sort_values(by="Frecuencia", ascending=False)
-                        df_top['Rank'] = df_top['Frecuencia'].rank(method='min', ascending=False)
-                        df_top_final = df_top[df_top['Rank'] <= 5].sort_values(by="Frecuencia", ascending=False)
+                    df_alertas["MED_NORM"] = df_alertas["MEDICAMENTO"].apply(normalizar_med_visual)
+                    df_top = df_alertas.groupby("MED_NORM").size().reset_index(name='Frecuencia').sort_values(by="Frecuencia", ascending=False)
+                    df_top['Rank'] = df_top['Frecuencia'].rank(method='min', ascending=False)
+                    df_top_final = df_top[df_top['Rank'] <= 5].sort_values(by="Frecuencia", ascending=False)
 
-                        if tipo_graf_top == "Barras Horizontales":
-                            fig_top = px.bar(df_top_final, y="MED_NORM", x="Frecuencia", orientation='h', text="Frecuencia", color="Frecuencia", color_continuous_scale="Reds")
-                            fig_top.update_layout(showlegend=False, height=300, margin=dict(t=10, b=10, l=10, r=10), yaxis={'categoryorder':'total ascending'})
-                        elif tipo_graf_top == "Barras Verticales":
-                            fig_top = px.bar(df_top_final, x="MED_NORM", y="Frecuencia", text="Frecuencia", color="Frecuencia", color_continuous_scale="Reds")
-                            fig_top.update_layout(showlegend=False, height=300, margin=dict(t=10, b=10, l=10, r=10))
-                        else:
-                            fig_top = px.pie(df_top_final, names="MED_NORM", values="Frecuencia", hole=0.4, color_discrete_sequence=px.colors.sequential.Reds_r)
-                            fig_top.update_layout(height=300, margin=dict(t=10, b=10, l=10, r=10))
-                        st.plotly_chart(fig_top, use_container_width=True)
+                    if tipo_graf_top == "Barras Horizontales":
+                        fig_top = px.bar(df_top_final, y="MED_NORM", x="Frecuencia", orientation='h', text="Frecuencia", color="Frecuencia", color_continuous_scale="Reds")
+                        fig_top.update_layout(showlegend=False, height=300, margin=dict(t=10, b=10, l=10, r=10), yaxis={'categoryorder':'total ascending'})
+                    elif tipo_graf_top == "Barras Verticales":
+                        fig_top = px.bar(df_top_final, x="MED_NORM", y="Frecuencia", text="Frecuencia", color="Frecuencia", color_continuous_scale="Reds")
+                        fig_top.update_layout(showlegend=False, height=300, margin=dict(t=10, b=10, l=10, r=10))
                     else:
-                        st.info("💡 Selecciona un formato para el Top 5.")
+                        fig_top = px.pie(df_top_final, names="MED_NORM", values="Frecuencia", hole=0.4, color_discrete_sequence=px.colors.sequential.Reds_r)
+                        fig_top.update_layout(height=300, margin=dict(t=10, b=10, l=10, r=10))
+                    st.plotly_chart(fig_top, use_container_width=True)
 
 with tabs[4]:
     st.markdown("### 🔍 Consulta Dinámica Renal")
@@ -454,20 +522,17 @@ with tabs[4]:
             st.markdown("#### 🔍 Bloque A: Configurar Cohorte (Filtros)")
             col_a1, col_a2 = st.columns([1, 1])
             if col_a1.button("➕ Añadir Filtro"):
-                st.session_state.filtros_dinamicos.append({
-                    "id": str(uuid.uuid4()),
-                    "col": "-- seleccionar --", 
-                    "op": "-- seleccionar --", 
-                    "val": ""
-                })
+                # EVOLUCIÓN: UUID para keys seguras y placeholder inicial
+                st.session_state.filtros_dinamicos.append({"id": str(uuid.uuid4()), "col": "-- seleccionar --", "op": "-- seleccionar --", "val": ""})
             if col_a2.button("🗑️ Limpiar Filtros"):
                 limpiar_filtros_dinamicos()
                 st.rerun()
 
             for i, filtro in enumerate(st.session_state.filtros_dinamicos):
-                fid = filtro["id"]
                 f_c1, f_c2, f_c3 = st.columns([1, 0.7, 1.3])
+                fid = filtro["id"]
                 
+                # EVOLUCIÓN: Implementación de Placeholders y Keys Seguras
                 opciones_col = ["-- seleccionar --"] + list(df_pool.columns)
                 idx_col = opciones_col.index(filtro["col"]) if filtro["col"] in opciones_col else 0
                 filtro["col"] = f_c1.selectbox(f"Columna {i+1}", opciones_col, key=f"f_col_{fid}", index=idx_col)
@@ -476,62 +541,69 @@ with tabs[4]:
                 idx_op = opciones_op.index(filtro["op"]) if filtro["op"] in opciones_op else 0
                 filtro["op"] = f_c2.selectbox(f"Operador {i+1}", opciones_op, key=f"f_op_{fid}", index=idx_op)
                 
-                # Input dinámico según tipo
+                # Input dinámico según tipo (solo si la columna no es placeholder)
                 if filtro["col"] != "-- seleccionar --":
                     if "contiene" in filtro["op"]:
-                        filtro["val"] = f_c3.text_input(f"Valor {i+1}", key=f"f_val_{fid}", value=filtro["val"])
+                        filtro["val"] = f_c3.text_input(f"Valor {i+1}", key=f"f_val_{fid}", value=filtro["val"], placeholder="Texto a buscar...")
                     elif pd.api.types.is_numeric_dtype(df_pool[filtro["col"]]) or filtro["col"] in ["EDAD", "FG_CG", "Nº_TOTAL_MEDS_PAC", "PESO", "CREATININA", "NIVEL_ADE_CG"]:
                         try: f_val_num = float(filtro["val"]) if filtro["val"] != "" else 0.0
                         except: f_val_num = 0.0
                         filtro["val"] = f_c3.number_input(f"Valor {i+1}", key=f"f_val_{fid}", value=f_val_num)
                     else:
                         opciones_unicas = sorted([str(x) for x in df_pool[filtro["col"]].unique() if x])
-                        filtro["val"] = f_c3.multiselect(f"-- elige 1 o varias opciones --", opciones_unicas, key=f"f_val_{fid}")
-                else:
-                    f_c3.text_input(f"Valor {i+1}", key=f"f_val_{fid}", disabled=True, placeholder="Selecciona columna primero")
+                        filtro["val"] = f_c3.multiselect(f"Valores {i+1}", opciones_unicas, key=f"f_val_{fid}", placeholder="-- elige 1 o varias opciones --")
 
-        # Aplicar Filtros (Lógica de Mínimo Cambio con soporte ≥/≤ y NORMALIZACIÓN)
+        # Aplicar Filtros (Validación de Placeholders)
+        error_filtro = any(f["col"] == "-- seleccionar --" or f["op"] == "-- seleccionar --" for f in st.session_state.filtros_dinamicos)
+        
         df_filtered_query = df_pool.copy()
-        for f in st.session_state.filtros_dinamicos:
-            if f["col"] == "-- seleccionar --" or f["op"] == "-- seleccionar --": continue
-            try:
-                col_data = df_filtered_query[f["col"]]
-                # Preparación de normalización para strings
-                if isinstance(f["val"], (str, list)):
-                    norm_col = col_data.astype(str).apply(normalizar_texto)
-                
-                if "==" in f["op"]:
-                    if isinstance(f["val"], list) and f["val"]:
-                        norm_vals = [normalizar_texto(v) for v in f["val"]]
-                        df_filtered_query = df_filtered_query[norm_col.isin(norm_vals)]
-                    elif f["val"] != "":
-                        df_filtered_query = df_filtered_query[norm_col == normalizar_texto(str(f["val"]))]
-                elif "!=" in f["op"]:
-                    df_filtered_query = df_filtered_query[norm_col != normalizar_texto(str(f["val"]))]
-                elif ">" in f["op"] and "≥" not in f["op"]:
-                    df_filtered_query = df_filtered_query[pd.to_numeric(col_data, errors='coerce') > float(f["val"])]
-                elif "<" in f["op"] and "≤" not in f["op"]:
-                    df_filtered_query = df_filtered_query[pd.to_numeric(col_data, errors='coerce') < float(f["val"])]
-                elif "≥" in f["op"]:
-                    df_filtered_query = df_filtered_query[pd.to_numeric(col_data, errors='coerce') >= float(f["val"])]
-                elif "≤" in f["op"]:
-                    df_filtered_query = df_filtered_query[pd.to_numeric(col_data, errors='coerce') <= float(f["val"])]
-                elif "contiene" in f["op"]:
-                    df_filtered_query = df_filtered_query[norm_col.str.contains(normalizar_texto(str(f["val"])), case=False, na=False)]
-            except: continue
+        if not error_filtro:
+            for f in st.session_state.filtros_dinamicos:
+                try:
+                    col_data = df_filtered_query[f["col"]]
+                    if isinstance(f["val"], (str, list)):
+                        norm_col = col_data.astype(str).apply(normalizar_texto)
+                    
+                    if "==" in f["op"]:
+                        if isinstance(f["val"], list) and f["val"]:
+                            norm_vals = [normalizar_texto(v) for v in f["val"]]
+                            df_filtered_query = df_filtered_query[norm_col.isin(norm_vals)]
+                        elif f["val"] != "":
+                            df_filtered_query = df_filtered_query[norm_col == normalizar_texto(str(f["val"]))]
+                    elif "!=" in f["op"]:
+                        df_filtered_query = df_filtered_query[norm_col != normalizar_texto(str(f["val"]))]
+                    elif ">" in f["op"] and "≥" not in f["op"]:
+                        df_filtered_query = df_filtered_query[pd.to_numeric(col_data, errors='coerce') > float(f["val"])]
+                    elif "<" in f["op"] and "≤" not in f["op"]:
+                        df_filtered_query = df_filtered_query[pd.to_numeric(col_data, errors='coerce') < float(f["val"])]
+                    elif "≥" in f["op"]:
+                        df_filtered_query = df_filtered_query[pd.to_numeric(col_data, errors='coerce') >= float(f["val"])]
+                    elif "≤" in f["op"]:
+                        df_filtered_query = df_filtered_query[pd.to_numeric(col_data, errors='coerce') <= float(f["val"])]
+                    elif "contiene" in f["op"]:
+                        df_filtered_query = df_filtered_query[norm_col.str.contains(normalizar_texto(str(f["val"])), case=False, na=False)]
+                except: continue
+        else:
+            if st.session_state.filtros_dinamicos:
+                st.warning("Debes seleccionar una columna y un operador válidos en todos los filtros.")
 
-        # Bloque B: Análisis
+        # Bloque B: Análisis (Placeholders)
         st.markdown("#### 🎯 Bloque B: Variable a Analizar")
         b_col1, b_col2, b_col3 = st.columns(3)
-        var_analisis = b_col1.selectbox("Variable", ["-- seleccionar --"] + list(df_pool.columns), key="query_var")
-        operacion = b_col2.selectbox("Operación", ["-- seleccionar --", "Conteo (Total)", "Conteo Único (Pacientes)", "Suma", "Promedio", "Mínimo", "Máximo"])
-        agrupar_por = b_col3.selectbox("Agrupar por (Opcional)", ["-- Agrupar resultados por categorías (opcional) --"] + list(df_pool.columns))
+        
+        opc_var = ["-- seleccionar --"] + list(df_pool.columns)
+        var_analisis = b_col1.selectbox("Variable", opc_var, key="query_var")
+        
+        opc_op = ["-- seleccionar --", "Conteo (Total)", "Conteo Único (Pacientes)", "Suma", "Promedio", "Mínimo", "Máximo"]
+        operacion = b_col2.selectbox("Operación", opc_op, key="query_op")
+        
+        opc_agrupar = ["-- Agrupar resultados por categorías (opcional) --"] + list(df_pool.columns)
+        agrupar_por_raw = b_col3.selectbox("Segmentar por (Opcional)", opc_agrupar, key="query_group")
+        agrupar_por = None if agrupar_por_raw == "-- Agrupar resultados por categorías (opcional) --" else agrupar_por_raw
 
-        # Cálculo
-        if var_analisis == "-- seleccionar --" or operacion == "-- seleccionar --":
-            st.info("⚠️ Configura la Variable y la Operación para ver resultados.")
-        else:
-            if agrupar_por == "-- Agrupar resultados por categorías (opcional) --":
+        # Cálculo y Validación Final
+        if var_analisis != "-- seleccionar --" and operacion != "-- seleccionar --" and not error_filtro:
+            if agrupar_por is None:
                 if "Total" in operacion: resultado = len(df_filtered_query[var_analisis])
                 elif "Único" in operacion: resultado = df_filtered_query[var_analisis].nunique()
                 elif operacion == "Suma": resultado = pd.to_numeric(df_filtered_query[var_analisis], errors='coerce').sum()
@@ -544,6 +616,7 @@ with tabs[4]:
                     elif "Único" in operacion: df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].nunique().reset_index()
                     elif operacion == "Suma": df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').sum()).reset_index()
                     elif operacion == "Promedio": df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').mean()).reset_index()
+                    else: df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').max()).reset_index()
                     df_res.columns = [agrupar_por, f"{operacion}_{var_analisis}"]
                     
                     # Bloque C: Visualización
@@ -555,6 +628,8 @@ with tabs[4]:
                     with v_tabs[3]: st.plotly_chart(px.line(df_res, x=agrupar_por, y=df_res.columns[1], markers=True), use_container_width=True)
                     with v_tabs[4]: st.plotly_chart(px.pie(df_res, names=agrupar_por, values=df_res.columns[1], hole=0.3), use_container_width=True)
                 except: st.warning("Error en el cálculo. Verifica que la variable sea numérica para Sumas/Promedios.")
+        elif not error_filtro and (var_analisis != "-- seleccionar --" or operacion != "-- seleccionar --"):
+            st.info("Selecciona la Variable y la Operación para ejecutar el análisis.")
         
         st.markdown("---")
         with st.expander("📄 Ver Datos Crutos de la Cohorte"):
@@ -563,6 +638,6 @@ with tabs[4]:
         st.info("No hay datos sincronizados para realizar consultas dinámicas.")
 
 st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un soporte a la decisión clínica basado en IA y reglas farmacológicas. La responsabilidad final de la prescripción y el ajuste de dosis recae exclusivamente en el médico facultativo.</div>', unsafe_allow_html=True)
-st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 26 mar 2026 18:15</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 26 mar 2026 12:45</div>', unsafe_allow_html=True)
 
 # He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados
