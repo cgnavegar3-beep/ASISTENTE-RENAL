@@ -1,1 +1,12 @@
-
+ID,EDAD,FG,CENTRO,MEDICAMENTO
+1,66,58,Centro A,Metformina
+2,72,62,Centro B,Lisinopril
+3,75,45,Centro A,Simvastatina
+4,68,59,Centro B,Atorvastatina
+5,80,70,Centro A,Omeprazol
+6,77,50,Centro B,Metformina
+7,64,55,Centro A,Lisinopril
+8,69,63,Centro B,Simvastatina
+9,71,57,Centro A,Atorvastatina
+10,74,60,Centro B,Metformina
+11,67,65,Centro A,Omeprazol
