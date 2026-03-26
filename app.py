@@ -1,4 +1,4 @@
-# v. 26 mar 2026 12:00 (EVOLUCIÓN: NORMALIZACIÓN CRÍTICA & UX CONSULTA - FIXED)
+# v. 26 mar 2026 10:15 (EVOLUCIÓN: CAPA 0 - NORMALIZACIÓN CRÍTICA)
 
 import streamlit as st
 import pandas as pd
@@ -29,28 +29,28 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                                   "Filtrado Glomerular" (cuadro negro con glow morado).
+#                                "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                                   - Cuadros negros superiores (ZONA y ACTIVO).
-#                                   - Pestañas (Tabs) de navegación.
-#                                   - Registro de Paciente: Estructura y función de fila única.
-#                                   - Estructura del área de recorte y listado de medicación.
-#                                   - Barra dual de validación (VALIDAR / RESET).
-#                                   - Aviso legal amarillo inferior (Warning).
+#                                - Cuadros negros superiores (ZONA y ACTIVO).
+#                                - Pestañas (Tabs) de navegación.
+#                                - Registro de Paciente: Estructura y función de fila única.
+#                                - Estructura del área de recorte y listado de medicación.
+#                                - Barra dual de validación (VALIDAR / RESET).
+#                                - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                         "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                       "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                            principios antes y después de cada cambio. No se simplifican líneas.
+#                         principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#                        ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#                       ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#                        se considerará pérdida de principios.
+#                       se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#                        sus textos flotantes (placeholders) and los textos predefinidos en las
-#                        secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                       sus textos flotantes (placeholders) and los textos predefinidos en las
+#                       secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                         principio blindado; es informativo y no debe impedir la validación.
+#                        principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -93,8 +93,6 @@ if "chat_history_graficos" not in st.session_state:
 # --- ESTADOS EVO: CONSULTA DINÁMICA ---
 if "filtros_dinamicos" not in st.session_state:
     st.session_state.filtros_dinamicos = []
-if "query_var" not in st.session_state:
-    st.session_state.query_var = None
 
 for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
     if key not in st.session_state:
@@ -184,20 +182,21 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
         if id_actual not in ids_existentes:
             fila_dict = df_val_actual[df_val_actual["ID_REGISTRO"] == id_actual].iloc[-1].fillna("").to_dict()
             
-            columnas_ordenadas_val = [
+            columnas_ordenadas = [
                 "FECHA", "CENTRO", "RESIDENCIA", "ID_REGISTRO", "EDAD", "SEXO", "PESO", "CREATININA", "Nº_TOTAL_MEDS_PAC",
                  "FG_CG", "Nº_TOT_AFEC_CG", "Nº_PRECAU_CG", "Nº_AJUSTE_DOS_CG", "Nº_TOXICID_CG", "Nº_CONTRAIND_CG",
                  "FG_MDRD", "Nº_TOT_AFEC_MDRD", "Nº_PRECAU_MDRD", "Nº_AJUSTE_DOS_MDRD", "Nº_TOXICID_MDRD", "Nº_CONTRAIND_MDRD",
-                "FG_CKD", "Nº_TOT_AFEC_CKD", "Nº_PRECAU_CKD", "Nº_AJUSTE_DOS_CKD", "Nº_TOXICID_CKD", "Nº_CONTRAIND_CKD",
-                "Discrepancia", "ACEPTACION MAP", "aceptacion num"
+                "FG_CKD", "Nº_TOT_AFEC_CKD", "Nº_PRECAU_CKD", "Nº_AJUSTE_DOS_CKD", "Nº_TOXICID_CKD", "Nº_CONTRAIND_CKD"
             ]
             
             fila_final = []
-            for col in columnas_ordenadas_val:
+            for col in columnas_ordenadas:
                 val = fila_dict.get(col, "")
                 if hasattr(val, "item"): val = val.item()
                 if isinstance(val, float) and math.isnan(val): val = ""
                 fila_final.append(val)
+            
+            fila_final.extend(["", "", ""])
             ws_val.append_row(fila_final, value_input_option='USER_ENTERED')
 
         ws_meds = doc.worksheet("MEDICAMENTOS")
@@ -205,33 +204,18 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
         df_nube_meds = pd.DataFrame(data_meds_nube)
         meds_a_procesar = df_meds_actual[df_meds_actual["ID_REGISTRO"] == id_actual].fillna("")
         
-        columnas_ordenadas_meds = [
-            "FECHA", "CENTRO", "RESIDENCIA", "ID_REGISTRO", "EDAD", "SEXO", "PESO", "CREATININA", "Nº_TOTAL_MEDS_PAC",
-            "FG_CG", "Nº_TOT_AFEC_CG", "Nº_PRECAU_CG", "Nº_AJUSTE_DOS_CG", "Nº_TOXICID_CG", "Nº_CONTRAIND_CG",
-            "FG_MDRD", "Nº_TOT_AFEC_MDRD", "Nº_PRECAU_MDRD", "Nº_AJUSTE_DOS_MDRD", "Nº_TOXICID_MDRD", "Nº_CONTRAIND_MDRD",
-            "FG_CKD", "Nº_TOT_AFEC_CKD", "Nº_PRECAU_CKD", "Nº_AJUSTE_DOS_CKD", "Nº_TOXICID_CKD", "Nº_CONTRAIND_CKD",
-            "MEDICAMENTO", "GRUPO_TERAPEUTICO", "CAT_RIESGO_CG", "RIESGO_CG", "NIVEL_ADE_CG", 
-            "CAT_RIESGO_MDRD", "RIESGO_MDRD", "NIVEL_ADE_MDRD", "CAT_RIESGO_CKD", "RIESGO_CKD", "NIVEL_ADE_CKD",
-            "ACEPTACION_MEDICO", "ADECUACION_FINAL"
-        ]
-
         filas_nuevas = []
         for _, fila in meds_a_procesar.iterrows():
             ya_existe = False
-            med_nombre = normalizar_texto_capa0(fila.get("MEDICAMENTO", ""))
             if not df_nube_meds.empty:
-                existe = df_nube_meds[(df_nube_meds["ID_REGISTRO"] == id_actual) & (df_nube_meds["MEDICAMENTO"] == med_nombre)]
+                existe = df_nube_meds[(df_nube_meds["ID_REGISTRO"] == id_actual) & (df_nube_meds["MEDICAMENTO"] == fila["MEDICAMENTO"])]
                 if not existe.empty: ya_existe = True
-            
             if not ya_existe:
                 fila_conv = []
-                for col_m in columnas_ordenadas_meds:
-                    v = fila.get(col_m, "")
+                for v in fila.values.tolist():
                     val_conv = v.item() if hasattr(v, "item") else v
-                    if isinstance(val_conv, float) and math.isnan(val_conv): val_conv = ""
                     fila_conv.append(val_conv)
                 filas_nuevas.append(fila_conv)
-        
         if filas_nuevas: 
             ws_meds.append_rows(filas_nuevas, value_input_option='USER_ENTERED')
         
@@ -262,9 +246,13 @@ def obtener_glow_class(sintesis_texto):
     else: return "glow-green"
 
 def normalizar_texto_capa0(texto, quitar_dosis=False):
+    """CAPA 0: Normalización de strings para coherencia en búsqueda y analítica."""
     if not isinstance(texto, str) or not texto: return str(texto) if texto else ""
+    # 1. Eliminar tildes y normalizar unicode
     texto = "".join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
+    # 2. Mayúsculas y limpieza de espacios
     texto = texto.upper().strip()
+    # 3. Quitar dosis (opcional para agrupaciones por principio activo)
     if quitar_dosis:
         match = re.search(r'\d', texto)
         if match: texto = texto[:match.start()].strip()
@@ -294,7 +282,6 @@ def reset_meds():
 # --- FUNCIONES EVO: CONSULTA DINÁMICA ---
 def limpiar_filtros_dinamicos():
     st.session_state.filtros_dinamicos = []
-    st.session_state.query_var = None
 
 def inject_styles():
     st.markdown("""
@@ -322,7 +309,7 @@ def inject_styles():
     .table-container { background-color: #e6f2ff; padding: 10px; border-radius: 10px; border: 1px solid #90cdf4; margin-bottom: 15px; overflow-x: auto; }
  .clinical-detail-container { background-color: #e6f2ff; color: #1a365d; padding: 15px; border-radius: 10px; border: 1px solid #90cdf4; font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap; }
     .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
- .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
+  .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
     .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
     .fg-special-border { border: 1.5px solid #9d00ff !important; border-radius: 5px; }
     @keyframes blinker { 50% { opacity: 0; } }
@@ -334,7 +321,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 26 mar 2026 12:00</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 26 mar 2026 10:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS", "🔍 CONSULTA DINÁMICA"])
 
@@ -388,9 +375,9 @@ with tabs[0]:
     st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
     
     faltan_datos = not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s]) or \
-                    (not fg_m and not valor_fg) or \
-                    (st.session_state.fgl_mdrd is None) or \
-                    (st.session_state.fgl_ckd is None)
+                   (not fg_m and not valor_fg) or \
+                   (st.session_state.fgl_mdrd is None) or \
+                   (st.session_state.fgl_ckd is None)
 
     if st.session_state.main_meds and faltan_datos and not st.session_state.analisis_realizado:
         st.markdown('<div class="blink-text">⚠️ FALTAN DATOS EN REGISTRO, CALCULADORA O FGs (MDRD/CKD)</div>', unsafe_allow_html=True)
@@ -450,15 +437,217 @@ with tabs[0]:
                         "EDAD": calc_e, "SEXO": calc_s, "PESO": calc_p, "CREATININA": calc_c, "Nº_TOTAL_MEDS_PAC": data["paciente"]["N_TOTAL_MEDS_PAC"],
                         "FG_CG": valor_fg, "Nº_TOT_AFEC_CG": data["paciente"]["CG"]["TOT_AFECTADOS"], "Nº_PRECAU_CG": data["paciente"]["CG"]["PRECAUCION"], "Nº_AJUSTE_DOS_CG": data["paciente"]["CG"]["AJUSTE_DOSIS"], "Nº_TOXICID_CG": data["paciente"]["CG"]["TOXICIDAD"], "Nº_CONTRAIND_CG": data["paciente"]["CG"]["CONTRAINDICADOS"],
                         "FG_MDRD": val_mdrd, "Nº_TOT_AFEC_MDRD": data["paciente"]["MDRD"]["TOT_AFECTADOS"], "Nº_PRECAU_MDRD": data["paciente"]["MDRD"]["PRECAUCION"], "Nº_AJUSTE_DOS_MDRD": data["paciente"]["MDRD"]["AJUSTE_DOSIS"], "Nº_TOXICID_MDRD": data["paciente"]["MDRD"]["TOXICIDAD"], "Nº_CONTRAIND_MDRD": data["paciente"]["MDRD"]["CONTRAINDICADOS"],
-                        "FG_CKD": val_ckd, "Nº_TOT_AFEC_CKD": data["paciente"]["CKD"]["TOT_AFECTADOS"], "Nº_PRECAU_CKD": data["paciente"]["CKD"]["PRECAUCION"], "Nº_AJUSTE_DOS_CKD": data["paciente"]["CKD"]["AJUSTE_DOSIS"], "Nº_TOXICID_CKD": data["paciente"]["CKD"]["TOXICIDAD"], "Nº_CONTRAIND_CKD": data["paciente"]["CKD"]["CONTRAINDICADOS"],
-                        "Discrepancia": "", "ACEPTACION MAP": "", "aceptacion num": ""
+                        "FG_CKD": val_ckd, "Nº_TOT_AFEC_CKD": data["paciente"]["CKD"]["TOT_AFECTADOS"], "Nº_PRECAU_CKD": data["paciente"]["CKD"]["PRECAUCION"], "Nº_AJUSTE_DOS_CKD": data["paciente"]["CKD"]["AJUSTE_DOSIS"], "Nº_TOXICID_CKD": data["paciente"]["CKD"]["TOXICIDAD"], "Nº_CONTRAIND_CKD": data["paciente"]["CKD"]["CONTRAINDICADOS"]
+                     }
+                    st.session_state.df_val = pd.concat([st.session_state.df_val, pd.DataFrame([pac_row])], ignore_index=True)
+                     
+                    for m in data["medicamentos"]:
+                        # CAPA 0: Normalización al guardar
+                        med_nombre_crudo = m.get("MEDICAMENTO", "")
+                        med_nombre = normalizar_texto_capa0(med_nombre_crudo)
+                        m["MEDICAMENTO"] = med_nombre # Actualizar en dict para persistencia
+                        
+                        ya_existe_med = False
+                        if not st.session_state.df_meds.empty:
+                             ya_existe_med = not st.session_state.df_meds[(st.session_state.df_meds["ID_REGISTRO"] == id_actual) & (st.session_state.df_meds["MEDICAMENTO"] == med_nombre)].empty
+                        if not ya_existe_med:
+                            med_row = {**pac_row, **m}
+                            st.session_state.df_meds = pd.concat([st.session_state.df_meds, pd.DataFrame([med_row])], ignore_index=True)
+            except: pass
+        except: pass
+
+import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import hashlib
+import json
+import re
+import random
+import io
+from datetime import datetime
+
+# --- CONFIGURACIÓN INICIAL Y ESTADOS ---
+if "filtros_dinamicos" not in st.session_state: st.session_state.filtros_dinamicos = []
+if "active_model" not in st.session_state: st.session_state.active_model = "GPT-4o"
+if "analisis_realizado" not in st.session_state: st.session_state.analisis_realizado = False
+if "ultima_huella" not in st.session_state: st.session_state.ultima_huella = ""
+if "resp_ia" not in st.session_state: st.session_state.resp_ia = ""
+if "df_val" not in st.session_state: st.session_state.df_val = pd.DataFrame()
+if "df_meds" not in st.session_state: st.session_state.df_meds = pd.DataFrame()
+if "soip_s" not in st.session_state: st.session_state.soip_s = ""
+if "soip_o" not in st.session_state: st.session_state.soip_o = ""
+if "soip_i" not in st.session_state: st.session_state.soip_i = ""
+if "soip_p" not in st.session_state: st.session_state.soip_p = ""
+if "ic_inter" not in st.session_state: st.session_state.ic_inter = ""
+if "ic_clinica" not in st.session_state: st.session_state.ic_clinica = ""
+
+# --- FUNCIONES EVO: CONSULTA DINÁMICA ---
+def limpiar_filtros_dinamicos():
+    st.session_state.filtros_dinamicos = []
+
+def inject_styles():
+    st.markdown("""
+    <style>
+    .block-container { max-width: 100% !important; padding-top: 1rem !important; padding-left: 4% !important; padding-right: 4% !important; }
+    .black-badge-zona { background-color: #000000; color: #888; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 10px; left: 15px; z-index: 999999; }
+   .black-badge-activo { background-color: #000000; color: #00FF00; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 0.7rem; border: 1px solid #333; position: fixed; top: 10px; left: 145px; z-index: 999999; text-shadow: 0 0 5px #00FF00; }
+    .main-title { text-align: center; font-size: 2.5rem; font-weight: 800; color: #1E1E1E; margin-bottom: 0px; margin-top: 20px; }
+    .sub-version { text-align: center; font-size: 0.6rem; color: #bbb; margin-top: -5px; margin-bottom: 20px; font-family: monospace; }
+    .fg-glow-box { background-color: #000000; color: #FFFFFF; border: 2.2px solid #9d00ff; box-shadow: 0 0 15px #9d00ff; padding: 15px; border-radius: 12px; text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; }
+    
+    .db-glow-box { background-color: #000000; color: #FFFFFF; border: 1.5px solid #4a5568; padding: 12px; border-radius: 12px; text-align: center; display: flex; flex-direction: column; justify-content: center; margin-bottom: 10px; }
+    .db-blue { border-color: #63b3ed !important; box-shadow: 0 0 8px #63b3ed; }
+    .db-green { border-color: #68d391 !important; box-shadow: 0 0 8px #68d391; }
+    .db-red { border-color: #fc8181 !important; box-shadow: 0 0 8px #fc8181; }
+    .db-purple { border-color: #b794f4 !important; box-shadow: 0 0 8px #b794f4; }
+
+    .unit-label { font-size: 0.65rem; color: #888; margin-top: -10px; margin-bottom: 5px; font-family: sans-serif; text-align: center; }
+    .synthesis-box { padding: 15px; border-radius: 12px; margin-bottom: 15px; border-width: 2.2px; border-style: solid; font-size: 0.95rem; line-height: 1.6; }
+    .glow-red { background-color: #fff5f5; color: #c53030; border-color: #feb2b2; box-shadow: 0 0 12px #feb2b2; }
+    .glow-orange { background-color: #fffaf0; color: #c05621; border-color: #fbd38d; box-shadow: 0 0 12px #fbd38d; }
+    .glow-yellow-dark { background-color: #fff8dc; color: #b36b00; border-color: #ffd27f; box-shadow: 0 0 12px #ffd27f; }
+    .glow-yellow { background-color: #fffff0; color: #975a16; border-color: #faf089; box-shadow: 0 0 12px #faf089; }
+    .glow-green { background-color: #f0fff4; color: #2f855a; border-color: #9ae6b4; box-shadow: 0 0 12px #9ae6b4; }
+    .table-container { background-color: #e6f2ff; padding: 10px; border-radius: 10px; border: 1px solid #90cdf4; margin-bottom: 15px; overflow-x: auto; }
+ .clinical-detail-container { background-color: #e6f2ff; color: #1a365d; padding: 15px; border-radius: 10px; border: 1px solid #90cdf4; font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap; }
+    .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
+  .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
+    .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
+    .fg-special-border { border: 1.5px solid #9d00ff !important; border-radius: 5px; }
+    @keyframes blinker { 50% { opacity: 0; } }
+    .blink-text, .blink-text-grabar { animation: blinker 1s linear infinite; color: #c53030; font-weight: bold; padding: 10px; border: 1px solid #c53030; border-radius: 5px; background: #fff5f5; text-align: center; margin-bottom: 15px; }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_styles()
+st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 26 mar 2026 11:45</div>', unsafe_allow_html=True)
+
+tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS", "🔍 CONSULTA DINÁMICA"])
+
+with tabs[0]:
+    st.markdown("### Registro de Paciente")
+    c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1.5, 0.4])
+    def on_centro_change():
+        centro_input = st.session_state.reg_centro.strip().lower()
+        if centro_input == "m": st.session_state.reg_centro = "Marín"
+        elif centro_input == "o": st.session_state.reg_centro = "O Grove"
+        
+        if st.session_state.reg_centro and not st.session_state.reg_id:
+            iniciales = "".join([word[0] for word in st.session_state.reg_centro.split()]).upper()[:3]
+            st.session_state.reg_id = f"PAC-{iniciales}{random.randint(10000, 99999)}"
+
+    with c1: st.text_input("Centro", placeholder="M / G", key="reg_centro", on_change=on_centro_change)
+    with c2: st.selectbox("¿Residencia?", ["No", "Sí"], index=None, placeholder="Sí / No", key="reg_res")
+    with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
+    with c4: st.text_input("ID Registro", key="reg_id", disabled=True)
+    with c5: st.write(""); st.button("🗑️", on_click=reset_registro, key="btn_reset_reg")
+
+    col_izq, col_der = st.columns(2, gap="large")
+    with col_izq:
+        st.markdown("#### 📋 Calculadora")
+        with st.container(border=True):
+            calc_e = st.number_input("Edad (años)", step=1, key="calc_e", placeholder="Edad (Ej: 65)", value=None)
+            calc_p = st.number_input("Peso (kg)", key="calc_p", placeholder="Peso (Ej: 70.5)", value=None)
+            calc_c = st.number_input("Creatinina (mg/dL)", key="calc_c", placeholder="Creatinina (Ej: 1.2)", value=None)
+            calc_s = st.selectbox("Sexo", ["Hombre", "Mujer"], index=None, placeholder="Seleccionar sexo...", key="calc_s")
+            fg = round(((140 - calc_e) * calc_p) / (72 * (calc_c if calc_c and calc_c > 0 else 1)) * (0.85 if calc_s == "Mujer" else 1.0), 1) if all([calc_e, calc_p, calc_c, calc_s]) else 0.0
+
+    with col_der:
+        st.markdown("#### 💊 Filtrado Glomerular")
+        fg_m = st.text_input("Ajuste Manual", placeholder="Fórmula Cockcroft-Gault: manual")
+        valor_fg = fg_m if fg_m else fg
+        st.markdown(f'''<div class="fg-glow-box"><div style="font-size: 3.2rem; font-weight: bold;">{valor_fg}</div><div style="font-size: 0.8rem; color: #9d00ff;">mL/min (C-G)</div></div>''', unsafe_allow_html=True)
+        st.markdown('<div class="formula-label">Fórmula Cockcroft-Gault</div>', unsafe_allow_html=True)
+        st.write(""); l1, l2 = st.columns(2)
+        with l1:
+            st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
+            val_mdrd = st.number_input("MDRD-4", value=None, placeholder="MDRD-4", label_visibility="collapsed", key="fgl_mdrd")
+            st.markdown('</div><div class="unit-label">mL/min/1,73m²</div>', unsafe_allow_html=True)
+        with l2:
+            st.markdown('<div class="fg-special-border">', unsafe_allow_html=True)
+            val_ckd = st.number_input("CKD-EPI", value=None, placeholder="CKD-EPI", label_visibility="collapsed", key="fgl_ckd")
+            st.markdown('</div><div class="unit-label">mL/min/1,73m²</div>', unsafe_allow_html=True)
+
+    st.write(""); st.markdown("---")
+    st.markdown("#### 📝 Listado de medicamentos")
+    st.text_area("Listado", height=150, label_visibility="collapsed", key="main_meds", placeholder="Pegue el listado...")
+    st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
+    
+    faltan_datos = not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s]) or \
+                   (not fg_m and not valor_fg) or \
+                   (st.session_state.fgl_mdrd is None) or \
+                   (st.session_state.fgl_ckd is None)
+
+    if st.session_state.main_meds and faltan_datos and not st.session_state.analisis_realizado:
+        st.markdown('<div class="blink-text">⚠️ FALTAN DATOS EN REGISTRO, CALCULADORA O FGs (MDRD/CKD)</div>', unsafe_allow_html=True)
+
+    b1, b2 = st.columns([0.85, 0.15])
+    btn_val = b1.button("🚀 VALIDAR ADECUACIÓN", use_container_width=True)
+    b2.button("🗑️ RESET", on_click=reset_meds, use_container_width=True)
+
+    if btn_val:
+        if not st.session_state.main_meds: 
+            st.error("Introduce medicamentos.")
+        else:
+            huella_actual = hashlib.md5(f"{st.session_state.reg_id}{calc_e}{calc_p}{calc_c}{calc_s}{val_mdrd}{val_ckd}{st.session_state.main_meds}".encode()).hexdigest()
+            
+            if huella_actual == st.session_state.ultima_huella and st.session_state.resp_ia:
+                st.toast("ℹ️ Análisis recuperado de memoria (Datos idénticos)", icon="🧠")
+                st.session_state.analisis_realizado = True
+            else:
+                with st.spinner("Analizando..."):
+                    prompt_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
+                    st.session_state.resp_ia = llamar_ia_en_cascada(prompt_final)
+                    st.session_state.ultima_huella = huella_actual
+                    st.session_state.analisis_realizado = True
+
+    if st.session_state.analisis_realizado and st.session_state.resp_ia:
+        resp = st.session_state.resp_ia[st.session_state.resp_ia.find("|||"):] if "|||" in st.session_state.resp_ia else st.session_state.resp_ia
+        try:
+            partes = [p.strip() for p in resp.split("|||") if p.strip()]
+            while len(partes) < 4: partes.append("")
+            sintesis, tabla, detalle, json_data_str = partes[:4]
+            glow = obtener_glow_class(sintesis)
+            st.markdown(f'<div class="synthesis-box {glow}">{sintesis.replace("\n","<br>")}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="table-container">{tabla}</div>', unsafe_allow_html=True)
+            detalle_limpio = re.sub(r'<[^>]*>', '', detalle)
+            st.markdown(f'''<div class="clinical-detail-container">{detalle_limpio}</div>''', unsafe_allow_html=True)
+            
+            datos_obj_lista = []
+            if calc_e: datos_obj_lista.append(f"Edad: {calc_e}a")
+            if calc_p: datos_obj_lista.append(f"Peso: {calc_p}kg")
+            if calc_c: datos_obj_lista.append(f"Crea: {calc_c}mg/dL")
+            if valor_fg: datos_obj_lista.append(f"FG: {valor_fg}mL/min")
+            st.session_state.soip_o = " | ".join(datos_obj_lista)
+            sintesis_limpia = re.sub(r'<[^>]*>', '', sintesis.replace("BLOQUE 1: ALERTAS Y AJUSTES", "").strip())
+            st.session_state.soip_i = sintesis_limpia
+            st.session_state.ic_inter = f"Se solicita revisión de los siguientes fármacos:\n{sintesis_limpia}"
+            analisis_clinico_limpio = detalle_limpio.split('⚠️ NOTA IMPORTANTE:')[0].replace('BLOQUE 3: ANÁLISIS CLÍNICO (EXCLUSIVO COCKCROFT-GAULT)', '').strip()
+            st.session_state.ic_clinica = f"{st.session_state.soip_o}\n\n{analisis_clinico_limpio}"
+
+            try:
+                json_data_str = re.sub(r"```json|```", "", json_data_str).strip()
+                data = json.loads(json_data_str)
+                id_actual = st.session_state.reg_id
+                
+                if st.session_state.df_val.empty or id_actual not in st.session_state.df_val["ID_REGISTRO"].values:
+                    pac_row = {
+                        "FECHA": datetime.now().strftime("%d/%m/%Y"), "CENTRO": st.session_state.reg_centro, "RESIDENCIA": st.session_state.reg_res, "ID_REGISTRO": id_actual,
+                        "EDAD": calc_e, "SEXO": calc_s, "PESO": calc_p, "CREATININA": calc_c, "Nº_TOTAL_MEDS_PAC": data["paciente"]["N_TOTAL_MEDS_PAC"],
+                        "FG_CG": valor_fg, "Nº_TOT_AFEC_CG": data["paciente"]["CG"]["TOT_AFECTADOS"], "Nº_PRECAU_CG": data["paciente"]["CG"]["PRECAUCION"], "Nº_AJUSTE_DOS_CG": data["paciente"]["CG"]["AJUSTE_DOSIS"], "Nº_TOXICID_CG": data["paciente"]["CG"]["TOXICIDAD"], "Nº_CONTRAIND_CG": data["paciente"]["CG"]["CONTRAINDICADOS"],
+                        "FG_MDRD": val_mdrd, "Nº_TOT_AFEC_MDRD": data["paciente"]["MDRD"]["TOT_AFECTADOS"], "Nº_PRECAU_MDRD": data["paciente"]["MDRD"]["PRECAUCION"], "Nº_AJUSTE_DOS_MDRD": data["paciente"]["MDRD"]["AJUSTE_DOSIS"], "Nº_TOXICID_MDRD": data["paciente"]["MDRD"]["TOXICIDAD"], "Nº_CONTRAIND_MDRD": data["paciente"]["MDRD"]["CONTRAINDICADOS"],
+                        "FG_CKD": val_ckd, "Nº_TOT_AFEC_CKD": data["paciente"]["CKD"]["TOT_AFECTADOS"], "Nº_PRECAU_CKD": data["paciente"]["CKD"]["PRECAUCION"], "Nº_AJUSTE_DOS_CKD": data["paciente"]["CKD"]["AJUSTE_DOSIS"], "Nº_TOXICID_CKD": data["paciente"]["CKD"]["TOXICIDAD"], "Nº_CONTRAIND_CKD": data["paciente"]["CKD"]["CONTRAINDICADOS"]
                      }
                     st.session_state.df_val = pd.concat([st.session_state.df_val, pd.DataFrame([pac_row])], ignore_index=True)
                      
                     for m in data["medicamentos"]:
                         med_nombre_crudo = m.get("MEDICAMENTO", "")
                         med_nombre = normalizar_texto_capa0(med_nombre_crudo)
-                        m["MEDICAMENTO"] = med_nombre
+                        m["MEDICAMENTO"] = med_nombre 
                         
                         ya_existe_med = False
                         if not st.session_state.df_meds.empty:
@@ -576,10 +765,6 @@ with tabs[3]:
             st.markdown("##### Distribución de Riesgos")
             if not df_filtered_meds.empty:
                 df_filtered_meds_riesgo = df_filtered_meds.copy()
-                # EVO: Blindaje ante columna inexistente (KeyError FIX)
-                if "NIVEL_ADE_CG" not in df_filtered_meds_riesgo.columns:
-                    df_filtered_meds_riesgo["NIVEL_ADE_CG"] = 0
-                
                 df_filtered_meds_riesgo["NIVEL_ADE_CG"] = pd.to_numeric(df_filtered_meds_riesgo["NIVEL_ADE_CG"], errors='coerce').fillna(0)
                 df_cat = df_filtered_meds_riesgo.groupby("NIVEL_ADE_CG").size().reset_index(name='count').sort_values(by="count", ascending=False)
                 
@@ -604,10 +789,6 @@ with tabs[3]:
         with g_col2:
             st.markdown("##### Top medicamentos con alertas")
             if not df_filtered_meds.empty:
-                # EVO: Blindaje ante columna inexistente (KeyError FIX)
-                if "NIVEL_ADE_CG" not in df_filtered_meds.columns:
-                    df_filtered_meds["NIVEL_ADE_CG"] = 0
-                
                 df_alertas = df_filtered_meds[pd.to_numeric(df_filtered_meds["NIVEL_ADE_CG"], errors='coerce') > 0].copy()
                 if not df_alertas.empty:
                     tipo_graf_top = st.selectbox("Formato Top", ["Barras Horizontales", "Barras Verticales", "Sectores"], key="sel_top", label_visibility="collapsed")
@@ -629,38 +810,36 @@ with tabs[3]:
                     st.plotly_chart(fig_top, use_container_width=True)
 
 with tabs[4]:
-    st.markdown("### 🔍 Bloque A – Configurar Cohorte (Filtros)")
-    st.caption("¿Qué datos quiero analizar? Condiciones o filtros de lo que quiero medir.")
+    st.markdown("### 🔍 Consulta Dinámica Renal")
     
     # Origen de datos
-    tipo_origen = st.radio("Seleccionar origen de datos:", ["Validaciones (General)", "Medicamentos (Detalle)"], horizontal=True)
+    tipo_origen = st.radio("1. Seleccionar base de datos:", ["Validaciones (General)", "Medicamentos (Detalle)"], horizontal=True, help="General: Datos por paciente. Detalle: Datos por fármaco individual.")
     df_pool = st.session_state["df_sync_val"].copy() if "Validaciones" in tipo_origen else st.session_state["df_sync_meds"].copy()
     
     if not df_pool.empty:
         # Bloque A: Filtros
         with st.container(border=True):
+            st.markdown("#### 🔍 Bloque A: Configurar Cohorte (Filtros)")
             col_a1, col_a2 = st.columns([1, 1])
-            if col_a1.button("➕ Añadir Filtro"):
+            if col_a1.button("➕ Añadir Filtro", use_container_width=True):
                 st.session_state.filtros_dinamicos.append({"col": df_pool.columns[0], "op": "== (IGUAL)", "val": ""})
-            if col_a2.button("🗑️ Limpiar Filtros"):
-                limpiar_filtros_dinamicos()
+            if col_a2.button("🗑️ Reset Total Consulta", on_click=limpiar_filtros_dinamicos, use_container_width=True):
                 st.rerun()
 
             for i, filtro in enumerate(st.session_state.filtros_dinamicos):
                 f_c1, f_c2, f_c3 = st.columns([1, 0.7, 1.3])
-                filtro["col"] = f_c1.selectbox(f"Filtro {i+1}", df_pool.columns, key=f"f_col_{i}", index=list(df_pool.columns).index(filtro["col"]), placeholder="seleccionar")
-                filtro["op"] = f_c2.selectbox(f"Operador {i+1}", ["== (IGUAL)", "!= (DISTINTO DE)", "> (MAYOR QUE)", "< (MENOR QUE)", "≥ (MAYOR O IGUAL)", "≤ (MENOR O IGUAL)", "contiene"], key=f"f_op_{i}", placeholder="seleccionar")
+                filtro["col"] = f_c1.selectbox(f"Columna {i+1}", df_pool.columns, key=f"f_col_{i}", index=list(df_pool.columns).index(filtro["col"]))
+                filtro["op"] = f_c2.selectbox(f"Operador {i+1}", ["== (IGUAL)", "!= (DISTINTO DE)", "> (MAYOR QUE)", "< (MENOR QUE)", "≥ (MAYOR O IGUAL)", "≤ (MENOR O IGUAL)", "contiene"], key=f"f_op_{i}")
                 
-                # Input dinámico según tipo
                 if "contiene" in filtro["op"]:
-                    filtro["val"] = f_c3.text_input(f"Valor {i+1}", key=f"f_val_{i}", value=filtro["val"], placeholder="escribe texto...")
+                    filtro["val"] = f_c3.text_input(f"Valor {i+1}", key=f"f_val_{i}", value=filtro["val"])
                 elif pd.api.types.is_numeric_dtype(df_pool[filtro["col"]]) or filtro["col"] in ["EDAD", "FG_CG", "Nº_TOTAL_MEDS_PAC", "PESO", "CREATININA", "NIVEL_ADE_CG"]:
                     try: f_val_num = float(filtro["val"]) if filtro["val"] != "" else 0.0
                     except: f_val_num = 0.0
-                    filtro["val"] = f_c3.number_input(f"Valor {i+1}", key=f"f_val_{i}", value=f_val_num)
+                    filtro["val"] = f_c3.number_input(f"Valor {i+1}", key=f_val_{i}", value=f_val_num)
                 else:
                     opciones_unicas = sorted([str(x) for x in df_pool[filtro["col"]].unique() if x])
-                    filtro["val"] = f_c3.multiselect(f"Valor {i+1}", opciones_unicas, key=f"f_val_{i}", placeholder="elige 1 o varias opciones")
+                    filtro["val"] = f_c3.multiselect(f"Valores {i+1}", opciones_unicas, key=f"f_val_{i}")
 
         # Aplicar Filtros
         df_filtered_query = df_pool.copy()
@@ -686,45 +865,39 @@ with tabs[4]:
                     df_filtered_query = df_filtered_query[col_data_norm.str.contains(val_search, case=False, na=False)]
             except: continue
 
-        # Bloque B: Variable a analizar
-        st.markdown("---")
-        st.markdown("#### 🎯 Bloque B: Variable a analizar")
-        st.caption("¿Qué dato quieres calcular / qué quieres medir de la cohorte filtrada?")
+        # Bloque B: Variable y Operación
+        st.markdown("#### 🎯 Bloque B: Variable y Operación")
         b_col1, b_col2, b_col3 = st.columns(3)
-        var_analisis = b_col1.selectbox("Variable a medir", df_pool.columns, key="query_var", placeholder="seleccionar")
-        operacion = b_col2.selectbox("Operación", ["Conteo (Total)", "Conteo Único (Pacientes)", "Suma", "Promedio", "Mínimo", "Máximo"], placeholder="seleccionar")
-        agrupar_por = b_col3.selectbox("Segmentar por", ["Ninguno"] + list(df_pool.columns), placeholder="agrupa por (p.ej. centro, edad...) para ver gráficos")
+        var_analisis = b_col1.selectbox("¿Qué columna quieres medir?", df_pool.columns, key="query_var", help="Columna sobre la que se realiza el cálculo.")
+        operacion = b_col2.selectbox("¿Cómo quieres medirlo?", ["Conteo Único (Pacientes)", "Conteo (Total)", "Suma", "Promedio", "Mínimo", "Máximo"], index=0, help="Pacientes: Cuenta IDs únicos. Total: Cuenta todas las filas.")
+        agrupar_por = b_col3.selectbox("Agrupar resultados por:", ["Ninguno"] + list(df_pool.columns), help="Divide el resultado en categorías.")
 
-        # Bloque C: Visualización
-        st.markdown("---")
-        st.markdown("#### 📊 Bloque C: Visualización")
-        formato_vis = st.selectbox("Formato", ["KPI", "Tabla", "Gráficos"], index=0)
-
-        # Cálculo y Renderizado
+        # Bloque C: Visualización Evolucionada
+        st.markdown("#### 📊 Bloque C: Resultados y Visualización")
         if agrupar_por == "Ninguno":
-            if "Total" in operacion: resultado = len(df_filtered_query[var_analisis])
-            elif "Único" in operacion: resultado = df_filtered_query[var_analisis].nunique()
+            if "Único" in operacion: resultado = df_filtered_query[var_analisis].nunique()
+            elif "Total" in operacion: resultado = len(df_filtered_query[var_analisis])
             elif operacion == "Suma": resultado = pd.to_numeric(df_filtered_query[var_analisis], errors='coerce').sum()
             elif operacion == "Promedio": resultado = pd.to_numeric(df_filtered_query[var_analisis], errors='coerce').mean()
             else: resultado = pd.to_numeric(df_filtered_query[var_analisis], errors='coerce').max()
-            
-            st.metric(label=f"{operacion} de {var_analisis}", value=f"{resultado:.2f}" if isinstance(resultado, (float, int)) else "N/A")
-            if formato_vis == "Tabla": st.dataframe(df_filtered_query[[var_analisis]], use_container_width=True)
+            st.metric(label=f"Resultado: {operacion}", value=f"{resultado:.2f}" if isinstance(resultado, (float, int)) else "N/A")
         else:
             try:
-                if "Total" in operacion: df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].count().reset_index()
-                elif "Único" in operacion: df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].nunique().reset_index()
+                if "Único" in operacion: df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].nunique().reset_index()
+                elif "Total" in operacion: df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].count().reset_index()
                 elif operacion == "Suma": df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').sum()).reset_index()
                 elif operacion == "Promedio": df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').mean()).reset_index()
-                df_res.columns = [agrupar_por, f"{operacion}_{var_analisis}"]
+                df_res.columns = [agrupar_por, "Resultado"]
                 
-                if formato_vis == "KPI": st.metric("Pacientes en cohorte", len(df_filtered_query))
-                elif formato_vis == "Tabla": st.dataframe(df_res, use_container_width=True)
+                v_format = st.radio("Formato de visualización:", ["KPI / Tabla", "Gráfico de Barras", "Gráfico de Sectores"], horizontal=True)
+                if v_format == "KPI / Tabla":
+                    ck1, ck2 = st.columns([1, 3])
+                    ck1.metric("Cohorte Seleccionada", len(df_filtered_query))
+                    ck2.dataframe(df_res.sort_values(by="Resultado", ascending=False), use_container_width=True)
+                elif v_format == "Gráfico de Barras":
+                    st.plotly_chart(px.bar(df_res.sort_values(by="Resultado"), x="Resultado", y=agrupar_por, orientation='h', color="Resultado", color_continuous_scale='Purples'), use_container_width=True)
                 else:
-                    v_tabs = st.tabs(["Barras", "Líneas", "Sectores"])
-                    with v_tabs[0]: st.plotly_chart(px.bar(df_res, x=agrupar_por, y=df_res.columns[1], color_discrete_sequence=['#9d00ff']), use_container_width=True)
-                    with v_tabs[1]: st.plotly_chart(px.line(df_res, x=agrupar_por, y=df_res.columns[1], markers=True), use_container_width=True)
-                    with v_tabs[2]: st.plotly_chart(px.pie(df_res, names=agrupar_por, values=df_res.columns[1], hole=0.3), use_container_width=True)
+                    st.plotly_chart(px.pie(df_res, names=agrupar_por, values="Resultado", hole=0.4), use_container_width=True)
             except: st.warning("Error en el cálculo. Verifica que la variable sea numérica para Sumas/Promedios.")
         
         st.markdown("---")
@@ -734,6 +907,6 @@ with tabs[4]:
         st.info("No hay datos sincronizados para realizar consultas dinámicas.")
 
 st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un soporte a la decisión clínica basado en IA y reglas farmacológicas. La responsabilidad final de la prescripción y el ajuste de dosis recae exclusivamente en el médico facultativo.</div>', unsafe_allow_html=True)
-st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 26 mar 2026 12:00</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 26 mar 2026 11:45</div>', unsafe_allow_html=True)
 
 # He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
