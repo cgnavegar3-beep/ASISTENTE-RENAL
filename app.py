@@ -1,4 +1,4 @@
-# v. 26 mar 2026 09:45 (EVOLUCIÓN: CONSULTA DINÁMICA RENAL - OPERADORES & NUNIQUE)
+# v. 26 mar 2026 10:15 (EVOLUCIÓN: CAPA 0 - NORMALIZACIÓN CRÍTICA)
 
 import streamlit as st
 import pandas as pd
@@ -11,6 +11,7 @@ import os
 import json
 import constants as c 
 import hashlib
+import unicodedata
 
 # --- NUEVAS LIBRERÍAS PARA GOOGLE SHEETS & SERIALIZACIÓN ---
 import gspread
@@ -28,14 +29,14 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                               "Filtrado Glomerular" (cuadro negro con glow morado).
+#                                "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                               - Cuadros negros superiores (ZONA y ACTIVO).
-#                               - Pestañas (Tabs) de navegación.
-#                               - Registro de Paciente: Estructura y función de fila única.
-#                               - Estructura del área de recorte y listado de medicación.
-#                               - Barra dual de validación (VALIDAR / RESET).
-#                               - Aviso legal amarillo inferior (Warning).
+#                                - Cuadros negros superiores (ZONA y ACTIVO).
+#                                - Pestañas (Tabs) de navegación.
+#                                - Registro de Paciente: Estructura y función de fila única.
+#                                - Estructura del área de recorte y listado de medicación.
+#                                - Barra dual de validación (VALIDAR / RESET).
+#                                - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
 #                       "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
@@ -244,6 +245,19 @@ def obtener_glow_class(sintesis_texto):
     elif "⚠️" in sintesis_texto: return "glow-yellow"
     else: return "glow-green"
 
+def normalizar_texto_capa0(texto, quitar_dosis=False):
+    """CAPA 0: Normalización de strings para coherencia en búsqueda y analítica."""
+    if not isinstance(texto, str) or not texto: return str(texto) if texto else ""
+    # 1. Eliminar tildes y normalizar unicode
+    texto = "".join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
+    # 2. Mayúsculas y limpieza de espacios
+    texto = texto.upper().strip()
+    # 3. Quitar dosis (opcional para agrupaciones por principio activo)
+    if quitar_dosis:
+        match = re.search(r'\d', texto)
+        if match: texto = texto[:match.start()].strip()
+    return texto
+
 def procesar_y_limpiar_meds():
     texto = st.session_state.main_meds
     if texto:
@@ -307,7 +321,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 26 mar 2026 09:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 26 mar 2026 10:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS", "🔍 CONSULTA DINÁMICA"])
 
@@ -428,7 +442,11 @@ with tabs[0]:
                     st.session_state.df_val = pd.concat([st.session_state.df_val, pd.DataFrame([pac_row])], ignore_index=True)
                      
                     for m in data["medicamentos"]:
-                        med_nombre = m.get("MEDICAMENTO", "")
+                        # CAPA 0: Normalización al guardar
+                        med_nombre_crudo = m.get("MEDICAMENTO", "")
+                        med_nombre = normalizar_texto_capa0(med_nombre_crudo)
+                        m["MEDICAMENTO"] = med_nombre # Actualizar en dict para persistencia
+                        
                         ya_existe_med = False
                         if not st.session_state.df_meds.empty:
                              ya_existe_med = not st.session_state.df_meds[(st.session_state.df_meds["ID_REGISTRO"] == id_actual) & (st.session_state.df_meds["MEDICAMENTO"] == med_nombre)].empty
@@ -573,16 +591,7 @@ with tabs[3]:
                 if not df_alertas.empty:
                     tipo_graf_top = st.selectbox("Formato Top", ["Barras Horizontales", "Barras Verticales", "Sectores"], key="sel_top", label_visibility="collapsed")
                     
-                    def normalizar_med(nombre):
-                        if not isinstance(nombre, str): return str(nombre)
-                        n = nombre.upper().strip()
-                        repl = {"Á":"A", "É":"E", "Í":"I", "Ó":"O", "Ú":"U"}
-                        for k, v in repl.items(): n = n.replace(k, v)
-                        match = re.search(r'\d', n)
-                        if match: n = n[:match.start()].strip()
-                        return n
-
-                    df_alertas["MED_NORM"] = df_alertas["MEDICAMENTO"].apply(normalizar_med)
+                    df_alertas["MED_NORM"] = df_alertas["MEDICAMENTO"].apply(lambda x: normalizar_texto_capa0(x, quitar_dosis=True))
                     df_top = df_alertas.groupby("MED_NORM").size().reset_index(name='Frecuencia').sort_values(by="Frecuencia", ascending=False)
                     df_top['Rank'] = df_top['Frecuencia'].rank(method='min', ascending=False)
                     df_top_final = df_top[df_top['Rank'] <= 5].sort_values(by="Frecuencia", ascending=False)
@@ -632,20 +641,29 @@ with tabs[4]:
                     opciones_unicas = sorted([str(x) for x in df_pool[filtro["col"]].unique() if x])
                     filtro["val"] = f_c3.multiselect(f"Valores {i+1}", opciones_unicas, key=f"f_val_{i}")
 
-        # Aplicar Filtros (Lógica de Mínimo Cambio con soporte ≥/≤)
+        # Aplicar Filtros (Lógica de Mínimo Cambio con soporte ≥/≤ y CAPA 0)
         df_filtered_query = df_pool.copy()
         for f in st.session_state.filtros_dinamicos:
             try:
                 col_data = df_filtered_query[f["col"]]
+                # CAPA 0: Normalización de búsqueda para "contiene" y "=="
+                if "contiene" in f["op"] or "==" in f["op"]:
+                    val_search = normalizar_texto_capa0(f["val"]) if isinstance(f["val"], str) else f["val"]
+                    col_data_norm = col_data.apply(lambda x: normalizar_texto_capa0(str(x))) if isinstance(f["val"], str) else col_data
+                
                 if "==" in f["op"]:
-                    if isinstance(f["val"], list) and f["val"]: df_filtered_query = df_filtered_query[col_data.astype(str).isin(f["val"])]
-                    elif f["val"] != "": df_filtered_query = df_filtered_query[col_data.astype(str) == str(f["val"])]
+                    if isinstance(f["val"], list) and f["val"]: 
+                        vals_norm = [normalizar_texto_capa0(v) for v in f["val"]]
+                        df_filtered_query = df_filtered_query[col_data.astype(str).apply(normalizar_texto_capa0).isin(vals_norm)]
+                    elif f["val"] != "": 
+                        df_filtered_query = df_filtered_query[col_data_norm == val_search]
                 elif "!=" in f["op"]: df_filtered_query = df_filtered_query[col_data.astype(str) != str(f["val"])]
                 elif ">" in f["op"] and "≥" not in f["op"]: df_filtered_query = df_filtered_query[pd.to_numeric(col_data, errors='coerce') > float(f["val"])]
                 elif "<" in f["op"] and "≤" not in f["op"]: df_filtered_query = df_filtered_query[pd.to_numeric(col_data, errors='coerce') < float(f["val"])]
                 elif "≥" in f["op"]: df_filtered_query = df_filtered_query[pd.to_numeric(col_data, errors='coerce') >= float(f["val"])]
                 elif "≤" in f["op"]: df_filtered_query = df_filtered_query[pd.to_numeric(col_data, errors='coerce') <= float(f["val"])]
-                elif "contiene" in f["op"]: df_filtered_query = df_filtered_query[col_data.astype(str).str.contains(str(f["val"]), case=False, na=False)]
+                elif "contiene" in f["op"]: 
+                    df_filtered_query = df_filtered_query[col_data_norm.str.contains(val_search, case=False, na=False)]
             except: continue
 
         # Bloque B: Análisis
@@ -688,6 +706,6 @@ with tabs[4]:
         st.info("No hay datos sincronizados para realizar consultas dinámicas.")
 
 st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un soporte a la decisión clínica basado en IA y reglas farmacológicas. La responsabilidad final de la prescripción y el ajuste de dosis recae exclusivamente en el médico facultativo.</div>', unsafe_allow_html=True)
-st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 26 mar 2026 09:45</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 26 mar 2026 10:15</div>', unsafe_allow_html=True)
 
-# He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados
+# He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
