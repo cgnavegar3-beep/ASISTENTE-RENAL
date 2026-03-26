@@ -1,4 +1,4 @@
-# v. 26 mar 2026 13:40 (EVOLUCIÓN: NORMALIZACIÓN CRÍTICA & CONSULTA DINÁMICA)
+# v. 26 mar 2026 14:15 (EVOLUCIÓN: NORMALIZACIÓN CRÍTICA & CONSULTA DINÁMICA)
 
 import streamlit as st
 import pandas as pd
@@ -57,38 +57,38 @@ st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_
 
 # --- INICIALIZACIÓN ---
 if "active_model" not in st.session_state:
- st.session_state.active_model = "BUSCANDO..."
+    st.session_state.active_model = "BUSCANDO..."
 if "main_meds" not in st.session_state:
- st.session_state.main_meds = ""
+    st.session_state.main_meds = ""
 if "soip_s" not in st.session_state:
- st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
+    st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
 if "soip_p" not in st.session_state:
- st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
+    st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
 if "analisis_realizado" not in st.session_state:
- st.session_state.analisis_realizado = False
+    st.session_state.analisis_realizado = False
 if "resp_ia" not in st.session_state:
- st.session_state.resp_ia = None
+    st.session_state.resp_ia = None
 
 # EVO: HUELLA DIGITAL PARA BLOQUEO DE API
 if "ultima_huella" not in st.session_state:
- st.session_state.ultima_huella = ""
+    st.session_state.ultima_huella = ""
 
 if "df_val" not in st.session_state:
- st.session_state.df_val = pd.DataFrame()
+    st.session_state.df_val = pd.DataFrame()
 if "df_meds" not in st.session_state:
- st.session_state.df_meds = pd.DataFrame()
+    st.session_state.df_meds = pd.DataFrame()
 
 # --- NUEVOS ESTADOS PARA ESPEJO NUBE ---
 if "df_sync_val" not in st.session_state:
- st.session_state["df_sync_val"] = pd.DataFrame()
+    st.session_state["df_sync_val"] = pd.DataFrame()
 if "df_sync_meds" not in st.session_state:
- st.session_state["df_sync_meds"] = pd.DataFrame()
+    st.session_state["df_sync_meds"] = pd.DataFrame()
 if "df_sync_analisis" not in st.session_state:
- st.session_state["df_sync_analisis"] = pd.DataFrame()
+    st.session_state["df_sync_analisis"] = pd.DataFrame()
 
 # --- ESTADO PARA CHAT DE ANÁLISIS ---
 if "chat_history_graficos" not in st.session_state:
- st.session_state.chat_history_graficos = []
+    st.session_state.chat_history_graficos = []
 
 # --- ESTADOS EVO: CONSULTA DINÁMICA ---
 if "filtros_dinamicos" not in st.session_state:
@@ -96,7 +96,7 @@ if "filtros_dinamicos" not in st.session_state:
 
 for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
     if key not in st.session_state:
-     st.session_state[key] = ""
+        st.session_state[key] = ""
 
 # --- CONFIGURACIÓN IA ---
 try:
@@ -149,7 +149,7 @@ def sincronizar_desde_nube():
         st.error(f"❌ Error al sincronizar: {e}")
 
 if st.session_state["df_sync_val"].empty:
- sincronizar_desde_nube()
+    sincronizar_desde_nube()
 
 # --- FUNCIONES NÚCLEO ---
 def normalizar_texto(texto):
@@ -314,7 +314,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 26 mar 2026 13:40</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 26 mar 2026 14:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS", "🔍 CONSULTA DINÁMICA"])
 
@@ -368,9 +368,9 @@ with tabs[0]:
     st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
     
     faltan_datos = not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s]) or \
-                    (not fg_m and not valor_fg) or \
-                    (st.session_state.fgl_mdrd is None) or \
-                    (st.session_state.fgl_ckd is None)
+                   (not fg_m and not valor_fg) or \
+                   (st.session_state.fgl_mdrd is None) or \
+                   (st.session_state.fgl_ckd is None)
 
     if st.session_state.main_meds and faltan_datos and not st.session_state.analisis_realizado:
         st.markdown('<div class="blink-text">⚠️ FALTAN DATOS EN REGISTRO, CALCULADORA O FGs (MDRD/CKD)</div>', unsafe_allow_html=True)
@@ -708,6 +708,6 @@ with tabs[4]:
         st.info("No hay datos sincronizados para realizar consultas dinámicas.")
 
 st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un soporte a la decisión clínica basado en IA y reglas farmacológicas. La responsabilidad final de la prescripción y el ajuste de dosis recae exclusivamente en el médico facultativo.</div>', unsafe_allow_html=True)
-st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 26 mar 2026 13:40</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 26 mar 2026 14:15</div>', unsafe_allow_html=True)
 
 # He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados
