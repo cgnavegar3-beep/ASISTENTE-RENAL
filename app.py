@@ -1,4 +1,4 @@
-# v. 26 mar 2026 12:45 (EVOLUCIÓN: NORMALIZACIÓN CRÍTICA & CONSULTA DINÁMICA)
+# v. 26 mar 2026 13:40 (EVOLUCIÓN: NORMALIZACIÓN CRÍTICA & CONSULTA DINÁMICA)
 
 import streamlit as st
 import pandas as pd
@@ -29,28 +29,28 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                                "Filtrado Glomerular" (cuadro negro con glow morado).
+#                                 "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                                - Cuadros negros superiores (ZONA y ACTIVO).
-#                                - Pestañas (Tabs) de navegación.
-#                                - Registro de Paciente: Estructura y función de fila única.
-#                                - Estructura del área de recorte y listado de medicación.
-#                                - Barra dual de validación (VALIDAR / RESET).
-#                                - Aviso legal amarillo inferior (Warning).
+#                                 - Cuadros negros superiores (ZONA y ACTIVO).
+#                                 - Pestañas (Tabs) de navegación.
+#                                 - Registro de Paciente: Estructura y función de fila única.
+#                                 - Estructura del área de recorte y listado de medicación.
+#                                 - Barra dual de validación (VALIDAR / RESET).
+#                                 - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                        "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                         "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                          principios antes y después de cada cambio. No se simplifican líneas.
+#                         principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#                        ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#                         ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#                        se considerará pérdida de principios.
+#                         se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#                        sus textos flotantes (placeholders) and los textos predefinidos en las
-#                        secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                         sus textos flotantes (placeholders) and los textos predefinidos en las
+#                         secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                         principio blindado; es informativo y no debe impedir la validación.
+#                          principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -314,7 +314,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 26 mar 2026 12:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 26 mar 2026 13:40</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS", "🔍 CONSULTA DINÁMICA"])
 
@@ -368,9 +368,9 @@ with tabs[0]:
     st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
     
     faltan_datos = not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s]) or \
-                   (not fg_m and not valor_fg) or \
-                   (st.session_state.fgl_mdrd is None) or \
-                   (st.session_state.fgl_ckd is None)
+                    (not fg_m and not valor_fg) or \
+                    (st.session_state.fgl_mdrd is None) or \
+                    (st.session_state.fgl_ckd is None)
 
     if st.session_state.main_meds and faltan_datos and not st.session_state.analisis_realizado:
         st.markdown('<div class="blink-text">⚠️ FALTAN DATOS EN REGISTRO, CALCULADORA O FGs (MDRD/CKD)</div>', unsafe_allow_html=True)
@@ -625,8 +625,8 @@ with tabs[4]:
 
             for i, filtro in enumerate(st.session_state.filtros_dinamicos):
                 f_c1, f_c2, f_c3 = st.columns([1, 0.7, 1.3])
-                filtro["col"] = f_c1.selectbox(f"Columna {i+1}", df_pool.columns, key=f"f_col_{i}", index=list(df_pool.columns).index(filtro["col"]))
-                filtro["op"] = f_c2.selectbox(f"Operador {i+1}", ["== (IGUAL)", "!= (DISTINTO DE)", "> (MAYOR QUE)", "< (MENOR QUE)", "≥ (MAYOR O IGUAL)", "≤ (MENOR O IGUAL)", "contiene"], key=f"f_op_{i}")
+                filtro["col"] = f_c1.selectbox(f"Columna {i+1}", df_pool.columns, key=f"f_col_{i}", index=list(df_pool.columns).index(filtro["col"]), placeholder="seleccionar")
+                filtro["op"] = f_c2.selectbox(f"Operador {i+1}", ["== (IGUAL)", "!= (DISTINTO DE)", "> (MAYOR QUE)", "< (MENOR QUE)", "≥ (MAYOR O IGUAL)", "≤ (MENOR O IGUAL)", "contiene"], key=f"f_op_{i}", placeholder="seleccionar")
                 
                 # Input dinámico según tipo
                 if "contiene" in filtro["op"]:
@@ -637,7 +637,7 @@ with tabs[4]:
                     filtro["val"] = f_c3.number_input(f"Valor {i+1}", key=f"f_val_{i}", value=f_val_num)
                 else:
                     opciones_unicas = sorted([str(x) for x in df_pool[filtro["col"]].unique() if x])
-                    filtro["val"] = f_c3.multiselect(f"Valores {i+1}", opciones_unicas, key=f"f_val_{i}")
+                    filtro["val"] = f_c3.multiselect(f"Valores {i+1}", opciones_unicas, key=f"f_val_{i}", placeholder="elige 1 o varias opciones")
 
         # Aplicar Filtros (Lógica de Mínimo Cambio con soporte ≥/≤ y NORMALIZACIÓN)
         df_filtered_query = df_pool.copy()
@@ -671,9 +671,9 @@ with tabs[4]:
         # Bloque B: Análisis
         st.markdown("#### 🎯 Bloque B: Variable a Analizar")
         b_col1, b_col2, b_col3 = st.columns(3)
-        var_analisis = b_col1.selectbox("Variable", df_pool.columns, key="query_var")
-        operacion = b_col2.selectbox("Operación", ["Conteo (Total)", "Conteo Único (Pacientes)", "Suma", "Promedio", "Mínimo", "Máximo"])
-        agrupar_por = b_col3.selectbox("Agrupar por (Opcional)", ["Ninguno"] + list(df_pool.columns))
+        var_analisis = b_col1.selectbox("Variable", df_pool.columns, key="query_var", placeholder="seleccionar")
+        operacion = b_col2.selectbox("Operación", ["Conteo (Total)", "Conteo Único (Pacientes)", "Suma", "Promedio", "Mínimo", "Máximo"], placeholder="seleccionar")
+        agrupar_por = b_col3.selectbox("Agrupar por (Opcional)", ["Ninguno"] + list(df_pool.columns), placeholder="Agrupar resultados por categorías (opcional).")
 
         # Cálculo
         if agrupar_por == "Ninguno":
@@ -708,6 +708,6 @@ with tabs[4]:
         st.info("No hay datos sincronizados para realizar consultas dinámicas.")
 
 st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un soporte a la decisión clínica basado en IA y reglas farmacológicas. La responsabilidad final de la prescripción y el ajuste de dosis recae exclusivamente en el médico facultativo.</div>', unsafe_allow_html=True)
-st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 26 mar 2026 12:45</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 26 mar 2026 13:40</div>', unsafe_allow_html=True)
 
 # He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados
