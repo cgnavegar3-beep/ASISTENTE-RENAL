@@ -1,4 +1,4 @@
-# v. 26 mar 2026 11:00 (EVOLUCIÓN: NORMALIZACIÓN CRÍTICA & UX CONSULTA)
+# v. 26 mar 2026 12:00 (EVOLUCIÓN: NORMALIZACIÓN CRÍTICA & UX CONSULTA - FIXED)
 
 import streamlit as st
 import pandas as pd
@@ -29,18 +29,18 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                                 "Filtrado Glomerular" (cuadro negro con glow morado).
+#                                   "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                                 - Cuadros negros superiores (ZONA y ACTIVO).
-#                                 - Pestañas (Tabs) de navegación.
-#                                 - Registro de Paciente: Estructura y función de fila única.
-#                                 - Estructura del área de recorte y listado de medicación.
-#                                 - Barra dual de validación (VALIDAR / RESET).
-#                                 - Aviso legal amarillo inferior (Warning).
+#                                   - Cuadros negros superiores (ZONA y ACTIVO).
+#                                   - Pestañas (Tabs) de navegación.
+#                                   - Registro de Paciente: Estructura y función de fila única.
+#                                   - Estructura del área de recorte y listado de medicación.
+#                                   - Barra dual de validación (VALIDAR / RESET).
+#                                   - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                        "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                         "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                           principios antes y después de cada cambio. No se simplifican líneas.
+#                            principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
 #                        ubicarse en la esquina superior izquierda (estilo v. 2.5).
@@ -184,21 +184,20 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
         if id_actual not in ids_existentes:
             fila_dict = df_val_actual[df_val_actual["ID_REGISTRO"] == id_actual].iloc[-1].fillna("").to_dict()
             
-            columnas_ordenadas = [
+            columnas_ordenadas_val = [
                 "FECHA", "CENTRO", "RESIDENCIA", "ID_REGISTRO", "EDAD", "SEXO", "PESO", "CREATININA", "Nº_TOTAL_MEDS_PAC",
                  "FG_CG", "Nº_TOT_AFEC_CG", "Nº_PRECAU_CG", "Nº_AJUSTE_DOS_CG", "Nº_TOXICID_CG", "Nº_CONTRAIND_CG",
                  "FG_MDRD", "Nº_TOT_AFEC_MDRD", "Nº_PRECAU_MDRD", "Nº_AJUSTE_DOS_MDRD", "Nº_TOXICID_MDRD", "Nº_CONTRAIND_MDRD",
-                "FG_CKD", "Nº_TOT_AFEC_CKD", "Nº_PRECAU_CKD", "Nº_AJUSTE_DOS_CKD", "Nº_TOXICID_CKD", "Nº_CONTRAIND_CKD"
+                "FG_CKD", "Nº_TOT_AFEC_CKD", "Nº_PRECAU_CKD", "Nº_AJUSTE_DOS_CKD", "Nº_TOXICID_CKD", "Nº_CONTRAIND_CKD",
+                "Discrepancia", "ACEPTACION MAP", "aceptacion num"
             ]
             
             fila_final = []
-            for col in columnas_ordenadas:
+            for col in columnas_ordenadas_val:
                 val = fila_dict.get(col, "")
                 if hasattr(val, "item"): val = val.item()
                 if isinstance(val, float) and math.isnan(val): val = ""
                 fila_final.append(val)
-            
-            fila_final.extend(["", "", ""])
             ws_val.append_row(fila_final, value_input_option='USER_ENTERED')
 
         ws_meds = doc.worksheet("MEDICAMENTOS")
@@ -206,18 +205,33 @@ def guardar_en_google_sheets(df_val_actual, df_meds_actual):
         df_nube_meds = pd.DataFrame(data_meds_nube)
         meds_a_procesar = df_meds_actual[df_meds_actual["ID_REGISTRO"] == id_actual].fillna("")
         
+        columnas_ordenadas_meds = [
+            "FECHA", "CENTRO", "RESIDENCIA", "ID_REGISTRO", "EDAD", "SEXO", "PESO", "CREATININA", "Nº_TOTAL_MEDS_PAC",
+            "FG_CG", "Nº_TOT_AFEC_CG", "Nº_PRECAU_CG", "Nº_AJUSTE_DOS_CG", "Nº_TOXICID_CG", "Nº_CONTRAIND_CG",
+            "FG_MDRD", "Nº_TOT_AFEC_MDRD", "Nº_PRECAU_MDRD", "Nº_AJUSTE_DOS_MDRD", "Nº_TOXICID_MDRD", "Nº_CONTRAIND_MDRD",
+            "FG_CKD", "Nº_TOT_AFEC_CKD", "Nº_PRECAU_CKD", "Nº_AJUSTE_DOS_CKD", "Nº_TOXICID_CKD", "Nº_CONTRAIND_CKD",
+            "MEDICAMENTO", "GRUPO_TERAPEUTICO", "CAT_RIESGO_CG", "RIESGO_CG", "NIVEL_ADE_CG", 
+            "CAT_RIESGO_MDRD", "RIESGO_MDRD", "NIVEL_ADE_MDRD", "CAT_RIESGO_CKD", "RIESGO_CKD", "NIVEL_ADE_CKD",
+            "ACEPTACION_MEDICO", "ADECUACION_FINAL"
+        ]
+
         filas_nuevas = []
         for _, fila in meds_a_procesar.iterrows():
             ya_existe = False
+            med_nombre = normalizar_texto_capa0(fila.get("MEDICAMENTO", ""))
             if not df_nube_meds.empty:
-                existe = df_nube_meds[(df_nube_meds["ID_REGISTRO"] == id_actual) & (df_nube_meds["MEDICAMENTO"] == fila["MEDICAMENTO"])]
+                existe = df_nube_meds[(df_nube_meds["ID_REGISTRO"] == id_actual) & (df_nube_meds["MEDICAMENTO"] == med_nombre)]
                 if not existe.empty: ya_existe = True
+            
             if not ya_existe:
                 fila_conv = []
-                for v in fila.values.tolist():
+                for col_m in columnas_ordenadas_meds:
+                    v = fila.get(col_m, "")
                     val_conv = v.item() if hasattr(v, "item") else v
+                    if isinstance(val_conv, float) and math.isnan(val_conv): val_conv = ""
                     fila_conv.append(val_conv)
                 filas_nuevas.append(fila_conv)
+        
         if filas_nuevas: 
             ws_meds.append_rows(filas_nuevas, value_input_option='USER_ENTERED')
         
@@ -281,7 +295,6 @@ def reset_meds():
 def limpiar_filtros_dinamicos():
     st.session_state.filtros_dinamicos = []
     st.session_state.query_var = None
-    # Reset de estados de selección de Bloque B/C si existieran
 
 def inject_styles():
     st.markdown("""
@@ -309,7 +322,7 @@ def inject_styles():
     .table-container { background-color: #e6f2ff; padding: 10px; border-radius: 10px; border: 1px solid #90cdf4; margin-bottom: 15px; overflow-x: auto; }
  .clinical-detail-container { background-color: #e6f2ff; color: #1a365d; padding: 15px; border-radius: 10px; border: 1px solid #90cdf4; font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap; }
     .warning-yellow { background-color: #fff9db; color: #856404; padding: 20px; border-radius: 10px; border: 1px solid #f9f9c5; margin-top: 40px; text-align: center; font-size: 0.85rem; line-height: 1.5; }
-  .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
+ .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
     .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
     .fg-special-border { border: 1.5px solid #9d00ff !important; border-radius: 5px; }
     @keyframes blinker { 50% { opacity: 0; } }
@@ -321,7 +334,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 26 mar 2026 11:00</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 26 mar 2026 12:00</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS", "🔍 CONSULTA DINÁMICA"])
 
@@ -375,9 +388,9 @@ with tabs[0]:
     st.button("Procesar medicamentos", on_click=procesar_y_limpiar_meds)
     
     faltan_datos = not all([st.session_state.reg_centro, st.session_state.reg_res, calc_e, calc_p, calc_c, calc_s]) or \
-                   (not fg_m and not valor_fg) or \
-                   (st.session_state.fgl_mdrd is None) or \
-                   (st.session_state.fgl_ckd is None)
+                    (not fg_m and not valor_fg) or \
+                    (st.session_state.fgl_mdrd is None) or \
+                    (st.session_state.fgl_ckd is None)
 
     if st.session_state.main_meds and faltan_datos and not st.session_state.analisis_realizado:
         st.markdown('<div class="blink-text">⚠️ FALTAN DATOS EN REGISTRO, CALCULADORA O FGs (MDRD/CKD)</div>', unsafe_allow_html=True)
@@ -437,7 +450,8 @@ with tabs[0]:
                         "EDAD": calc_e, "SEXO": calc_s, "PESO": calc_p, "CREATININA": calc_c, "Nº_TOTAL_MEDS_PAC": data["paciente"]["N_TOTAL_MEDS_PAC"],
                         "FG_CG": valor_fg, "Nº_TOT_AFEC_CG": data["paciente"]["CG"]["TOT_AFECTADOS"], "Nº_PRECAU_CG": data["paciente"]["CG"]["PRECAUCION"], "Nº_AJUSTE_DOS_CG": data["paciente"]["CG"]["AJUSTE_DOSIS"], "Nº_TOXICID_CG": data["paciente"]["CG"]["TOXICIDAD"], "Nº_CONTRAIND_CG": data["paciente"]["CG"]["CONTRAINDICADOS"],
                         "FG_MDRD": val_mdrd, "Nº_TOT_AFEC_MDRD": data["paciente"]["MDRD"]["TOT_AFECTADOS"], "Nº_PRECAU_MDRD": data["paciente"]["MDRD"]["PRECAUCION"], "Nº_AJUSTE_DOS_MDRD": data["paciente"]["MDRD"]["AJUSTE_DOSIS"], "Nº_TOXICID_MDRD": data["paciente"]["MDRD"]["TOXICIDAD"], "Nº_CONTRAIND_MDRD": data["paciente"]["MDRD"]["CONTRAINDICADOS"],
-                        "FG_CKD": val_ckd, "Nº_TOT_AFEC_CKD": data["paciente"]["CKD"]["TOT_AFECTADOS"], "Nº_PRECAU_CKD": data["paciente"]["CKD"]["PRECAUCION"], "Nº_AJUSTE_DOS_CKD": data["paciente"]["CKD"]["AJUSTE_DOSIS"], "Nº_TOXICID_CKD": data["paciente"]["CKD"]["TOXICIDAD"], "Nº_CONTRAIND_CKD": data["paciente"]["CKD"]["CONTRAINDICADOS"]
+                        "FG_CKD": val_ckd, "Nº_TOT_AFEC_CKD": data["paciente"]["CKD"]["TOT_AFECTADOS"], "Nº_PRECAU_CKD": data["paciente"]["CKD"]["PRECAUCION"], "Nº_AJUSTE_DOS_CKD": data["paciente"]["CKD"]["AJUSTE_DOSIS"], "Nº_TOXICID_CKD": data["paciente"]["CKD"]["TOXICIDAD"], "Nº_CONTRAIND_CKD": data["paciente"]["CKD"]["CONTRAINDICADOS"],
+                        "Discrepancia": "", "ACEPTACION MAP": "", "aceptacion num": ""
                      }
                     st.session_state.df_val = pd.concat([st.session_state.df_val, pd.DataFrame([pac_row])], ignore_index=True)
                      
@@ -562,6 +576,10 @@ with tabs[3]:
             st.markdown("##### Distribución de Riesgos")
             if not df_filtered_meds.empty:
                 df_filtered_meds_riesgo = df_filtered_meds.copy()
+                # EVO: Blindaje ante columna inexistente (KeyError FIX)
+                if "NIVEL_ADE_CG" not in df_filtered_meds_riesgo.columns:
+                    df_filtered_meds_riesgo["NIVEL_ADE_CG"] = 0
+                
                 df_filtered_meds_riesgo["NIVEL_ADE_CG"] = pd.to_numeric(df_filtered_meds_riesgo["NIVEL_ADE_CG"], errors='coerce').fillna(0)
                 df_cat = df_filtered_meds_riesgo.groupby("NIVEL_ADE_CG").size().reset_index(name='count').sort_values(by="count", ascending=False)
                 
@@ -586,6 +604,10 @@ with tabs[3]:
         with g_col2:
             st.markdown("##### Top medicamentos con alertas")
             if not df_filtered_meds.empty:
+                # EVO: Blindaje ante columna inexistente (KeyError FIX)
+                if "NIVEL_ADE_CG" not in df_filtered_meds.columns:
+                    df_filtered_meds["NIVEL_ADE_CG"] = 0
+                
                 df_alertas = df_filtered_meds[pd.to_numeric(df_filtered_meds["NIVEL_ADE_CG"], errors='coerce') > 0].copy()
                 if not df_alertas.empty:
                     tipo_graf_top = st.selectbox("Formato Top", ["Barras Horizontales", "Barras Verticales", "Sectores"], key="sel_top", label_visibility="collapsed")
@@ -712,6 +734,6 @@ with tabs[4]:
         st.info("No hay datos sincronizados para realizar consultas dinámicas.")
 
 st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un soporte a la decisión clínica basado en IA y reglas farmacológicas. La responsabilidad final de la prescripción y el ajuste de dosis recae exclusivamente en el médico facultativo.</div>', unsafe_allow_html=True)
-st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 26 mar 2026 11:00</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 26 mar 2026 12:00</div>', unsafe_allow_html=True)
 
 # He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
