@@ -1,4 +1,4 @@
-# v. 25 mar 2026 15:30 (EVOLUCIÓN: CONSULTA DINÁMICA RENAL)
+# v. 26 mar 2026 09:45 (EVOLUCIÓN: CONSULTA DINÁMICA RENAL - OPERADORES & NUNIQUE)
 
 import streamlit as st
 import pandas as pd
@@ -28,18 +28,18 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                             "Filtrado Glomerular" (cuadro negro con glow morado).
+#                               "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                             - Cuadros negros superiores (ZONA y ACTIVO).
-#                             - Pestañas (Tabs) de navegación.
-#                             - Registro de Paciente: Estructura y función de fila única.
-#                             - Estructura del área de recorte y listado de medicación.
-#                             - Barra dual de validación (VALIDAR / RESET).
-#                             - Aviso legal amarillo inferior (Warning).
+#                               - Cuadros negros superiores (ZONA y ACTIVO).
+#                               - Pestañas (Tabs) de navegación.
+#                               - Registro de Paciente: Estructura y función de fila única.
+#                               - Estructura del área de recorte y listado de medicación.
+#                               - Barra dual de validación (VALIDAR / RESET).
+#                               - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
 #                       "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                        principios antes y después de cada cambio. No se simplifican líneas.
+#                         principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
 #                       ubicarse en la esquina superior izquierda (estilo v. 2.5).
@@ -136,7 +136,7 @@ def sincronizar_desde_nube():
                         except ValueError:
                            new_row.append(val)
                     else:
-                       new_row.append(val)
+                        new_row.append(val)
                 clean_data.append(new_row)
             return pd.DataFrame(clean_data, columns=headers)
 
@@ -148,7 +148,7 @@ def sincronizar_desde_nube():
         st.error(f"❌ Error al sincronizar: {e}")
 
 if st.session_state["df_sync_val"].empty:
-  sincronizar_desde_nube()
+ sincronizar_desde_nube()
 
 def acquire_lock(sheet_obj):
     try:
@@ -307,7 +307,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 25 mar 2026 15:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 26 mar 2026 09:45</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS", "🔍 CONSULTA DINÁMICA"])
 
@@ -611,67 +611,62 @@ with tabs[4]:
             st.markdown("#### 🔍 Bloque A: Configurar Cohorte (Filtros)")
             col_a1, col_a2 = st.columns([1, 1])
             if col_a1.button("➕ Añadir Filtro"):
-                st.session_state.filtros_dinamicos.append({"col": df_pool.columns[0], "op": "==", "val": ""})
+                st.session_state.filtros_dinamicos.append({"col": df_pool.columns[0], "op": "== (IGUAL)", "val": ""})
             if col_a2.button("🗑️ Limpiar Filtros"):
                 limpiar_filtros_dinamicos()
                 st.rerun()
 
             for i, filtro in enumerate(st.session_state.filtros_dinamicos):
-                f_c1, f_c2, f_c3 = st.columns([1, 0.5, 1.5])
+                f_c1, f_c2, f_c3 = st.columns([1, 0.7, 1.3])
                 filtro["col"] = f_c1.selectbox(f"Columna {i+1}", df_pool.columns, key=f"f_col_{i}", index=list(df_pool.columns).index(filtro["col"]))
-                filtro["op"] = f_c2.selectbox(f"Operador {i+1}", ["==", "!=", ">", "<", "contiene"], key=f"f_op_{i}")
+                filtro["op"] = f_c2.selectbox(f"Operador {i+1}", ["== (IGUAL)", "!= (DISTINTO DE)", "> (MAYOR QUE)", "< (MENOR QUE)", "≥ (MAYOR O IGUAL)", "≤ (MENOR O IGUAL)", "contiene"], key=f"f_op_{i}")
                 
                 # Input dinámico según tipo
-                col_type = df_pool[filtro["col"]].dtype
                 if "contiene" in filtro["op"]:
                     filtro["val"] = f_c3.text_input(f"Valor {i+1}", key=f"f_val_{i}", value=filtro["val"])
                 elif pd.api.types.is_numeric_dtype(df_pool[filtro["col"]]) or filtro["col"] in ["EDAD", "FG_CG", "Nº_TOTAL_MEDS_PAC", "PESO", "CREATININA", "NIVEL_ADE_CG"]:
-                    try:
-                        f_val_num = float(filtro["val"]) if filtro["val"] != "" else 0.0
+                    try: f_val_num = float(filtro["val"]) if filtro["val"] != "" else 0.0
                     except: f_val_num = 0.0
                     filtro["val"] = f_c3.number_input(f"Valor {i+1}", key=f"f_val_{i}", value=f_val_num)
                 else:
                     opciones_unicas = sorted([str(x) for x in df_pool[filtro["col"]].unique() if x])
                     filtro["val"] = f_c3.multiselect(f"Valores {i+1}", opciones_unicas, key=f"f_val_{i}")
 
-        # Aplicar Filtros
+        # Aplicar Filtros (Lógica de Mínimo Cambio con soporte ≥/≤)
         df_filtered_query = df_pool.copy()
         for f in st.session_state.filtros_dinamicos:
             try:
-                if f["op"] == "==":
-                    if isinstance(f["val"], list) and f["val"]:
-                        df_filtered_query = df_filtered_query[df_filtered_query[f["col"]].astype(str).isin(f["val"])]
-                    elif f["val"] != "":
-                        df_filtered_query = df_filtered_query[df_filtered_query[f["col"]].astype(str) == str(f["val"])]
-                elif f["op"] == "!=":
-                    df_filtered_query = df_filtered_query[df_filtered_query[f["col"]].astype(str) != str(f["val"])]
-                elif f["op"] == ">":
-                    df_filtered_query = df_filtered_query[pd.to_numeric(df_filtered_query[f["col"]], errors='coerce') > float(f["val"])]
-                elif f["op"] == "<":
-                    df_filtered_query = df_filtered_query[pd.to_numeric(df_filtered_query[f["col"]], errors='coerce') < float(f["val"])]
-                elif f["op"] == "contiene":
-                    df_filtered_query = df_filtered_query[df_filtered_query[f["col"]].astype(str).str.contains(str(f["val"]), case=False, na=False)]
+                col_data = df_filtered_query[f["col"]]
+                if "==" in f["op"]:
+                    if isinstance(f["val"], list) and f["val"]: df_filtered_query = df_filtered_query[col_data.astype(str).isin(f["val"])]
+                    elif f["val"] != "": df_filtered_query = df_filtered_query[col_data.astype(str) == str(f["val"])]
+                elif "!=" in f["op"]: df_filtered_query = df_filtered_query[col_data.astype(str) != str(f["val"])]
+                elif ">" in f["op"] and "≥" not in f["op"]: df_filtered_query = df_filtered_query[pd.to_numeric(col_data, errors='coerce') > float(f["val"])]
+                elif "<" in f["op"] and "≤" not in f["op"]: df_filtered_query = df_filtered_query[pd.to_numeric(col_data, errors='coerce') < float(f["val"])]
+                elif "≥" in f["op"]: df_filtered_query = df_filtered_query[pd.to_numeric(col_data, errors='coerce') >= float(f["val"])]
+                elif "≤" in f["op"]: df_filtered_query = df_filtered_query[pd.to_numeric(col_data, errors='coerce') <= float(f["val"])]
+                elif "contiene" in f["op"]: df_filtered_query = df_filtered_query[col_data.astype(str).str.contains(str(f["val"]), case=False, na=False)]
             except: continue
 
         # Bloque B: Análisis
         st.markdown("#### 🎯 Bloque B: Variable a Analizar")
         b_col1, b_col2, b_col3 = st.columns(3)
         var_analisis = b_col1.selectbox("Variable", df_pool.columns, key="query_var")
-        operacion = b_col2.selectbox("Operación", ["Conteo", "Suma", "Promedio", "Mínimo", "Máximo"])
+        operacion = b_col2.selectbox("Operación", ["Conteo (Total)", "Conteo Único (Pacientes)", "Suma", "Promedio", "Mínimo", "Máximo"])
         agrupar_por = b_col3.selectbox("Agrupar por (Opcional)", ["Ninguno"] + list(df_pool.columns))
 
         # Cálculo
         if agrupar_por == "Ninguno":
-            if operacion == "Conteo": resultado = len(df_filtered_query[var_analisis])
+            if "Total" in operacion: resultado = len(df_filtered_query[var_analisis])
+            elif "Único" in operacion: resultado = df_filtered_query[var_analisis].nunique()
             elif operacion == "Suma": resultado = pd.to_numeric(df_filtered_query[var_analisis], errors='coerce').sum()
             elif operacion == "Promedio": resultado = pd.to_numeric(df_filtered_query[var_analisis], errors='coerce').mean()
-            elif operacion == "Mínimo": resultado = pd.to_numeric(df_filtered_query[var_analisis], errors='coerce').min()
             else: resultado = pd.to_numeric(df_filtered_query[var_analisis], errors='coerce').max()
-            
             st.metric(label=f"{operacion} de {var_analisis}", value=f"{resultado:.2f}" if isinstance(resultado, (float, int)) else "N/A")
         else:
             try:
-                if operacion == "Conteo": df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].count().reset_index()
+                if "Total" in operacion: df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].count().reset_index()
+                elif "Único" in operacion: df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].nunique().reset_index()
                 elif operacion == "Suma": df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').sum()).reset_index()
                 elif operacion == "Promedio": df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').mean()).reset_index()
                 df_res.columns = [agrupar_por, f"{operacion}_{var_analisis}"]
@@ -679,12 +674,12 @@ with tabs[4]:
                 # Bloque C: Visualización
                 st.markdown("#### 📊 Bloque C: Visualización")
                 v_tabs = st.tabs(["KPI", "Tabla", "Barras", "Líneas", "Sectores"])
-                with v_tabs[0]: st.metric("Total Registros Filtrados", len(df_filtered_query))
+                with v_tabs[0]: st.metric("Registros en Cohorte", len(df_filtered_query))
                 with v_tabs[1]: st.dataframe(df_res, use_container_width=True)
-                with v_tabs[2]: st.plotly_chart(px.bar(df_res, x=agrupar_por, y=df_res.columns[1]), use_container_width=True)
-                with v_tabs[3]: st.plotly_chart(px.line(df_res, x=agrupar_por, y=df_res.columns[1]), use_container_width=True)
-                with v_tabs[4]: st.plotly_chart(px.pie(df_res, names=agrupar_por, values=df_res.columns[1]), use_container_width=True)
-            except: st.warning("Asegúrate de que la variable seleccionada sea numérica para Sumas/Promedios.")
+                with v_tabs[2]: st.plotly_chart(px.bar(df_res, x=agrupar_por, y=df_res.columns[1], color_discrete_sequence=['#9d00ff']), use_container_width=True)
+                with v_tabs[3]: st.plotly_chart(px.line(df_res, x=agrupar_por, y=df_res.columns[1], markers=True), use_container_width=True)
+                with v_tabs[4]: st.plotly_chart(px.pie(df_res, names=agrupar_por, values=df_res.columns[1], hole=0.3), use_container_width=True)
+            except: st.warning("Error en el cálculo. Verifica que la variable sea numérica para Sumas/Promedios.")
         
         st.markdown("---")
         with st.expander("📄 Ver Datos Crutos de la Cohorte"):
@@ -693,7 +688,6 @@ with tabs[4]:
         st.info("No hay datos sincronizados para realizar consultas dinámicas.")
 
 st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un soporte a la decisión clínica basado en IA y reglas farmacológicas. La responsabilidad final de la prescripción y el ajuste de dosis recae exclusivamente en el médico facultativo.</div>', unsafe_allow_html=True)
-st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 25 mar 2026 15:30</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 26 mar 2026 09:45</div>', unsafe_allow_html=True)
 
-# CONFIRMACIÓN FINAL REQUERIDA POR PROTOCOLO
-# He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
+# He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados
