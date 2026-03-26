@@ -1,4 +1,4 @@
-# v. 26 mar 2026 10:15 (EVOLUCIÓN: CAPA 0 - NORMALIZACIÓN CRÍTICA)
+# v. 26 mar 2026 11:00 (EVOLUCIÓN: NORMALIZACIÓN CRÍTICA & UX CONSULTA)
 
 import streamlit as st
 import pandas as pd
@@ -29,28 +29,28 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                                "Filtrado Glomerular" (cuadro negro con glow morado).
+#                                 "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                                - Cuadros negros superiores (ZONA y ACTIVO).
-#                                - Pestañas (Tabs) de navegación.
-#                                - Registro de Paciente: Estructura y función de fila única.
-#                                - Estructura del área de recorte y listado de medicación.
-#                                - Barra dual de validación (VALIDAR / RESET).
-#                                - Aviso legal amarillo inferior (Warning).
+#                                 - Cuadros negros superiores (ZONA y ACTIVO).
+#                                 - Pestañas (Tabs) de navegación.
+#                                 - Registro de Paciente: Estructura y función de fila única.
+#                                 - Estructura del área de recorte y listado de medicación.
+#                                 - Barra dual de validación (VALIDAR / RESET).
+#                                 - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                       "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                        "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                         principios antes y después de cada cambio. No se simplifican líneas.
+#                           principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#                       ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#                        ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#                       se considerará pérdida de principios.
+#                        se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#                       sus textos flotantes (placeholders) and los textos predefinidos en las
-#                       secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                        sus textos flotantes (placeholders) and los textos predefinidos en las
+#                        secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                        principio blindado; es informativo y no debe impedir la validación.
+#                         principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -93,6 +93,8 @@ if "chat_history_graficos" not in st.session_state:
 # --- ESTADOS EVO: CONSULTA DINÁMICA ---
 if "filtros_dinamicos" not in st.session_state:
     st.session_state.filtros_dinamicos = []
+if "query_var" not in st.session_state:
+    st.session_state.query_var = None
 
 for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
     if key not in st.session_state:
@@ -246,13 +248,9 @@ def obtener_glow_class(sintesis_texto):
     else: return "glow-green"
 
 def normalizar_texto_capa0(texto, quitar_dosis=False):
-    """CAPA 0: Normalización de strings para coherencia en búsqueda y analítica."""
     if not isinstance(texto, str) or not texto: return str(texto) if texto else ""
-    # 1. Eliminar tildes y normalizar unicode
     texto = "".join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
-    # 2. Mayúsculas y limpieza de espacios
     texto = texto.upper().strip()
-    # 3. Quitar dosis (opcional para agrupaciones por principio activo)
     if quitar_dosis:
         match = re.search(r'\d', texto)
         if match: texto = texto[:match.start()].strip()
@@ -282,6 +280,8 @@ def reset_meds():
 # --- FUNCIONES EVO: CONSULTA DINÁMICA ---
 def limpiar_filtros_dinamicos():
     st.session_state.filtros_dinamicos = []
+    st.session_state.query_var = None
+    # Reset de estados de selección de Bloque B/C si existieran
 
 def inject_styles():
     st.markdown("""
@@ -321,7 +321,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 26 mar 2026 10:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 26 mar 2026 11:00</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS", "🔍 CONSULTA DINÁMICA"])
 
@@ -442,10 +442,9 @@ with tabs[0]:
                     st.session_state.df_val = pd.concat([st.session_state.df_val, pd.DataFrame([pac_row])], ignore_index=True)
                      
                     for m in data["medicamentos"]:
-                        # CAPA 0: Normalización al guardar
                         med_nombre_crudo = m.get("MEDICAMENTO", "")
                         med_nombre = normalizar_texto_capa0(med_nombre_crudo)
-                        m["MEDICAMENTO"] = med_nombre # Actualizar en dict para persistencia
+                        m["MEDICAMENTO"] = med_nombre
                         
                         ya_existe_med = False
                         if not st.session_state.df_meds.empty:
@@ -608,7 +607,8 @@ with tabs[3]:
                     st.plotly_chart(fig_top, use_container_width=True)
 
 with tabs[4]:
-    st.markdown("### 🔍 Consulta Dinámica Renal")
+    st.markdown("### 🔍 Bloque A – Configurar Cohorte (Filtros)")
+    st.caption("¿Qué datos quiero analizar? Condiciones o filtros de lo que quiero medir.")
     
     # Origen de datos
     tipo_origen = st.radio("Seleccionar origen de datos:", ["Validaciones (General)", "Medicamentos (Detalle)"], horizontal=True)
@@ -617,7 +617,6 @@ with tabs[4]:
     if not df_pool.empty:
         # Bloque A: Filtros
         with st.container(border=True):
-            st.markdown("#### 🔍 Bloque A: Configurar Cohorte (Filtros)")
             col_a1, col_a2 = st.columns([1, 1])
             if col_a1.button("➕ Añadir Filtro"):
                 st.session_state.filtros_dinamicos.append({"col": df_pool.columns[0], "op": "== (IGUAL)", "val": ""})
@@ -627,26 +626,25 @@ with tabs[4]:
 
             for i, filtro in enumerate(st.session_state.filtros_dinamicos):
                 f_c1, f_c2, f_c3 = st.columns([1, 0.7, 1.3])
-                filtro["col"] = f_c1.selectbox(f"Columna {i+1}", df_pool.columns, key=f"f_col_{i}", index=list(df_pool.columns).index(filtro["col"]))
-                filtro["op"] = f_c2.selectbox(f"Operador {i+1}", ["== (IGUAL)", "!= (DISTINTO DE)", "> (MAYOR QUE)", "< (MENOR QUE)", "≥ (MAYOR O IGUAL)", "≤ (MENOR O IGUAL)", "contiene"], key=f"f_op_{i}")
+                filtro["col"] = f_c1.selectbox(f"Filtro {i+1}", df_pool.columns, key=f"f_col_{i}", index=list(df_pool.columns).index(filtro["col"]), placeholder="seleccionar")
+                filtro["op"] = f_c2.selectbox(f"Operador {i+1}", ["== (IGUAL)", "!= (DISTINTO DE)", "> (MAYOR QUE)", "< (MENOR QUE)", "≥ (MAYOR O IGUAL)", "≤ (MENOR O IGUAL)", "contiene"], key=f"f_op_{i}", placeholder="seleccionar")
                 
                 # Input dinámico según tipo
                 if "contiene" in filtro["op"]:
-                    filtro["val"] = f_c3.text_input(f"Valor {i+1}", key=f"f_val_{i}", value=filtro["val"])
+                    filtro["val"] = f_c3.text_input(f"Valor {i+1}", key=f"f_val_{i}", value=filtro["val"], placeholder="escribe texto...")
                 elif pd.api.types.is_numeric_dtype(df_pool[filtro["col"]]) or filtro["col"] in ["EDAD", "FG_CG", "Nº_TOTAL_MEDS_PAC", "PESO", "CREATININA", "NIVEL_ADE_CG"]:
                     try: f_val_num = float(filtro["val"]) if filtro["val"] != "" else 0.0
                     except: f_val_num = 0.0
                     filtro["val"] = f_c3.number_input(f"Valor {i+1}", key=f"f_val_{i}", value=f_val_num)
                 else:
                     opciones_unicas = sorted([str(x) for x in df_pool[filtro["col"]].unique() if x])
-                    filtro["val"] = f_c3.multiselect(f"Valores {i+1}", opciones_unicas, key=f"f_val_{i}")
+                    filtro["val"] = f_c3.multiselect(f"Valor {i+1}", opciones_unicas, key=f"f_val_{i}", placeholder="elige 1 o varias opciones")
 
-        # Aplicar Filtros (Lógica de Mínimo Cambio con soporte ≥/≤ y CAPA 0)
+        # Aplicar Filtros
         df_filtered_query = df_pool.copy()
         for f in st.session_state.filtros_dinamicos:
             try:
                 col_data = df_filtered_query[f["col"]]
-                # CAPA 0: Normalización de búsqueda para "contiene" y "=="
                 if "contiene" in f["op"] or "==" in f["op"]:
                     val_search = normalizar_texto_capa0(f["val"]) if isinstance(f["val"], str) else f["val"]
                     col_data_norm = col_data.apply(lambda x: normalizar_texto_capa0(str(x))) if isinstance(f["val"], str) else col_data
@@ -666,21 +664,30 @@ with tabs[4]:
                     df_filtered_query = df_filtered_query[col_data_norm.str.contains(val_search, case=False, na=False)]
             except: continue
 
-        # Bloque B: Análisis
-        st.markdown("#### 🎯 Bloque B: Variable a Analizar")
+        # Bloque B: Variable a analizar
+        st.markdown("---")
+        st.markdown("#### 🎯 Bloque B: Variable a analizar")
+        st.caption("¿Qué dato quieres calcular / qué quieres medir de la cohorte filtrada?")
         b_col1, b_col2, b_col3 = st.columns(3)
-        var_analisis = b_col1.selectbox("Variable", df_pool.columns, key="query_var")
-        operacion = b_col2.selectbox("Operación", ["Conteo (Total)", "Conteo Único (Pacientes)", "Suma", "Promedio", "Mínimo", "Máximo"])
-        agrupar_por = b_col3.selectbox("Agrupar por (Opcional)", ["Ninguno"] + list(df_pool.columns))
+        var_analisis = b_col1.selectbox("Variable a medir", df_pool.columns, key="query_var", placeholder="seleccionar")
+        operacion = b_col2.selectbox("Operación", ["Conteo (Total)", "Conteo Único (Pacientes)", "Suma", "Promedio", "Mínimo", "Máximo"], placeholder="seleccionar")
+        agrupar_por = b_col3.selectbox("Segmentar por", ["Ninguno"] + list(df_pool.columns), placeholder="agrupa por (p.ej. centro, edad...) para ver gráficos")
 
-        # Cálculo
+        # Bloque C: Visualización
+        st.markdown("---")
+        st.markdown("#### 📊 Bloque C: Visualización")
+        formato_vis = st.selectbox("Formato", ["KPI", "Tabla", "Gráficos"], index=0)
+
+        # Cálculo y Renderizado
         if agrupar_por == "Ninguno":
             if "Total" in operacion: resultado = len(df_filtered_query[var_analisis])
             elif "Único" in operacion: resultado = df_filtered_query[var_analisis].nunique()
             elif operacion == "Suma": resultado = pd.to_numeric(df_filtered_query[var_analisis], errors='coerce').sum()
             elif operacion == "Promedio": resultado = pd.to_numeric(df_filtered_query[var_analisis], errors='coerce').mean()
             else: resultado = pd.to_numeric(df_filtered_query[var_analisis], errors='coerce').max()
+            
             st.metric(label=f"{operacion} de {var_analisis}", value=f"{resultado:.2f}" if isinstance(resultado, (float, int)) else "N/A")
+            if formato_vis == "Tabla": st.dataframe(df_filtered_query[[var_analisis]], use_container_width=True)
         else:
             try:
                 if "Total" in operacion: df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].count().reset_index()
@@ -689,14 +696,13 @@ with tabs[4]:
                 elif operacion == "Promedio": df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').mean()).reset_index()
                 df_res.columns = [agrupar_por, f"{operacion}_{var_analisis}"]
                 
-                # Bloque C: Visualización
-                st.markdown("#### 📊 Bloque C: Visualización")
-                v_tabs = st.tabs(["KPI", "Tabla", "Barras", "Líneas", "Sectores"])
-                with v_tabs[0]: st.metric("Registros en Cohorte", len(df_filtered_query))
-                with v_tabs[1]: st.dataframe(df_res, use_container_width=True)
-                with v_tabs[2]: st.plotly_chart(px.bar(df_res, x=agrupar_por, y=df_res.columns[1], color_discrete_sequence=['#9d00ff']), use_container_width=True)
-                with v_tabs[3]: st.plotly_chart(px.line(df_res, x=agrupar_por, y=df_res.columns[1], markers=True), use_container_width=True)
-                with v_tabs[4]: st.plotly_chart(px.pie(df_res, names=agrupar_por, values=df_res.columns[1], hole=0.3), use_container_width=True)
+                if formato_vis == "KPI": st.metric("Pacientes en cohorte", len(df_filtered_query))
+                elif formato_vis == "Tabla": st.dataframe(df_res, use_container_width=True)
+                else:
+                    v_tabs = st.tabs(["Barras", "Líneas", "Sectores"])
+                    with v_tabs[0]: st.plotly_chart(px.bar(df_res, x=agrupar_por, y=df_res.columns[1], color_discrete_sequence=['#9d00ff']), use_container_width=True)
+                    with v_tabs[1]: st.plotly_chart(px.line(df_res, x=agrupar_por, y=df_res.columns[1], markers=True), use_container_width=True)
+                    with v_tabs[2]: st.plotly_chart(px.pie(df_res, names=agrupar_por, values=df_res.columns[1], hole=0.3), use_container_width=True)
             except: st.warning("Error en el cálculo. Verifica que la variable sea numérica para Sumas/Promedios.")
         
         st.markdown("---")
@@ -706,6 +712,6 @@ with tabs[4]:
         st.info("No hay datos sincronizados para realizar consultas dinámicas.")
 
 st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un soporte a la decisión clínica basado en IA y reglas farmacológicas. La responsabilidad final de la prescripción y el ajuste de dosis recae exclusivamente en el médico facultativo.</div>', unsafe_allow_html=True)
-st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 26 mar 2026 10:15</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 26 mar 2026 11:00</div>', unsafe_allow_html=True)
 
 # He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
