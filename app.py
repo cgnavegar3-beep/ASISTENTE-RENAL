@@ -1,4 +1,4 @@
-# v. 26 mar 2026 17:52 ( TEXTO FLOTANTE)
+# v. 26 mar 2026 17:54 (EVOLUCIÓN: NORMALIZACIÓN CRÍTICA & CONSULTA DINÁMICA)
 
 import streamlit as st
 import pandas as pd
