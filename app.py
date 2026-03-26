@@ -1,4 +1,4 @@
-# v. 26 mar 2026 10:45 (EVOLUCIÓN: CAPA 0 - REFINAMIENTO DE NORMALIZACIÓN)
+# v. 26 mar 2026 10:15 (EVOLUCIÓN: CAPA 0 - NORMALIZACIÓN CRÍTICA)
 
 import streamlit as st
 import pandas as pd
@@ -252,10 +252,9 @@ def normalizar_texto_capa0(texto, quitar_dosis=False):
     texto = "".join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
     # 2. Mayúsculas y limpieza de espacios
     texto = texto.upper().strip()
-    # 3. Quitar dosis (Refinado: Busca números seguidos de unidades comunes)
+    # 3. Quitar dosis (opcional para agrupaciones por principio activo)
     if quitar_dosis:
-        # Busca el primer número que parezca una dosis o unidad (mg, g, ml, microgramos, etc.)
-        match = re.search(r'\s\d+.*$', texto)
+        match = re.search(r'\d', texto)
         if match: texto = texto[:match.start()].strip()
     return texto
 
@@ -322,7 +321,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 26 mar 2026 10:45</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 26 mar 2026 10:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS", "🔍 CONSULTA DINÁMICA"])
 
@@ -443,10 +442,10 @@ with tabs[0]:
                     st.session_state.df_val = pd.concat([st.session_state.df_val, pd.DataFrame([pac_row])], ignore_index=True)
                      
                     for m in data["medicamentos"]:
-                        # CAPA 0: Normalización al guardar (Sin dosis para agrupamiento)
+                        # CAPA 0: Normalización al guardar
                         med_nombre_crudo = m.get("MEDICAMENTO", "")
-                        med_nombre = normalizar_texto_capa0(med_nombre_crudo, quitar_dosis=True)
-                        m["MEDICAMENTO"] = med_nombre 
+                        med_nombre = normalizar_texto_capa0(med_nombre_crudo)
+                        m["MEDICAMENTO"] = med_nombre # Actualizar en dict para persistencia
                         
                         ya_existe_med = False
                         if not st.session_state.df_meds.empty:
@@ -707,6 +706,6 @@ with tabs[4]:
         st.info("No hay datos sincronizados para realizar consultas dinámicas.")
 
 st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un soporte a la decisión clínica basado en IA y reglas farmacológicas. La responsabilidad final de la prescripción y el ajuste de dosis recae exclusivamente en el médico facultativo.</div>', unsafe_allow_html=True)
-st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 26 mar 2026 10:45</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 26 mar 2026 10:15</div>', unsafe_allow_html=True)
 
 # He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
