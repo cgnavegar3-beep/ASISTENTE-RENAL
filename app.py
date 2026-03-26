@@ -3,7 +3,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import genai
+import google.generativeai as genai
 import gspread
 from google.oauth2.service_account import Credentials
 import os
