@@ -1,5 +1,3 @@
-# BLOQUE C:FORMATO DE SALIDA BIEN
-
 import streamlit as st
 import pandas as pd
 import io
@@ -38,17 +36,17 @@ import plotly.graph_objects as go
 #                                   - Barra dual de validación (VALIDAR / RESET).
 #                                   - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                         "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                          "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                         原则 antes y después de cada cambio. No se simplifican líneas.
+#                          原则 antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#                         ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#                          ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#                         se considerará pérdida de principios.
+#                          se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#                         sus textos flotantes (placeholders) and los textos predefinidos en las
-#                         secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                          sus textos flotantes (placeholders) and los textos predefinidos en las
+#                          secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
 #                          principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
@@ -561,7 +559,7 @@ with tabs[4]:
                 filtro["op"] = f_c2.selectbox(f"Operador {i+1}", ["== (IGUAL)", "!= (DISTINTO DE)", "> (MAYOR QUE)", "< (MENOR QUE)", "≥ (MAYOR O IGUAL)", "≤ (MENOR O IGUAL)", "contiene"], key=f"f_op_{fid}")
                 if "contiene" in filtro["op"]:
                     filtro["val"] = f_c3.text_input(f"Valor {i+1}", key=f"f_val_{fid}", value=filtro["val"])
-                elif pd.api.types.is_numeric_dtype(df_pool[filtro["col"]]) or filtro["col"] in ["EDAD", "FG_CG", "Nº_TOTAL_MEDS_PAC", "PESO", "CREATININA", "NIVEL_ADE_CG"]:
+                elif pd.api.types.is_numeric_dtype(df_pool[filtro["col"]]) or filtro["col"] in ["EDAD", "FG_CG", "Nº_TOTAL_MEDS_PAC", "PESO", "CREATININA", "NIVEL_ADE_CG", "Nº_TOT_AFEC_CG"]:
                     try: f_val_num = float(filtro["val"]) if filtro["val"] != "" else 0.0
                     except: f_val_num = 0.0
                     filtro["val"] = f_c3.number_input(f"Valor {i+1}", key=f"f_val_{fid}", value=f_val_num)
@@ -614,7 +612,7 @@ with tabs[4]:
                     elif operacion == "Promedio": df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').mean()).reset_index()
                     df_res.columns = [agrupar_por, f"{operacion}_{var_analisis}"]
                     st.markdown("#### 📊 Bloque C-Visualización", unsafe_allow_html=True)
-                    formato_salida = st.radio("Formato:", ["KPI", "LISTAR", "TABLA", "BARRAS H", "BARRAS V", "SECTORES"], horizontal=True)
+                    formato_salida = st.radio("Formato:", ["KPI", "LISTAR", "TABLA", "BARRAS H", "BARRAS V", "SECTORES", "HISTOGRAMA"], horizontal=True)
                     if formato_salida == "KPI":
                         st.metric("Registros en Cohorte", len(df_filtered_query))
                     elif formato_salida == "LISTAR":
@@ -635,6 +633,14 @@ with tabs[4]:
                     elif formato_salida == "SECTORES":
                         fig = px.pie(df_res, names=agrupar_por, values=df_res.columns[1], hole=0.3)
                         st.plotly_chart(fig, use_container_width=True)
+                    elif formato_salida == "HISTOGRAMA":
+                        vars_hist = ["EDAD", "FG_CG", "Nº_TOTAL_MEDS_PAC", "Nº_TOT_AFEC_CG", "FG_MDRD", "FG_CKD"]
+                        if var_analisis in vars_hist:
+                            fig = px.histogram(df_filtered_query, x=var_analisis, color_discrete_sequence=['#9d00ff'], marginal="box")
+                            fig.update_layout(bargap=0.1)
+                            st.plotly_chart(fig, use_container_width=True)
+                        else:
+                            st.warning("El histograma solo está disponible para variables numéricas clínicas (Edad, FG, Medicamentos, Alertas).")
                 except: st.warning("Error en el cálculo. Verifica que la variable sea numérica para Sumas/Promedios.")
         st.markdown("---")
         with st.expander("📄 Ver Datos Crutos de la Cohorte"):
