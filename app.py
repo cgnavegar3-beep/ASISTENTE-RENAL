@@ -136,7 +136,7 @@ def sincronizar_desde_nube():
         st.error(f"❌ Error al sincronizar: {e}")
 
 if st.session_state["df_sync_val"].empty:
-    sinconizar_desde_nube()
+    sincronizar_desde_nube()
 
 def acquire_lock(sheet_obj):
     try:
