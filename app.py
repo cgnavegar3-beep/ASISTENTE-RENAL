@@ -1,4 +1,4 @@
-#v. 27 mar 2026 10:55 FORMATO SALIDA
+# BLOQUE C:FORMATO DE SALIDA BIEN
 
 import streamlit as st
 import pandas as pd
@@ -40,7 +40,7 @@ import plotly.graph_objects as go
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
 #                         "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                         principios antes y después de cada cambio. No se simplifican líneas.
+#                         原则 antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
 #                         ubicarse en la esquina superior izquierda (estilo v. 2.5).
@@ -358,7 +358,6 @@ with tabs[0]:
                 st.session_state.analisis_realizado = True
             else:
                 with st.spinner("Analizando..."):
-                    # Se asume que c.PROMPT_AFR_V10 está definido en constants.py
                     import constants as c
                     prompt_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
                     st.session_state.resp_ia = llamar_ia_en_cascada(prompt_final)
@@ -615,7 +614,7 @@ with tabs[4]:
                     elif operacion == "Promedio": df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').mean()).reset_index()
                     df_res.columns = [agrupar_por, f"{operacion}_{var_analisis}"]
                     st.markdown("#### 📊 Bloque C-Visualización", unsafe_allow_html=True)
-                    formato_salida = st.selectbox("Formato de salida", ["KPI", "LISTAR", "Tabla", "Barras Horizontales", "Barras Verticales", "Sectores"], key="sel_vis_dinamica")
+                    formato_salida = st.radio("Formato:", ["KPI", "LISTAR", "TABLA", "BARRAS H", "BARRAS V", "SECTORES"], horizontal=True)
                     if formato_salida == "KPI":
                         st.metric("Registros en Cohorte", len(df_filtered_query))
                     elif formato_salida == "LISTAR":
@@ -625,15 +624,15 @@ with tabs[4]:
                                 st.write(f"* {val}")
                         else:
                             st.write("No hay valores para listar.")
-                    elif formato_salida == "Tabla":
+                    elif formato_salida == "TABLA":
                         st.dataframe(df_res, use_container_width=True)
-                    elif formato_salida == "Barras Horizontales":
+                    elif formato_salida == "BARRAS H":
                         fig = px.bar(df_res, y=agrupar_por, x=df_res.columns[1], orientation='h', color_discrete_sequence=['#9d00ff'])
                         st.plotly_chart(fig, use_container_width=True)
-                    elif formato_salida == "Barras Verticales":
+                    elif formato_salida == "BARRAS V":
                         fig = px.bar(df_res, x=agrupar_por, y=df_res.columns[1], color_discrete_sequence=['#9d00ff'])
                         st.plotly_chart(fig, use_container_width=True)
-                    elif formato_salida == "Sectores":
+                    elif formato_salida == "SECTORES":
                         fig = px.pie(df_res, names=agrupar_por, values=df_res.columns[1], hole=0.3)
                         st.plotly_chart(fig, use_container_width=True)
                 except: st.warning("Error en el cálculo. Verifica que la variable sea numérica para Sumas/Promedios.")
