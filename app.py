@@ -1,4 +1,4 @@
-# HISTOGRAMA CON RANGOS 27 MAR 13.31
+# GRAFICOS POR DEFECTO 27 MAR 13.59
 
 import streamlit as st
 import pandas as pd
@@ -29,14 +29,14 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                                    "Filtrado Glomerular" (cuadro negro con glow morado).
+#                                     "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                                    - Cuadros negros superiores (ZONA y ACTIVO).
-#                                    - Pestañas (Tabs) de navegación.
-#                                    - Registro de Paciente: Estructura y función de fila única.
-#                                    - Estructura del área de recorte y listado de medicación.
-#                                    - Barra dual de validación (VALIDAR / RESET).
-#                                    - Aviso legal amarillo inferior (Warning).
+#                                     - Cuadros negros superiores (ZONA y ACTIVO).
+#                                     - Pestañas (Tabs) de navegación.
+#                                     - Registro de Paciente: Estructura y función de fila única.
+#                                     - Estructura del área de recorte y listado de medicación.
+#                                     - Barra dual de validación (VALIDAR / RESET).
+#                                     - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
 #                           "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
@@ -136,7 +136,7 @@ def sincronizar_desde_nube():
         st.error(f"❌ Error al sincronizar: {e}")
 
 if st.session_state["df_sync_val"].empty:
-    sincronizar_desde_nube()
+    sinconizar_desde_nube()
 
 def acquire_lock(sheet_obj):
     try:
@@ -505,7 +505,12 @@ with tabs[3]:
                 color_map = { "Sin ajuste": "#2f855a", "Precaución": "#faf089", "Ajuste dosis": "#ffd27f", "Toxicidad": "#c05621", "Contraindicado": "#c53030" }
                 df_cat["ETIQUETA"] = df_cat["NIVEL_ADE_CG"].map(map_riesgos)
                 tipo_graf_riesgo = st.selectbox("Visualización", ["-- seleccionar --", "Sectores", "Barras H", "Barras V"], key="sel_riesgo")
-                if tipo_graf_riesgo == "Sectores":
+                if tipo_graf_riesgo == "-- seleccionar --":
+                    fig_riesgo = px.pie(df_cat, names="ETIQUETA", values="count", color="ETIQUETA", color_discrete_map=color_map, hole=0.4)
+                    fig_riesgo.update_layout(height=300, margin=dict(t=10, b=10, l=40, r=10), showlegend=True, legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.05))
+                    fig_riesgo.update_traces(sort=False)
+                    st.plotly_chart(fig_riesgo, use_container_width=True)
+                elif tipo_graf_riesgo == "Sectores":
                     fig_riesgo = px.pie(df_cat, names="ETIQUETA", values="count", color="ETIQUETA", color_discrete_map=color_map, hole=0.4)
                     fig_riesgo.update_layout(height=300, margin=dict(t=10, b=10, l=40, r=10), showlegend=True, legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.05))
                     fig_riesgo.update_traces(sort=False)
@@ -528,7 +533,11 @@ with tabs[3]:
                     df_top = df_alertas.groupby("MED_NORM").size().reset_index(name='Frecuencia').sort_values(by="Frecuencia", ascending=False)
                     df_top['Rank'] = df_top['Frecuencia'].rank(method='min', ascending=False)
                     df_top_final = df_top[df_top['Rank'] <= 5].sort_values(by="Frecuencia", ascending=False)
-                    if tipo_graf_top == "Barras Horizontales":
+                    if tipo_graf_top == "-- seleccionar --":
+                        fig_top = px.bar(df_top_final, y="MED_NORM", x="Frecuencia", orientation='h', text="Frecuencia", color="Frecuencia", color_continuous_scale="Reds")
+                        fig_top.update_layout(showlegend=False, height=300, margin=dict(t=10, b=10, l=10, r=10), yaxis={'categoryorder':'total ascending'})
+                        st.plotly_chart(fig_top, use_container_width=True)
+                    elif tipo_graf_top == "Barras Horizontales":
                         fig_top = px.bar(df_top_final, y="MED_NORM", x="Frecuencia", orientation='h', text="Frecuencia", color="Frecuencia", color_continuous_scale="Reds")
                         fig_top.update_layout(showlegend=False, height=300, margin=dict(t=10, b=10, l=10, r=10), yaxis={'categoryorder':'total ascending'})
                         st.plotly_chart(fig_top, use_container_width=True)
