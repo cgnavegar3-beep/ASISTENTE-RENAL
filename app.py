@@ -1,4 +1,4 @@
-# HISTOGRAMA 27 MAR 12.57
+# HISTOGRAMA CON RANGOS 27 MAR 13.31
 
 import streamlit as st
 import pandas as pd
@@ -29,28 +29,28 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                                   "Filtrado Glomerular" (cuadro negro con glow morado).
+#                                    "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                                   - Cuadros negros superiores (ZONA y ACTIVO).
-#                                   - Pestañas (Tabs) de navegación.
-#                                   - Registro de Paciente: Estructura y función de fila única.
-#                                   - Estructura del área de recorte y listado de medicación.
-#                                   - Barra dual de validación (VALIDAR / RESET).
-#                                   - Aviso legal amarillo inferior (Warning).
+#                                    - Cuadros negros superiores (ZONA y ACTIVO).
+#                                    - Pestañas (Tabs) de navegación.
+#                                    - Registro de Paciente: Estructura y función de fila única.
+#                                    - Estructura del área de recorte y listado de medicación.
+#                                    - Barra dual de validación (VALIDAR / RESET).
+#                                    - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
-#                          "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+#                           "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                          原则 antes y después de cada cambio. No se simplifican líneas.
+#                           原则 antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
-#                          ubicarse en la esquina superior izquierda (estilo v. 2.5).
+#                           ubicarse en la esquina superior izquierda (estilo v. 2.5).
 # 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
-#                          se considerará pérdida de principios.
+#                           se considerará pérdida de principios.
 # 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
-#                          sus textos flotantes (placeholders) and los textos predefinidos en las
-#                          secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+#                           sus textos flotantes (placeholders) and los textos predefinidos en las
+#                           secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
 # 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
-#                          principio blindado; es informativo y no debe impedir la validación.
+#                           principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
@@ -636,13 +636,33 @@ with tabs[4]:
                         fig = px.pie(df_res, names=agrupar_por, values=df_res.columns[1], hole=0.3)
                         st.plotly_chart(fig, use_container_width=True)
                     elif formato_salida == "HISTOGRAMA":
-                        vars_hist = ["EDAD", "FG_CG", "Nº_TOTAL_MEDS_PAC", "Nº_TOT_AFEC_CG", "FG_MDRD", "FG_CKD"]
-                        if var_analisis in vars_hist:
-                            fig = px.histogram(df_filtered_query, x=var_analisis, color_discrete_sequence=['#9d00ff'], marginal="box")
-                            fig.update_layout(bargap=0.1)
+                        if "FG" in var_analisis:
+                            df_h = df_filtered_query.copy()
+                            df_h[var_analisis] = pd.to_numeric(df_h[var_analisis], errors='coerce')
+                            bins_kdigo = [-float('inf'), 15, 30, 45, 60, 90, float('inf')]
+                            labels_kdigo = ['< 15 (G5)', '15-29 (G4)', '30-44 (G3b)', '45-59 (G3a)', '60-89 (G2)', '≥ 90 (G1)']
+                            df_h['KDIGO_BIN'] = pd.cut(df_h[var_analisis], bins=bins_kdigo, labels=labels_kdigo, right=False)
+                            fig = px.histogram(df_h, x='KDIGO_BIN', color_discrete_sequence=['#9d00ff'], category_orders={"KDIGO_BIN": labels_kdigo})
+                            fig.update_layout(bargap=0.1, xaxis_title="Estadios KDIGO", yaxis_title="Nº Pacientes")
+                            st.plotly_chart(fig, use_container_width=True)
+                        elif var_analisis == "EDAD":
+                            df_h = df_filtered_query.copy()
+                            df_h[var_analisis] = pd.to_numeric(df_h[var_analisis], errors='coerce')
+                            bins_edad = [-float('inf'), 50, 61, 71, 81, 91, float('inf')]
+                            labels_edad = ['< 50 años', '50-60 años', '61-70 años', '71-80 años', '81-90 años', '> 90 años']
+                            df_h['EDAD_BIN'] = pd.cut(df_h[var_analisis], bins=bins_edad, labels=labels_edad, right=False)
+                            fig = px.histogram(df_h, x='EDAD_BIN', color_discrete_sequence=['#9d00ff'], category_orders={"EDAD_BIN": labels_edad})
+                            fig.update_layout(bargap=0.1, xaxis_title="Rangos de Edad", yaxis_title="Nº Pacientes")
                             st.plotly_chart(fig, use_container_width=True)
                         else:
-                            st.warning("El histograma solo está disponible para variables numéricas clínicas (Edad, FG, Medicamentos, Alertas).")
+                            df_h = df_filtered_query.copy()
+                            df_h[var_analisis] = pd.to_numeric(df_h[var_analisis], errors='coerce')
+                            if not df_h[var_analisis].dropna().empty:
+                                fig = px.histogram(df_h, x=var_analisis, color_discrete_sequence=['#9d00ff'], marginal="box")
+                                fig.update_layout(bargap=0.1)
+                                st.plotly_chart(fig, use_container_width=True)
+                            else:
+                                st.warning("La variable no contiene datos numéricos válidos para un histograma.")
                 except: st.warning("Error en el cálculo. Verifica que la variable sea numérica para Sumas/Promedios.")
         st.markdown("---")
         with st.expander("📄 Ver Datos Crutos de la Cohorte"):
