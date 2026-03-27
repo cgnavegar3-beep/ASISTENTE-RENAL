@@ -1,4 +1,4 @@
-# v. 27 mar 2026 09:00 (EVOLUCIÓN: PLACEHOLDERS Y KEYS DINÁMICAS UUID)
+# v. 27 mar 2026 10:15 (EVOLUCIÓN: JERARQUÍA VISUAL CONSULTA DINÁMICA)
 
 import streamlit as st
 import pandas as pd
@@ -30,18 +30,18 @@ import plotly.graph_objects as go
 # 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
 # 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
 # 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
-#                                 "Filtrado Glomerular" (cuadro negro con glow morado).
+#                                  "Filtrado Glomerular" (cuadro negro con glow morado).
 # 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
-#                                 - Cuadros negros superiores (ZONA y ACTIVO).
-#                                 - Pestañas (Tabs) de navegación.
-#                                 - Registro de Paciente: Estructura y función de fila única.
-#                                 - Estructura del área de recorte y listado de medicación.
-#                                 - Barra dual de validación (VALIDAR / RESET).
-#                                 - Aviso legal amarillo inferior (Warning).
+#                                  - Cuadros negros superiores (ZONA y ACTIVO).
+#                                  - Pestañas (Tabs) de navegación.
+#                                  - Registro de Paciente: Estructura y función de fila única.
+#                                  - Estructura del área de recorte y listado de medicación.
+#                                  - Barra dual de validación (VALIDAR / RESET).
+#                                  - Aviso legal amarillo inferior (Warning).
 # 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
 #                        "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
 # 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
-#                          principios antes y después de cada cambio. No se simplifican líneas.
+#                         principios antes y después de cada cambio. No se simplifican líneas.
 # 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
 # 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
 #                        ubicarse en la esquina superior izquierda (estilo v. 2.5).
@@ -322,7 +322,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 27 mar 2026 09:00</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 27 mar 2026 10:15</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS", "🔍 CONSULTA DINÁMICA"])
 
@@ -624,7 +624,7 @@ with tabs[4]:
     if not df_pool.empty:
         # Bloque A: Filtros
         with st.container(border=True):
-            st.markdown("#### 🔍 Bloque A: Configurar Cohorte (Filtros)")
+            st.markdown("#### 🔍 Bloque A – Configurar Cohorte: <span style='font-size: 0.8em; color: gray;'>Condiciones o filtros de lo que quiero medir.</span>", unsafe_allow_html=True)
             col_a1, col_a2 = st.columns([1, 1])
             if col_a1.button("➕ Añadir Filtro"):
                 st.session_state.filtros_dinamicos.append({"id": str(uuid.uuid4()), "col": df_pool.columns[0], "op": "== (IGUAL)", "val": ""})
@@ -675,7 +675,7 @@ with tabs[4]:
             except: continue
 
         # Bloque B: Análisis
-        st.markdown("#### 🎯 Bloque B: Variable a Analizar")
+        st.markdown("#### 🎯 Bloque B- Variable a analizar: <span style='font-size: 0.8em; color: gray;'>¿Qué quiero medir?</span>", unsafe_allow_html=True)
         b_col1, b_col2, b_col3 = st.columns(3)
         var_analisis = b_col1.selectbox("Variable", ["-- seleccionar --"] + list(df_pool.columns), key="query_var")
         operacion = b_col2.selectbox("Operación", ["-- seleccionar --", "Conteo (Total)", "Conteo Único (Pacientes)", "Suma", "Promedio", "Mínimo", "Máximo"])
@@ -705,7 +705,7 @@ with tabs[4]:
                     df_res.columns = [agrupar_por, f"{operacion}_{var_analisis}"]
                     
                     # Bloque C: Visualización
-                    st.markdown("#### 📊 Bloque C: Visualización")
+                    st.markdown("#### 📊 Bloque C-Visualización", unsafe_allow_html=True)
                     v_tabs = st.tabs(["KPI", "Tabla", "Barras", "Líneas", "Sectores"])
                     with v_tabs[0]: st.metric("Registros en Cohorte", len(df_filtered_query))
                     with v_tabs[1]: st.dataframe(df_res, use_container_width=True)
@@ -721,6 +721,6 @@ with tabs[4]:
         st.info("No hay datos sincronizados para realizar consultas dinámicas.")
 
 st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un soporte a la decisión clínica basado en IA y reglas farmacológicas. La responsabilidad final de la prescripción y el ajuste de dosis recae exclusivamente en el médico facultativo.</div>', unsafe_allow_html=True)
-st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 27 mar 2026 09:00</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 27 mar 2026 10:15</div>', unsafe_allow_html=True)
 
 # He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
