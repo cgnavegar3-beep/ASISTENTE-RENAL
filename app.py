@@ -12,7 +12,7 @@ import io
 import uuid
 import random
 from datetime import datetime
-from constants import PROMPT_AFR_V10, API_KEY
+from constants import PROMPT_AFR_V10.6, API_KEY
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="ASISTENTE RENAL", layout="wide", initial_sidebar_state="collapsed")
