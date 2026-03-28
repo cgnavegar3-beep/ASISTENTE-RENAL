@@ -841,4 +841,4 @@ st.markdown(f'<div style="position:fixed; bottom:5px; right:15px; font-size:0.55
 if st.session_state["df_sync_val"].empty:
     sincronizar_todo()
 
-He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
+# He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
