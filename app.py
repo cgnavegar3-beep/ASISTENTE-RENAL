@@ -307,7 +307,7 @@ with tabs[0]:
         if st.session_state.reg_centro and not st.session_state.reg_id:
             iniciales = "".join([word[0] for word in st.session_state.reg_centro.split()]).upper()[:3]
             st.session_state.reg_id = f"PAC-{iniciales}{random.randint(10000, 99999)}"
-    with c1: st.text_input("Centro", placeholder="M / G", key="reg_centro", on_change=on_centro_change)
+    with c1: st.text_input("Centro", placeholder="M / G", key="reg_centro_1", on_change=on_centro_change)
     with c2: st.selectbox("¿Residencia?", ["-- seleccionar --", "No", "Sí"], key="reg_res")
     with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
     with c4: st.text_input("ID Registro", key="reg_id", disabled=True)
@@ -751,7 +751,7 @@ with tabs[0]:
         if st.session_state.reg_centro and not st.session_state.reg_id:
             iniciales = "".join([word[0] for word in st.session_state.reg_centro.split()]).upper()[:3]
             st.session_state.reg_id = f"PAC-{iniciales}{random.randint(10000, 99999)}"
-    with c1: st.text_input("Centro", placeholder="M / G", key="reg_centro", on_change=on_centro_change)
+    with c1: st.text_input("Centro", placeholder="M / G", key="reg_centro_2", on_change=on_centro_change)
     with c2: st.selectbox("¿Residencia?", ["-- seleccionar --", "No", "Sí"], key="reg_res")
     with c3: st.text_input("Fecha", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
     with c4: st.text_input("ID Registro", key="reg_id", disabled=True)
