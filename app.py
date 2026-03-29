@@ -1,4 +1,4 @@
-# --- ACTUALIZACIÓN EVOLUCIONADA 29 MAR 10:30 ---
+# --- ACTUALIZACIÓN EVOLUCIONADA 29 MAR 12:20 ---
 
 import streamlit as st
 import pandas as pd
@@ -135,8 +135,47 @@ def sincronizar_desde_nube():
     except Exception as e:
         st.error(f"❌ Error al sincronizar: {e}")
 
+# --- BLOQUE DE EVOLUCIÓN: CACHÉ DE DATOS ---
+@st.cache_data(ttl=300)
+def cargar_datos_cacheados():
+    doc = conectar_google_sheets()
+    def raw_to_clean_df_cache(ws_name):
+        ws = doc.worksheet(ws_name)
+        rows = ws.get_all_values()
+        if not rows: return pd.DataFrame()
+        headers = rows[0]
+        data = rows[1:]
+        clean_data = []
+        for row in data:
+            new_row = []
+            for val in row:
+                if isinstance(val, str):
+                    clean_val = val.replace(",", ".").strip()
+                    try:
+                        if clean_val == "": new_row.append(None)
+                        else: new_row.append(float(clean_val))
+                    except ValueError:
+                        new_row.append(val)
+                else:
+                    new_row.append(val)
+            clean_data.append(new_row)
+        return pd.DataFrame(clean_data, columns=headers)
+    
+    df_val = raw_to_clean_df_cache("VALIDACIONES")
+    df_meds = raw_to_clean_df_cache("MEDICAMENTOS")
+    df_analisis = raw_to_clean_df_cache("ANALISIS")
+    return df_val, df_meds, df_analisis
+
+# --- INTEGRACIÓN DE CARGA (SUSTITUCIÓN PUNTO ÚNICO) ---
 if st.session_state["df_sync_val"].empty:
-    sincronizar_desde_nube()
+    try:
+        df_val_c, df_meds_c, df_analisis_c = cargar_datos_cacheados()
+        st.session_state["df_sync_val"] = df_val_c
+        st.session_state["df_sync_meds"] = df_meds_c
+        st.session_state["df_sync_analisis"] = df_analisis_c
+        st.toast("⚡ Datos cargados desde Caché", icon="🚀")
+    except:
+        sincronizar_desde_nube()
 
 def acquire_lock(sheet_obj):
     try:
@@ -293,7 +332,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 29 mar 2026 10:30</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 29 mar 2026 12:20</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS", "🔍 CONSULTA DINÁMICA"])
 
@@ -578,65 +617,38 @@ with tabs[4]:
                     opciones_unicas = sorted([str(x) for x in df_pool[filtro["col"]].unique() if x])
                     filtro["val"] = f_c3.multiselect(f"Valores {i+1}", opciones_unicas, key=f"f_val_multi_{fid}", default=filtro["val"] if isinstance(filtro["val"], list) else [])
 
-        # --- MOTOR DE FILTRADO EFICIENTE (MÁSCARA BOOLEANA) ---
         mask = pd.Series(True, index=df_pool.index)
-
         for f in st.session_state.filtros_dinamicos:
             try:
                 col_data = df_pool[f["col"]]
-
-                # --- NORMALIZACIÓN CENTRALIZADA ---
-                usar_norm = isinstance(f["val"], str) or (isinstance(f["val"], list) and f["val"])
-
-                if usar_norm:
+                if isinstance(f["val"], str) or (isinstance(f["val"], list) and f["val"]):
                     col_norm = col_data.astype(str).apply(normalizar_texto_capa0)
-
                     if isinstance(f["val"], list):
                         input_norm = [normalizar_texto_capa0(v) for v in f["val"]]
                     else:
                         input_norm = normalizar_texto_capa0(f["val"])
-
-                # --- OPERADORES ---
-                if "==" in f["op"]:
-                    if usar_norm:
-                        if isinstance(f["val"], list) and f["val"]:
-                            mask &= col_norm.isin(input_norm)
-                        elif f["val"] != "":
-                            mask &= (col_norm == input_norm)
-                    else:
-                        mask &= (col_data.astype(str) == str(f["val"]))
-
-                elif "!=" in f["op"]:
-                    if usar_norm:
-                        mask &= (col_norm != input_norm)
-                    else:
-                        mask &= (col_data.astype(str) != str(f["val"]))
-
-                elif "startswith" in f["op"]:
-                    if usar_norm and f["val"] != "":
-                        mask &= col_norm.str.startswith(input_norm, na=False)
-
-                elif ">" in f["op"] and "≥" not in f["op"]:
-                    mask &= (pd.to_numeric(col_data, errors='coerce') > float(f["val"]))
-
-                elif "<" in f["op"] and "≤" not in f["op"]:
-                    mask &= (pd.to_numeric(col_data, errors='coerce') < float(f["val"]))
-
-                elif "≥" in f["op"]:
-                    mask &= (pd.to_numeric(col_data, errors='coerce') >= float(f["val"]))
-
-                elif "≤" in f["op"]:
-                    mask &= (pd.to_numeric(col_data, errors='coerce') <= float(f["val"]))
-
-                elif "contiene" in f["op"]:
-                    if usar_norm and f["val"] != "":
-                        mask &= col_norm.str.contains(input_norm, na=False)
-
-            except:
-                continue
                 
+                if "==" in f["op"]:
+                    if isinstance(f["val"], list) and f["val"]: 
+                        mask &= col_norm.isin(input_norm)
+                    elif f["val"] != "": 
+                        mask &= (col_norm == input_norm)
+                elif "!=" in f["op"]: 
+                    mask &= (col_data.astype(str) != str(f["val"]))
+                elif ">" in f["op"] and "≥" not in f["op"]: 
+                    mask &= (pd.to_numeric(col_data, errors='coerce') > float(f["val"]))
+                elif "<" in f["op"] and "≤" not in f["op"]: 
+                    mask &= (pd.to_numeric(col_data, errors='coerce') < float(f["val"]))
+                elif "≥" in f["op"]: 
+                    mask &= (pd.to_numeric(col_data, errors='coerce') >= float(f["val"]))
+                elif "≤" in f["op"]: 
+                    mask &= (pd.to_numeric(col_data, errors='coerce') <= float(f["val"]))
+                elif "contiene" in f["op"]: 
+                    mask &= col_norm.str.contains(input_norm, na=False)
+            except: continue
+        
         df_filtered_query = df_pool[mask]
-   
+
         st.markdown("#### 🎯 Bloque B- Variable a analizar: <span style='font-size: 0.8em; color: gray;'>¿Qué quiero medir?</span>", unsafe_allow_html=True)
         b_col1, b_col2, b_col3 = st.columns(3)
         var_analisis = b_col1.selectbox("Variable", ["-- seleccionar --"] + list(df_pool.columns), key="query_var")
@@ -719,7 +731,6 @@ with tabs[4]:
         st.info("No hay datos sincronizados para realizar consultas dinámicas.")
 
 st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un soporte a la decisión clínica basado en IA y reglas farmacológicas. La responsabilidad final de la prescripción y el ajuste de dosis recae exclusivamente en el médico facultativo.</div>', unsafe_allow_html=True)
-st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 29 mar 2026 10:30</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 29 mar 2026 12:20</div>', unsafe_allow_html=True)
 
 # He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
-
