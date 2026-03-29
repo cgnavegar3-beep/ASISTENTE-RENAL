@@ -1,4 +1,4 @@
-# --- ACTUALIZACIÓN EVOLUCIONADA 29 MAR 10:30 ---
+parte 1:# --- ACTUALIZACIÓN EVOLUCIONADA 29 MAR 10:30 ---
 
 import streamlit as st
 import pandas as pd
@@ -580,38 +580,63 @@ with tabs[4]:
 
         # --- MOTOR DE FILTRADO EFICIENTE (MÁSCARA BOOLEANA) ---
         mask = pd.Series(True, index=df_pool.index)
+
         for f in st.session_state.filtros_dinamicos:
             try:
                 col_data = df_pool[f["col"]]
-                # Aplicar normalización si el valor es texto
-                if isinstance(f["val"], str) or (isinstance(f["val"], list) and f["val"]):
+
+                # --- NORMALIZACIÓN CENTRALIZADA ---
+                usar_norm = isinstance(f["val"], str) or (isinstance(f["val"], list) and f["val"])
+
+                if usar_norm:
                     col_norm = col_data.astype(str).apply(normalizar_texto_capa0)
+
                     if isinstance(f["val"], list):
                         input_norm = [normalizar_texto_capa0(v) for v in f["val"]]
                     else:
                         input_norm = normalizar_texto_capa0(f["val"])
-                
-                if "==" in f["op"]:
-                    if isinstance(f["val"], list) and f["val"]: 
-                        mask &= col_norm.isin(input_norm)
-                    elif f["val"] != "": 
-                        mask &= (col_norm == input_norm)
-                elif "!=" in f["op"]: 
-                    mask &= (col_data.astype(str) != str(f["val"]))
-                elif ">" in f["op"] and "≥" not in f["op"]: 
-                    mask &= (pd.to_numeric(col_data, errors='coerce') > float(f["val"]))
-                elif "<" in f["op"] and "≤" not in f["op"]: 
-                    mask &= (pd.to_numeric(col_data, errors='coerce') < float(f["val"]))
-                elif "≥" in f["op"]: 
-                    mask &= (pd.to_numeric(col_data, errors='coerce') >= float(f["val"]))
-                elif "≤" in f["op"]: 
-                    mask &= (pd.to_numeric(col_data, errors='coerce') <= float(f["val"]))
-                elif "contiene" in f["op"]: 
-                    mask &= col_norm.str.contains(input_norm, na=False)
-            except: continue
-        
-        df_filtered_query = df_pool[mask]
 
+                # --- OPERADORES ---
+                if "==" in f["op"]:
+                    if usar_norm:
+                        if isinstance(f["val"], list) and f["val"]:
+                            mask &= col_norm.isin(input_norm)
+                        elif f["val"] != "":
+                            mask &= (col_norm == input_norm)
+                    else:
+                        mask &= (col_data.astype(str) == str(f["val"]))
+
+                elif "!=" in f["op"]:
+                    if usar_norm:
+                        mask &= (col_norm != input_norm)
+                    else:
+                        mask &= (col_data.astype(str) != str(f["val"]))
+
+                elif "startswith" in f["op"]:
+                    if usar_norm and f["val"] != "":
+                        mask &= col_norm.str.startswith(input_norm, na=False)
+
+                elif ">" in f["op"] and "≥" not in f["op"]:
+                    mask &= (pd.to_numeric(col_data, errors='coerce') > float(f["val"]))
+
+                elif "<" in f["op"] and "≤" not in f["op"]:
+                    mask &= (pd.to_numeric(col_data, errors='coerce') < float(f["val"]))
+
+                elif "≥" in f["op"]:
+                    mask &= (pd.to_numeric(col_data, errors='coerce') >= float(f["val"]))
+
+                elif "≤" in f["op"]:
+                    mask &= (pd.to_numeric(col_data, errors='coerce') <= float(f["val"]))
+
+                elif "contiene" in f["op"]:
+                    if usar_norm and f["val"] != "":
+                        mask &= col_norm.str.contains(input_norm, na=False)
+
+            except:
+                continue
+                
+        df_filtered_query = df_pool[mask]
+   
         st.markdown("#### 🎯 Bloque B- Variable a analizar: <span style='font-size: 0.8em; color: gray;'>¿Qué quiero medir?</span>", unsafe_allow_html=True)
         b_col1, b_col2, b_col3 = st.columns(3)
         var_analisis = b_col1.selectbox("Variable", ["-- seleccionar --"] + list(df_pool.columns), key="query_var")
@@ -697,3 +722,4 @@ st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es
 st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 29 mar 2026 10:30</div>', unsafe_allow_html=True)
 
 # He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
+
