@@ -764,7 +764,7 @@ with tabs[4]:
     else:
         st.info("No hay datos sincronizados para realizar consultas dinámicas.")
 
-st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un soporte a la decisión clínica basado en IA y reglas farmacológicas. La responsabilidad final de la prescripción y el ajuste de dosis recae exclusivamente en el médico facultativo.</div>', unsafe_allow_html=True)
+st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un soporte de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
 st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 29 mar 2026 13:20</div>', unsafe_allow_html=True)
 
 # He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
