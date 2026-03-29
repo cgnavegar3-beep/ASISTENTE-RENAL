@@ -1,4 +1,4 @@
-parte 1:# --- ACTUALIZACIÓN EVOLUCIONADA 29 MAR 10:30 ---
+# --- ACTUALIZACIÓN EVOLUCIONADA 29 MAR 10:30 ---
 
 import streamlit as st
 import pandas as pd
