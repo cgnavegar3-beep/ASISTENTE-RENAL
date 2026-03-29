@@ -1,4 +1,4 @@
-# --- ACTUALIZACIÓN EVOLUCIONADA 29 MAR 13:15 ---
+# --- ACTUALIZACIÓN EVOLUCIONADA 29 MAR 13:20 (CORRECCIÓN DE ID) ---
 
 import streamlit as st
 import pandas as pd
@@ -299,7 +299,7 @@ inject_styles()
 st.markdown('<div class="black-badge-zona">ZONA: ACTIVA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="black-badge-activo">ACTIVO: {st.session_state.active_model}</div>', unsafe_allow_html=True)
 st.markdown('<div class="main-title">ASISTENTE RENAL</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-version">v. 29 mar 2026 13:15</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-version">v. 29 mar 2026 13:20</div>', unsafe_allow_html=True)
 
 tabs = st.tabs(["💊 VALIDACIÓN", "📄 INFORME", "📊 DATOS", "📈 GRÁFICOS", "🔍 CONSULTA DINÁMICA"])
 
@@ -381,8 +381,8 @@ with tabs[1]:
         st.text_area(k, st.session_state[k], height=h, label_visibility="collapsed")
 
 with tabs[2]:
-    st.session_state.df_val = st.data_editor(st.session_state.df_val, num_rows="dynamic", use_container_width=True)
-    st.session_state.df_meds = st.data_editor(st.session_state.df_meds, num_rows="dynamic", use_container_width=True)
+    st.session_state.df_val = st.data_editor(st.session_state.df_val, num_rows="dynamic", use_container_width=True, key="editor_val_final")
+    st.session_state.df_meds = st.data_editor(st.session_state.df_meds, num_rows="dynamic", use_container_width=True, key="editor_meds_final")
     if st.button("💾 GRABAR DATOS", type="primary", use_container_width=True):
         guardar_en_google_sheets(st.session_state.df_val, st.session_state.df_meds)
         sincronizar_desde_nube(); st.rerun()
@@ -422,6 +422,6 @@ with tabs[4]:
             st.dataframe(df_final, use_container_width=True)
 
 st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Soporte a la decisión clínica. La responsabilidad es del médico facultativo.</div>', unsafe_allow_html=True)
-st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc;">v. 29 mar 2026 13:15</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc;">v. 29 mar 2026 13:20</div>', unsafe_allow_html=True)
 
 # He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
