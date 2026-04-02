@@ -1,109 +1,115 @@
-import re
-import unicodedata
-from typing import Any, Dict, List, Union
+from typing import Dict, Any
+import pandas as pd
+
+from core.normalizer import Normalizer
+from core.capa_2 import Capa2Controller
+from core.execution_engine import ExecutionEngine
+from core.fallback_engine import FallbackEngine
+from core.session_cache import SessionCache
 
 
-# =========================================================
-# NORMALIZACIÓN DE TEXTO BASE
-# =========================================================
-def normalize_text(text: str) -> str:
-    """
-    Normaliza texto:
-    - minúsculas
-    - sin acentos
-    - espacios limpios
-    - trim
-    """
-    if not isinstance(text, str):
-        return text
+class Orchestrator:
 
-    text = text.strip().lower()
-    text = unicodedata.normalize("NFD", text)
-    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
-    text = re.sub(r"\s+", " ", text)
+    def __init__(
+        self,
+        semantic_layer,
+        matcher,
+        capa2,
+        executor,
+        fallback_engine,
+        session_cache: SessionCache = None
+    ):
+        # -------------------------
+        # COMPONENTES DEL PIPELINE
+        # -------------------------
+        self.normalizer = Normalizer()
+        self.semantic_layer = semantic_layer
+        self.matcher = matcher
+        self.capa2 = capa2
+        self.executor = executor
+        self.fallback = fallback_engine
+        self.cache = session_cache
 
-    return text
+    def run(self, user_input: str, df_dict: Dict[str, pd.DataFrame]):
 
+        plan = None
 
-# =========================================================
-# NORMALIZACIÓN DE COLUMNAS
-# =========================================================
-def normalize_columns(df):
-    df = df.copy()
-    df.columns = [normalize_text(col) for col in df.columns]
-    return df
+        # -------------------------
+        # 1. CACHE (si existe)
+        # -------------------------
+        if self.cache:
+            cached_result = self.cache.get(user_input)
+            if cached_result:
+                return cached_result
 
+        try:
+            # -------------------------
+            # 2. NORMALIZACIÓN
+            # -------------------------
+            clean_input = self.normalizer.normalize_text(user_input)
 
-# =========================================================
-# NORMALIZACIÓN DE VALORES
-# =========================================================
-def normalize_values(df):
-    df = df.copy()
+            # -------------------------
+            # 3. SEMANTIC LAYER
+            # -------------------------
+            enriched_input = self.semantic_layer.process(clean_input)
 
-    for col in df.columns:
-        if df[col].dtype == "object":
-            df[col] = df[col].apply(lambda x: normalize_text(x) if isinstance(x, str) else x)
+            # -------------------------
+            # 4. MATCHER
+            # -------------------------
+            matched_input = self.matcher.match(enriched_input)
 
-    return df
+            # -------------------------
+            # 5. CAPA 2 (IA → PLAN)
+            # -------------------------
+            plan = self.capa2.parse(matched_input)
 
+            if not isinstance(plan, dict):
+                raise ValueError("Plan inválido: no es dict")
 
-# =========================================================
-# NORMALIZADOR PRINCIPAL
-# =========================================================
-def normalize_dataset(df):
-    """
-    Pipeline completo de normalización
-    """
-    df = normalize_columns(df)
-    df = normalize_values(df)
-    return df
+            if "operation" not in plan:
+                raise ValueError("Plan inválido: falta 'operation'")
 
+            # -------------------------
+            # 6. EJECUCIÓN
+            # -------------------------
+            result = self.executor.execute_plan(plan, df_dict)
 
-# =========================================================
-# NORMALIZACIÓN DE QUERY DSL (IA -> ENGINE)
-# =========================================================
-def normalize_plan(plan: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Normaliza el JSON generado por la IA:
-    - columnas
-    - operadores
-    - strings
-    """
+            response = {
+                "status": "success",
+                "result": result,
+                "plan": plan
+            }
 
-    def norm_filters(filters: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        out = []
+            # -------------------------
+            # 7. CACHE STORE
+            # -------------------------
+            if self.cache:
+                self.cache.set(user_input, response)
 
-        for f in filters:
-            new_f = dict(f)
+            return response
 
-            if "column" in new_f:
-                new_f["column"] = normalize_text(new_f["column"])
+        except Exception as e:
 
-            if "operator" in new_f:
-                new_f["operator"] = new_f["operator"].upper()
+            # -------------------------
+            # 8. FALLBACK ENGINE
+            # -------------------------
+            try:
+                fallback_result = self.fallback.execute(
+                    plan if plan else {},
+                    df_dict
+                )
 
-            out.append(new_f)
+                return {
+                    "status": "fallback",
+                    "result": fallback_result,
+                    "error": str(e),
+                    "plan": plan
+                }
 
-        return out
+            except Exception as e2:
 
-    normalized = dict(plan)
-
-    if "filters" in normalized:
-        normalized["filters"] = norm_filters(normalized["filters"])
-
-    if "groupby" in normalized:
-        normalized["groupby"] = [normalize_text(c) for c in normalized["groupby"]]
-
-    if "dataset" in normalized:
-        normalized["dataset"] = normalize_text(normalized["dataset"])
-
-    if "order_by" in normalized and normalized["order_by"]:
-        if "column" in normalized["order_by"]:
-            normalized["order_by"]["column"] = normalize_text(
-                normalized["order_by"]["column"]
-            )
-
-        if "direction" in normalized["order_by"]:
-            normalized["order_by"]["direction"] = normalized["order_by"]["direction"].upper()
-
-    return normalized
+                return {
+                    "status": "failed",
+                    "error": str(e2),
+                    "plan": plan
+                }
