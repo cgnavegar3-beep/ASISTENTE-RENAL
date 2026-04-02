@@ -7,7 +7,7 @@ from typing import List, Dict, Any
 def normalize_column_name(column: str) -> str:
     """
     Normalización robusta:
-    - Unicode NFC (acentos, caracteres compuestos)
+    - Unicode NFC
     - strip
     - espacios → _
     - MAYÚSCULAS
@@ -51,7 +51,6 @@ _RAW_SCHEMA: Dict[str, List[str]] = {
     ]
 }
 
-# SCHEMA NORMALIZADO (SINGLE SOURCE OF TRUTH)
 SCHEMA: Dict[str, List[str]] = {
     ds: [normalize_column_name(c) for c in cols]
     for ds, cols in _RAW_SCHEMA.items()
@@ -81,20 +80,19 @@ OPERATOR_MAP: Dict[str, str] = {
 
 
 # =========================================================
-# 4. COLUMN TYPES (derivados pero controlados)
+# 4. COLUMN TYPES
 # =========================================================
 _RAW_COLUMN_TYPES: Dict[str, List[str]] = {
     "numeric": [
-        "EDAD", "PESO", "CREATININA", "FG_CG", "FG_MDRD", "FG_CKD", "Nº_TOTAL_MEDS_PAC",
-        "Nº_TOT_AFEC_CG", "Nº_PRECAU_CG", "Nº_AJUSTE_DOS_CG", "Nº_TOXICID_CG", "Nº_CONTRAIND_CG",
-        "Nº_TOT_AFEC_MDRD", "Nº_PRECAU_MDRD", "Nº_AJUSTE_DOS_MDRD", "Nº_TOXICID_MDRD", "Nº_CONTRAIND_MDRD",
-        "Nº_TOT_AFEC_CKD", "Nº_PRECAU_CKD", "Nº_AJUSTE_DOS_CKD", "Nº_TOXICID_CKD", "Nº_CONTRAIND_CKD",
-        "ACEPTACION_NUM"
+        "EDAD", "PESO", "CREATININA", "FG_CG", "FG_MDRD", "FG_CKD",
+        "Nº_TOTAL_MEDS_PAC", "Nº_TOT_AFEC_CG", "Nº_PRECAU_CG", "Nº_AJUSTE_DOS_CG",
+        "Nº_TOXICID_CG", "Nº_CONTRAIND_CG", "ACEPTACION_NUM"
     ],
     "categorical": [
-        "FECHA", "CENTRO", "RESIDENCIA", "ID_REGISTRO", "SEXO", "GRUPO_TERAPEUTICO",
-        "CAT_RIESGO_CG", "RIESGO_CG", "NIVEL_ADE_CG", "CAT_RIESGO_MDRD", "RIESGO_MDRD",
-        "NIVEL_ADE_MDRD", "CAT_RIESGO_CKD", "RIESGO_CKD", "NIVEL_ADE_CKD",
+        "FECHA", "CENTRO", "RESIDENCIA", "ID_REGISTRO", "SEXO",
+        "GRUPO_TERAPEUTICO", "CAT_RIESGO_CG", "RIESGO_CG", "NIVEL_ADE_CG",
+        "CAT_RIESGO_MDRD", "RIESGO_MDRD", "NIVEL_ADE_MDRD",
+        "CAT_RIESGO_CKD", "RIESGO_CKD", "NIVEL_ADE_CKD",
         "ACEPTACION_MEDICO", "ADECUACION_FINAL", "ACEPTACION_MAP", "DISCREPANCIA"
     ],
     "string_extended": [
@@ -109,13 +107,12 @@ COLUMN_TYPES: Dict[str, List[str]] = {
 
 
 # =========================================================
-# 5. GROUPBY (DERIVADO DEL SCHEMA → SIN DRIFT)
+# 5. GROUPBY / SORT
 # =========================================================
 GROUPBY_ALLOWED: List[str] = [
     normalize_column_name(c)
     for c in ["CENTRO", "SEXO", "MEDICAMENTO", "GRUPO_TERAPEUTICO"]
 ]
-
 
 SORT_ALLOWED: List[str] = ["ASC", "DESC"]
 
@@ -187,3 +184,58 @@ def validate_sort(direction: str) -> str:
     if d not in SORT_ALLOWED:
         raise ValueError(f"Orden inválido: {d}. Usar {SORT_ALLOWED}")
     return d
+
+
+# =========================================================
+# 7. SINÓNIMOS (NATURAL LANGUAGE → COLUMNAS)
+# =========================================================
+COLUMN_SYNONYMS = {
+    "ID_REGISTRO": ["paciente", "id paciente", "codigo paciente"],
+
+    "Nº_TOTAL_MEDS_PAC": [
+        "numero total de medicamentos validados",
+        "numero total de validaciones"
+    ],
+
+    "FG_CG": [
+        "filtrado glomerular cg",
+        "fg cockcroft-gault",
+        "filtrado glomerular cockcroft-gault"
+    ],
+
+    "FG_MDRD": [
+        "filtrado glomerular mdrd",
+        "fg mdrd"
+    ],
+
+    "FG_CKD": [
+        "filtrado glomerular ckd",
+        "fg ckd"
+    ],
+
+    "MEDICAMENTO": [
+        "medicamento",
+        "farmaco",
+        "medicamentos"
+    ],
+
+    "CENTRO": [
+        "centro",
+        "hospital",
+        "area"
+    ]
+}
+
+
+def resolve_natural_column(text: str) -> str:
+    """
+    Convierte lenguaje natural → columna real
+    """
+    t = normalize_column_name(text)
+
+    for col, synonyms in COLUMN_SYNONYMS.items():
+        for s in synonyms:
+            if normalize_column_name(s) in t:
+                return col
+
+    return normalize_column_name(text)
