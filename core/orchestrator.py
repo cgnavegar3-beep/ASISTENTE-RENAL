@@ -1,7 +1,25 @@
+from typing import Dict, Any
+import pandas as pd
+
+from core.normalizer import Normalizer
+from core.capa_2 import Capa2Controller
+from core.execution_engine import ExecutionEngine
+from core.fallback_engine import FallbackEngine
+from core.session_cache import SessionCache
+
+
 class Orchestrator:
 
-    def __init__(self, normalizer, semantic_layer, matcher,
-                 capa2, executor, fallback_engine):
+    def __init__(
+        self,
+        normalizer,
+        semantic_layer,
+        matcher,
+        capa2,
+        executor,
+        fallback_engine,
+        session_cache: SessionCache = None
+    ):
 
         self.normalizer = normalizer
         self.semantic_layer = semantic_layer
@@ -9,43 +27,71 @@ class Orchestrator:
         self.capa2 = capa2
         self.executor = executor
         self.fallback = fallback_engine
+        self.cache = session_cache
 
-    def run(self, user_input: str, df_dict: dict):
+    def run(self, user_input: str, df_dict: Dict[str, pd.DataFrame]):
 
-        plan = None  # importante para fallback
+        plan = None
+
+        # -------------------------
+        # 1. CACHE (si existe)
+        # -------------------------
+        if self.cache:
+            cached_result = self.cache.get(user_input)
+            if cached_result:
+                return cached_result
 
         try:
-            # 1. NORMALIZACIÓN
+            # -------------------------
+            # 2. NORMALIZACIÓN
+            # -------------------------
             clean_input = self.normalizer.normalize_text(user_input)
 
-            # 2. SEMANTIC LAYER
+            # -------------------------
+            # 3. SEMANTIC LAYER
+            # -------------------------
             enriched_input = self.semantic_layer.process(clean_input)
 
-            # 3. MATCHER
+            # -------------------------
+            # 4. MATCHER
+            # -------------------------
             matched_input = self.matcher.match(enriched_input)
 
-            # 4. CAPA 2 → PLAN ESTRUCTURADO (IA)
+            # -------------------------
+            # 5. CAPA 2 (IA → PLAN)
+            # -------------------------
             plan = self.capa2.parse(matched_input)
 
-            # 5. VALIDACIÓN MÍNIMA DEL PLAN
             if not isinstance(plan, dict):
                 raise ValueError("Plan inválido: no es dict")
 
             if "operation" not in plan:
                 raise ValueError("Plan inválido: falta 'operation'")
 
+            # -------------------------
             # 6. EJECUCIÓN PRINCIPAL
+            # -------------------------
             result = self.executor.execute_plan(plan, df_dict)
 
-            return {
+            response = {
                 "status": "success",
                 "result": result,
                 "plan": plan
             }
 
+            # -------------------------
+            # 7. CACHE STORE
+            # -------------------------
+            if self.cache:
+                self.cache.set(user_input, response)
+
+            return response
+
         except Exception as e:
 
-            # 7. FALLBACK ENGINE (seguro)
+            # -------------------------
+            # 8. FALLBACK ENGINE
+            # -------------------------
             try:
                 fallback_result = self.fallback.execute(
                     plan if plan else {},
