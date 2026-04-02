@@ -2,8 +2,14 @@ import re
 
 
 class Normalizer:
-
     def normalize_text(self, text: str) -> str:
+        """
+        Normaliza texto:
+        - convierte a minúsculas
+        - elimina espacios duplicados
+        - elimina caracteres especiales
+        """
+
         if not isinstance(text, str):
             return ""
 
