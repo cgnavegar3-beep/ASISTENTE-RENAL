@@ -1,7 +1,7 @@
 from typing import Dict, Any
 import pandas as pd
 
-from core.normalizer import normalizer
+from core.normalizer import Normalizer
 from core.capa_2 import Capa2Controller
 from core.execution_engine import ExecutionEngine
 from core.fallback_engine import FallbackEngine
@@ -12,7 +12,6 @@ class Orchestrator:
 
     def __init__(
         self,
-        normalizer,
         semantic_layer,
         matcher,
         capa2,
@@ -20,8 +19,10 @@ class Orchestrator:
         fallback_engine,
         session_cache: SessionCache = None
     ):
-
-        self.normalizer = normalizer
+        # -------------------------
+        # COMPONENTES DEL PIPELINE
+        # -------------------------
+        self.normalizer = Normalizer()
         self.semantic_layer = semantic_layer
         self.matcher = matcher
         self.capa2 = capa2
@@ -69,7 +70,7 @@ class Orchestrator:
                 raise ValueError("Plan inválido: falta 'operation'")
 
             # -------------------------
-            # 6. EJECUCIÓN PRINCIPAL
+            # 6. EJECUCIÓN
             # -------------------------
             result = self.executor.execute_plan(plan, df_dict)
 
