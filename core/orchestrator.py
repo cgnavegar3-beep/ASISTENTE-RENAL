@@ -1,97 +1,93 @@
 from typing import Dict, Any
 import pandas as pd
 
-from normalizer import normalize_plan, normalize_dataset
-from capa_2 import build_prompt, validate_json_output, sanitize_plan
-from execution_engine import execute_plan
-from schema_resolver import (
-    resolve_natural_column,
-    validate_dataset,
-    validate_column
-)
+from core.normalizer import Normalizer
+from core.capa_2 import Capa2Controller
+from core.execution_engine import ExecutionEngine
+from core.fallback_engine import FallbackEngine
+from core.session_cache import SessionCache
 
 
 # =========================================================
-# ORCHESTRATOR PRINCIPAL
+# ORCHESTRATOR PRINCIPAL (CEREBRO DEL SISTEMA)
 # =========================================================
-def run_query(
-    user_question: str,
-    df_dict: Dict[str, pd.DataFrame],
-    llm_call_fn,
-    context: Dict[str, Any]
-) -> pd.DataFrame:
+class Orchestrator:
 
-    # -------------------------
-    # 1. PROMPT IA
-    # -------------------------
-    prompt = build_prompt(user_question, context)
+    def __init__(self):
 
-    # -------------------------
-    # 2. IA → JSON
-    # -------------------------
-    raw_output = llm_call_fn(prompt)
-    plan = validate_json_output(raw_output)
+        self.normalizer = Normalizer()
+        self.capa2 = Capa2Controller()
+        self.executor = ExecutionEngine()
+        self.fallback = FallbackEngine()
+        self.cache = SessionCache()
 
-    # -------------------------
-    # 3. SANITIZAR PLAN
-    # -------------------------
-    plan = sanitize_plan(plan)
+    # =====================================================
+    # ENTRY POINT
+    # =====================================================
+    def run(self, query: str, df: pd.DataFrame, session_id: str = "default") -> pd.DataFrame:
 
-    # -------------------------
-    # 4. NORMALIZAR PLAN
-    # -------------------------
-    plan = normalize_plan(plan)
+        # 1. CACHE (respuesta previa)
+        cached = self.cache.get(session_id, query)
+        if cached is not None:
+            return cached
 
-    # -------------------------
-    # 5. VALIDAR DATASET
-    # -------------------------
-    dataset_name = validate_dataset(plan.get("dataset"))
+        try:
 
-    if dataset_name not in df_dict:
-        raise ValueError(f"Dataset '{dataset_name}' no existe")
+            # 2. NORMALIZAR TEXTO
+            clean_query = self.normalizer.normalize(query)
 
-    df = normalize_dataset(df_dict[dataset_name])
+            # 3. IA CONTROLADA → PLAN ESTRUCTURADO
+            plan = self.capa2.parse_to_plan(clean_query, df.columns)
 
-    # -------------------------
-    # 6. 🔥 RESOLVER SINÓNIMOS EN FILTROS
-    # -------------------------
-    filters = plan.get("filters", [])
-    new_filters = []
+            # 4. VALIDACIÓN BÁSICA (anti alucinaciones)
+            plan = self._validate_plan(plan, df)
 
-    for f in filters:
-        col = f.get("column")
+            # 5. EJECUCIÓN SEGURA
+            result = self.executor.execute(plan, df)
 
-        # resolver lenguaje natural → columna real
-        resolved_col = resolve_natural_column(col)
+            # 6. CACHE RESULTADO
+            self.cache.set(session_id, query, result)
 
-        # validar columna final
-        resolved_col = validate_column(dataset_name, resolved_col)
+            return result
 
-        f["column"] = resolved_col
-        new_filters.append(f)
+        except Exception as e:
 
-    plan["filters"] = new_filters
+            print(f"[ORCHESTRATOR ERROR] {str(e)}")
 
-    # -------------------------
-    # 7. RESOLVER GROUPBY
-    # -------------------------
-    groupby = plan.get("groupby", [])
-    plan["groupby"] = [
-        validate_column(dataset_name, resolve_natural_column(g))
-        for g in groupby
-    ]
+            # 7. FALLBACK FINAL
+            return self.fallback.safe_execute({}, df)
 
-    # -------------------------
-    # 8. RESOLVER ORDER_BY
-    # -------------------------
-    if plan.get("order_by") and plan["order_by"].get("column"):
-        col = plan["order_by"]["column"]
-        col = resolve_natural_column(col)
-        plan["order_by"]["column"] = validate_column(dataset_name, col)
+    # =====================================================
+    # VALIDACIÓN ANTI-ALUCINACIONES
+    # =====================================================
+    def _validate_plan(self, plan: Dict[str, Any], df: pd.DataFrame) -> Dict[str, Any]:
 
-    # -------------------------
-    # 9. EJECUCIÓN FINAL
-    # -------------------------
-    result = execute_plan(plan, {dataset_name: df})
+        valid_columns = set(df.columns)
 
-    return result
+        # 1. VALIDAR GROUPBY
+        if "groupby" in plan:
+            plan["groupby"] = [
+                c for c in plan["groupby"]
+                if c in valid_columns
+            ]
+
+        # 2. VALIDAR FILTROS
+        if "filters" in plan:
+            clean_filters = []
+
+            for f in plan["filters"]:
+                if f.get("column") in valid_columns:
+                    clean_filters.append(f)
+
+            plan["filters"] = clean_filters
+
+        # 3. VALIDAR VARIABLE
+        if "variable" in plan:
+            if plan["variable"] not in valid_columns:
+                plan["variable"] = None
+
+        # 4. LIMPIEZA FINAL
+        if plan.get("operation") not in ["count", "mean", "sum", "nunique"]:
+            plan["operation"] = "count"
+
+        return plan
