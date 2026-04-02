@@ -1,7 +1,7 @@
 from typing import Dict, Any
 import pandas as pd
 
-from core.normalizer import Normalizer
+from core.normalizer import normalizer
 from core.capa_2 import Capa2Controller
 from core.execution_engine import ExecutionEngine
 from core.fallback_engine import FallbackEngine
