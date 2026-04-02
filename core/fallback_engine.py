@@ -24,7 +24,6 @@ class FallbackEngine:
 
         except Exception as e:
             print(f"[FALLBACK ACTIVADO] {str(e)}")
-
             return self._safe_fallback(df)
 
     # -------------------------
@@ -43,26 +42,36 @@ class FallbackEngine:
         else:
             df_grouped = df_filtered
 
-        # 3. operación
-        op = plan.get("operation", "count")
+        # 3. operación (CORREGIDO: operacion)
+        op = plan.get("operacion", "count")
 
         if op == "count":
             result = df_grouped.size().reset_index(name="count")
 
         elif op == "mean":
             var = plan.get("variable")
+            if var not in df_filtered.columns:
+                return df_filtered.head(10)
+
             result = df_grouped[var].mean().reset_index()
 
         elif op == "sum":
             var = plan.get("variable")
+            if var not in df_filtered.columns:
+                return df_filtered.head(10)
+
             result = df_grouped[var].sum().reset_index()
 
         elif op == "nunique":
             var = plan.get("variable")
+            if var not in df_filtered.columns:
+                return df_filtered.head(10)
+
             result = df_grouped[var].nunique().reset_index(name="nunique")
 
         else:
-            raise ValueError("Operación no soportada")
+            # fallback seguro si operación no soportada
+            result = df_grouped.size().reset_index(name="count")
 
         # 4. order_by
         order_by = plan.get("order_by")
