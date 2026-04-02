@@ -15,3 +15,4 @@ class Normalizer:
         text = re.sub(r"[^\w\s]", "", text)
 
         return text
+        
