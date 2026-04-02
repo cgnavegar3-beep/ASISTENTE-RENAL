@@ -4,6 +4,11 @@ import pandas as pd
 from normalizer import normalize_plan, normalize_dataset
 from capa_2 import build_prompt, validate_json_output, sanitize_plan
 from execution_engine import execute_plan
+from schema_resolver import (
+    resolve_natural_column,
+    validate_dataset,
+    validate_column
+)
 
 
 # =========================================================
@@ -15,52 +20,78 @@ def run_query(
     llm_call_fn,
     context: Dict[str, Any]
 ) -> pd.DataFrame:
-    """
-    Flujo completo:
-    USER → IA → PLAN JSON → VALIDACIÓN → EJECUCIÓN → RESULTADO
-    """
 
     # -------------------------
-    # 1. GENERAR PROMPT
+    # 1. PROMPT IA
     # -------------------------
     prompt = build_prompt(user_question, context)
 
     # -------------------------
-    # 2. LLAMADA A IA (EXTERNA)
+    # 2. IA → JSON
     # -------------------------
     raw_output = llm_call_fn(prompt)
-
-    # -------------------------
-    # 3. VALIDAR JSON
-    # -------------------------
     plan = validate_json_output(raw_output)
 
     # -------------------------
-    # 4. SANITIZAR PLAN
+    # 3. SANITIZAR PLAN
     # -------------------------
     plan = sanitize_plan(plan)
 
     # -------------------------
-    # 5. NORMALIZAR PLAN
+    # 4. NORMALIZAR PLAN
     # -------------------------
     plan = normalize_plan(plan)
 
     # -------------------------
-    # 6. VALIDAR DATASETS
+    # 5. VALIDAR DATASET
     # -------------------------
-    dataset_name = plan.get("dataset")
+    dataset_name = validate_dataset(plan.get("dataset"))
 
     if dataset_name not in df_dict:
         raise ValueError(f"Dataset '{dataset_name}' no existe")
 
-    # -------------------------
-    # 7. NORMALIZAR DATASET
-    # -------------------------
-    df_dict[dataset_name] = normalize_dataset(df_dict[dataset_name])
+    df = normalize_dataset(df_dict[dataset_name])
 
     # -------------------------
-    # 8. EJECUTAR QUERY
+    # 6. 🔥 RESOLVER SINÓNIMOS EN FILTROS
     # -------------------------
-    result = execute_plan(plan, df_dict)
+    filters = plan.get("filters", [])
+    new_filters = []
+
+    for f in filters:
+        col = f.get("column")
+
+        # resolver lenguaje natural → columna real
+        resolved_col = resolve_natural_column(col)
+
+        # validar columna final
+        resolved_col = validate_column(dataset_name, resolved_col)
+
+        f["column"] = resolved_col
+        new_filters.append(f)
+
+    plan["filters"] = new_filters
+
+    # -------------------------
+    # 7. RESOLVER GROUPBY
+    # -------------------------
+    groupby = plan.get("groupby", [])
+    plan["groupby"] = [
+        validate_column(dataset_name, resolve_natural_column(g))
+        for g in groupby
+    ]
+
+    # -------------------------
+    # 8. RESOLVER ORDER_BY
+    # -------------------------
+    if plan.get("order_by") and plan["order_by"].get("column"):
+        col = plan["order_by"]["column"]
+        col = resolve_natural_column(col)
+        plan["order_by"]["column"] = validate_column(dataset_name, col)
+
+    # -------------------------
+    # 9. EJECUCIÓN FINAL
+    # -------------------------
+    result = execute_plan(plan, {dataset_name: df})
 
     return result
