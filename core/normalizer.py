@@ -1,202 +1,109 @@
 import re
-import schema_resolver as sr
-from typing import Dict, Any, List, Union
+import unicodedata
+from typing import Any, Dict, List, Union
 
 
-def infer_dataset(query_data: Dict[str, Any]) -> str:
-    """Infiere dataset basado en columnas usadas."""
-    if query_data.get("dataset"):
-        return query_data["dataset"]
-
-    med_exclusive = {
-        "MEDICAMENTO",
-        "GRUPO_TERAPEUTICO",
-        "ADECUACION_FINAL",
-        "ACEPTACION_MEDICO"
-    }
-
-    cols_mentioned = set()
-
-    for f in query_data.get("filters", []):
-        if isinstance(f, dict) and f.get("column"):
-            cols_mentioned.add(sr.normalize_column_name(f["column"]))
-
-    for col in query_data.get("select", []):
-        cols_mentioned.add(sr.normalize_column_name(col))
-
-    if cols_mentioned & med_exclusive:
-        return "medicamentos"
-
-    return "validaciones"
-
-
-def normalize_value(value: Any) -> Any:
-    """Convierte strings a tipos adecuados."""
-    if not isinstance(value, str):
-        return value
-
-    val = value.strip()
-
-    if "," in val:
-        return [normalize_value(v.strip()) for v in val.split(",")]
-
-    try:
-        if re.match(r"^-?\d+$", val):
-            return int(val)
-        if re.match(r"^-?\d+\.\d+$", val):
-            return float(val)
-    except:
-        pass
-
-    return val
-
-
-def map_operator(op: str) -> str:
-    """Normaliza operadores."""
-    op = op.lower().strip()
-
-    mapping = {
-        ">": ">",
-        "mayor que": ">",
-        "gt": ">",
-
-        "<": "<",
-        "menor que": "<",
-        "lt": "<",
-
-        ">=": ">=",
-        "mayor o igual": ">=",
-
-        "<=": "<=",
-        "menor o igual": "<=",
-
-        "=": "==",
-        "==": "==",
-        "igual a": "==",
-        "es": "==",
-        "equals": "==",
-
-        "entre": "BETWEEN",
-        "range": "BETWEEN",
-
-        "in": "IN",
-        "en": "IN",
-        "dentro de": "IN",
-
-        "contiene": "CONTAINS",
-        "contains": "CONTAINS"
-    }
-
-    return mapping.get(op, "==")
-
-
-def parse_natural_filters(text: str) -> List[Dict[str, Any]]:
+# =========================================================
+# NORMALIZACIÓN DE TEXTO BASE
+# =========================================================
+def normalize_text(text: str) -> str:
     """
-    Extrae filtros desde lenguaje natural.
+    Normaliza texto:
+    - minúsculas
+    - sin acentos
+    - espacios limpios
+    - trim
+    """
+    if not isinstance(text, str):
+        return text
+
+    text = text.strip().lower()
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
+    text = re.sub(r"\s+", " ", text)
+
+    return text
+
+
+# =========================================================
+# NORMALIZACIÓN DE COLUMNAS
+# =========================================================
+def normalize_columns(df):
+    df = df.copy()
+    df.columns = [normalize_text(col) for col in df.columns]
+    return df
+
+
+# =========================================================
+# NORMALIZACIÓN DE VALORES
+# =========================================================
+def normalize_values(df):
+    df = df.copy()
+
+    for col in df.columns:
+        if df[col].dtype == "object":
+            df[col] = df[col].apply(lambda x: normalize_text(x) if isinstance(x, str) else x)
+
+    return df
+
+
+# =========================================================
+# NORMALIZADOR PRINCIPAL
+# =========================================================
+def normalize_dataset(df):
+    """
+    Pipeline completo de normalización
+    """
+    df = normalize_columns(df)
+    df = normalize_values(df)
+    return df
+
+
+# =========================================================
+# NORMALIZACIÓN DE QUERY DSL (IA -> ENGINE)
+# =========================================================
+def normalize_plan(plan: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Normaliza el JSON generado por la IA:
+    - columnas
+    - operadores
+    - strings
     """
 
-    filters = []
+    def norm_filters(filters: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        out = []
 
-    parts = re.split(r",| y ", text, flags=re.IGNORECASE)
+        for f in filters:
+            new_f = dict(f)
 
-    pattern = r"(.+?)\s+(mayor que|menor que|igual a|entre|contiene|es|in|>|<|>=|<=|==|=)\s+(.+)"
+            if "column" in new_f:
+                new_f["column"] = normalize_text(new_f["column"])
 
-    for part in parts:
-        match = re.search(pattern, part.strip(), re.IGNORECASE)
+            if "operator" in new_f:
+                new_f["operator"] = new_f["operator"].upper()
 
-        if match:
-            col, op, val = match.groups()
+            out.append(new_f)
 
-            filters.append({
-                "column": sr.normalize_column_name(col.strip()),
-                "operator": map_operator(op),
-                "value": normalize_value(val.strip())
-            })
+        return out
 
-    return filters
+    normalized = dict(plan)
 
+    if "filters" in normalized:
+        normalized["filters"] = norm_filters(normalized["filters"])
 
-def parse_order_by(order_input: Any) -> Dict[str, str]:
-    """Normaliza order_by."""
-    if not order_input:
-        return {}
+    if "groupby" in normalized:
+        normalized["groupby"] = [normalize_text(c) for c in normalized["groupby"]]
 
-    if isinstance(order_input, dict):
-        col = sr.normalize_column_name(order_input.get("column", ""))
-        direction = order_input.get("direction", "ASC").upper()
+    if "dataset" in normalized:
+        normalized["dataset"] = normalize_text(normalized["dataset"])
 
-        return {
-            "column": col,
-            "direction": "DESC" if "DESC" in direction else "ASC"
-        }
+    if "order_by" in normalized and normalized["order_by"]:
+        if "column" in normalized["order_by"]:
+            normalized["order_by"]["column"] = normalize_text(
+                normalized["order_by"]["column"]
+            )
 
-    if isinstance(order_input, str):
-        text = order_input.lower()
+        if "direction" in normalized["order_by"]:
+            normalized["order_by"]["direction"] = normalized["order_by"]["direction"].upper()
 
-        direction = "DESC" if "desc" in text else "ASC"
-
-        # buscar columna más robusta
-        col_match = re.search(r"ordenar por\s+(.+?)(asc|desc|$)", text)
-
-        if col_match:
-            col = sr.normalize_column_name(col_match.group(1).strip())
-        else:
-            col = ""
-
-        return {"column": col, "direction": direction}
-
-    return {}
-
-
-def normalize_query(input_data: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
-    """Pipeline principal."""
-
-    query = {
-        "dataset": None,
-        "select": [],
-        "filters": [],
-        "groupby": [],
-        "order_by": {},
-        "top_n": None
-    }
-
-    if isinstance(input_data, str):
-        query["filters"] = parse_natural_filters(input_data)
-
-    elif isinstance(input_data, dict):
-        query["dataset"] = input_data.get("dataset")
-
-        query["select"] = [
-            sr.normalize_column_name(c)
-            for c in input_data.get("select", [])
-        ]
-
-        query["groupby"] = [
-            sr.normalize_column_name(c)
-            for c in input_data.get("groupby", [])
-        ]
-
-        query["top_n"] = normalize_value(input_data.get("top_n"))
-
-        raw_filters = input_data.get("filters", [])
-
-        if isinstance(raw_filters, list):
-            for f in raw_filters:
-                if isinstance(f, dict):
-                    query["filters"].append({
-                        "column": sr.normalize_column_name(f.get("column", "")),
-                        "operator": map_operator(f.get("operator", "==")),
-                        "value": normalize_value(f.get("value"))
-                    })
-
-        query["order_by"] = parse_order_by(input_data.get("order_by"))
-
-    query["dataset"] = infer_dataset(query)
-
-    if query["top_n"] and not isinstance(query["top_n"], int):
-        try:
-            query["top_n"] = int(query["top_n"])
-        except:
-            query["top_n"] = None
-
-    return query
+    return normalized
