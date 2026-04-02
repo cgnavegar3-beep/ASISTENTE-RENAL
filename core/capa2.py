@@ -1,113 +1,103 @@
-from typing import Dict, Any, Optional
-import re
+import json
+from typing import Dict, Any, List
+
 
 # =========================================================
-# CAPA 2 - COLUMN MAPPER INTELIGENTE
-# Traduce lenguaje natural → intención sobre datos
+# PROMPT BASE CONTROLADO (NO ALUCINACIONES)
 # =========================================================
+SYSTEM_PROMPT = """
+Eres un generador de consultas estructuradas para un motor clínico.
 
+REGLAS ESTRICTAS:
+- NO inventes datos
+- NO expliques
+- NO respondas en lenguaje natural
+- SOLO devuelve JSON válido
+- SOLO usa campos permitidos
 
-# ---------------------------------------------------------
-# DICCIONARIO DE COLUMNAS (CRÍTICO)
-# AQUÍ CONTROLAS TODO (ANTI-ALUCINACIÓN)
-# ---------------------------------------------------------
-COLUMN_MAP = {
-    "fg": "NIVEL_ADE_MDRD",
-    "funcion renal": "NIVEL_ADE_MDRD",
-    "filtrado glomerular": "NIVEL_ADE_MDRD",
-    "ckd": "NIVEL_ADE_CKD",
-    "clearance": "NIVEL_ADE_CG",
-    "creatinina": "CREATININA"
-}
-
-
-# ---------------------------------------------------------
-# NORMALIZACIÓN SIMPLE
-# ---------------------------------------------------------
-def _normalize(text: str) -> str:
-    text = text.lower().strip()
-    text = re.sub(r"\s+", " ", text)
-    return text
-
-
-# ---------------------------------------------------------
-# MATCH COLUMN DIRECTO (SIN IA)
-# ---------------------------------------------------------
-def _match_column(text: str) -> Optional[str]:
-    for key, col in COLUMN_MAP.items():
-        if key in text:
-            return col
-    return None
-
-
-# ---------------------------------------------------------
-# DETECCIÓN SIMPLE DE INTENCIÓN
-# ---------------------------------------------------------
-def _detect_operation(text: str) -> str:
-    if any(x in text for x in ["media", "promedio", "suma", "total"]):
-        return "aggregate"
-    if any(x in text for x in ["mayor", "menor", "<", ">", "bajo", "alto"]):
-        return "filter"
-    return "select"
-
-
-# ---------------------------------------------------------
-# EXTRACCIÓN DE FILTROS BÁSICOS
-# ---------------------------------------------------------
-def _extract_filters(text: str) -> list:
-    filters = []
-
-    match = re.search(r"(>|<|>=|<=)\s*(\d+)", text)
-    if match:
-        filters.append(f"{match.group(1)} {match.group(2)}")
-
-    if "bajo" in text:
-        filters.append("< threshold")
-    if "alto" in text:
-        filters.append("> threshold")
-
-    return filters
-
-
-# ---------------------------------------------------------
-# FUNCIÓN PRINCIPAL CAPA 2
-# ---------------------------------------------------------
-def parse(user_input: str, context: Optional[Dict] = None) -> Dict[str, Any]:
-
-    text = _normalize(user_input)
-
-    column = _match_column(text)
-    operation = _detect_operation(text)
-    filters = _extract_filters(text)
-
-    # -------------------------
-    # CASO SIN MATCH
-    # -------------------------
-    if column is None:
-        return {
-            "intent": "UNKNOWN_INTENT",
-            "column": "",
-            "operation": "",
-            "filters": [],
-            "value_target": None,
-            "confidence": 0.0
-        }
-
-    # -------------------------
-    # CASO OK
-    # -------------------------
-    return {
-        "intent": operation,
-        "column": column,
-        "operation": operation,
-        "filters": filters,
-        "value_target": None,
-        "confidence": 0.85
+FORMATO DE SALIDA:
+{
+  "dataset": "...",
+  "filters": [
+    {
+      "column": "...",
+      "operator": "== | != | > | < | >= | <= | BETWEEN | IN | NOT_IN | IS_NULL | NOT_NULL",
+      "value": "..."
     }
+  ],
+  "groupby": [],
+  "operacion": "count | mean | sum | nunique",
+  "variable": null,
+  "order_by": {
+    "column": "...",
+    "direction": "ASC | DESC"
+  },
+  "top_n": null
+}
+"""
 
 
-# ---------------------------------------------------------
-# WRAPPER COMPATIBLE (por si usas orchestrator)
-# ---------------------------------------------------------
-def resolve(user_input: str, context: Optional[Dict] = None) -> Dict[str, Any]:
-    return parse(user_input, context)
+# =========================================================
+# PARSER DE PREGUNTA SIMPLE → DSL
+# =========================================================
+def build_prompt(user_question: str, context: Dict[str, Any]) -> str:
+    """
+    Construye prompt seguro para el modelo IA
+    """
+
+    return f"""
+{SYSTEM_PROMPT}
+
+CONTEXTO DISPONIBLE:
+- datasets: {list(context.get("datasets", []))}
+- columnas: {context.get("columns", {})}
+
+PREGUNTA DEL USUARIO:
+{user_question}
+
+RESPUESTA (SOLO JSON):
+"""
+
+
+# =========================================================
+# VALIDACIÓN BÁSICA DE OUTPUT IA
+# =========================================================
+def validate_json_output(output: str) -> Dict[str, Any]:
+    """
+    Garantiza que la IA devuelve JSON válido
+    """
+
+    try:
+        data = json.loads(output)
+    except Exception:
+        raise ValueError("La IA no devolvió JSON válido")
+
+    required_keys = ["dataset", "filters", "groupby", "operacion"]
+
+    for k in required_keys:
+        if k not in data:
+            raise ValueError(f"Falta clave obligatoria: {k}")
+
+    return data
+
+
+# =========================================================
+# POST-PROCESADO DE SEGURIDAD
+# =========================================================
+def sanitize_plan(plan: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Seguridad final antes de ejecución
+    """
+
+    allowed_ops = {"count", "mean", "sum", "nunique"}
+
+    if plan.get("operacion") not in allowed_ops:
+        plan["operacion"] = "count"
+
+    if not isinstance(plan.get("filters", []), list):
+        plan["filters"] = []
+
+    if not isinstance(plan.get("groupby", []), list):
+        plan["groupby"] = []
+
+    return plan
