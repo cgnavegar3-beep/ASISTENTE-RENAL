@@ -1,9 +1,10 @@
 # core/orchestrator.py
 import streamlit as st
-import traceback  # Para rastrear el error exacto en el código
+import traceback
 
 class ClinicoOrchestrator:
     def __init__(self):
+        # Importación diferida para evitar ciclos de importación
         from core.query_generator import QueryGenerator
         from core.validator import QueryValidator
         from core.engine import ExecutionEngine
@@ -13,49 +14,53 @@ class ClinicoOrchestrator:
         self.engine = ExecutionEngine()
 
     def procesar_pregunta(self, pregunta, df):
+        """Punto de entrada con gestión de errores por etapas."""
         if df is None or df.empty:
-            return None, "⚠️ Error: La base de datos está vacía o no se ha cargado correctamente.", None
+            return None, "⚠️ **Error de Datos:** La base de datos no está cargada o está vacía.", None
             
         return self._ejecutar_logica_con_cache(pregunta, df)
 
-    @st.cache_data(show_spinner="Analizando datos...")
+    @st.cache_data(show_spinner="Anclando el motor de búsqueda...")
     def _ejecutar_logica_con_cache(_self, pregunta, df):
-        etapa = "Inicio"
+        # El rastreador de etapa nos dirá exactamente dónde falló el código
+        etapa_actual = "Inicialización"
+        
         try:
-            # 1. GENERACIÓN
-            etapa = "Generación de JSON (QueryGenerator)"
+            # 1. TRADUCCIÓN A JSON
+            etapa_actual = "Generación de Query (QueryGenerator)"
             query_json = _self.generator.generar_json(pregunta)
             
-            # 2. VALIDACIÓN
-            etapa = "Validación de Consulta (Validator)"
+            # 2. VALIDACIÓN DE REGLAS
+            etapa_actual = "Validación Técnica (Validator)"
             es_valido, mensaje_error = _self.validator.validar_solicitud(query_json)
             if not es_valido:
-                return query_json, f"🚫 Validación: {mensaje_error}", None
+                # Error controlado (por reglas de negocio)
+                return query_json, f"📝 **Nota:** {mensaje_error}", None
 
-            # 3. FILTRADO
-            etapa = "Filtrado de Datos (Engine - Aplicar Filtros)"
+            # 3. FILTRADO DE DATOS
+            etapa_actual = "Filtrado de Registros (Engine -> Bloque A)"
             df_filtrado = _self.engine.aplicar_filtros(df, query_json["bloque_a"])
             
-            # 4. EJECUCIÓN
-            etapa = "Cálculo Final (Engine - Ejecutar Análisis)"
+            # 4. CÁLCULOS Y RESPUESTA
+            etapa_actual = "Cálculo de Resultados (Engine -> Bloque B)"
             resultado_num, frase_ia, df_final = _self.engine.ejecutar_analisis(df_filtrado, query_json)
             
             return query_json, frase_ia, df_final
 
         except Exception as e:
-            # Capturamos el error técnico real
-            error_detallado = traceback.format_exc()
+            # Captura el error técnico (el 'Crash')
+            error_stack = traceback.format_exc()
             
-            # Construimos un mensaje útil para el usuario/desarrollador
-            mensaje_fallo = (
-                f"❌ **Error detectado en el Motor**\n\n"
-                f"**Etapa:** {etapa}\n"
-                f"**Fallo:** {str(e)}\n\n"
-                f"---\n"
-                f"💡 *Consejo: Revisa si la columna o el valor existen en el Excel/Google Sheets.*"
+            # Mensaje detallado para el chat
+            mensaje_diagnostico = (
+                f"🚨 **¡Ups! Algo ha fallado en el motor.**\n\n"
+                f"**¿Dónde ocurrió?** En la etapa de: `{etapa_actual}`\n"
+                f"**Error técnico:** `{str(e)}` \n\n"
+                f"--- \n"
+                f"🔧 **Sugerencia:** Revisa que el nombre de las columnas en tu Excel coincida con el Catálogo."
             )
             
-            # Imprimimos en la consola de Streamlit para el programador
-            print(f"DEBUG ERROR:\n{error_detallado}")
+            # Esto se imprime en los logs internos de Streamlit para el desarrollador
+            print(f"--- DEBUG LOG ---\n{error_stack}\n-----------------")
             
-            return None, mensaje_fallo, None
+            return None, mensaje_diagnostico, None
