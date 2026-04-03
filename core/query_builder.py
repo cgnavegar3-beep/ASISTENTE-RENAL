@@ -1,99 +1,70 @@
 # core/query_builder.py
 
+
 class QueryBuilder:
     """
-    Convierte la intención del intent_parser en un
-    plan de ejecución estructurado (JSON pandas).
+    Convierte intención + semántica clínica en un query_plan
+    ejecutable por ExecutionEngine.
     """
 
-    def __init__(self):
-        pass
+    def build(self, intent: dict, semantic_map: dict = None) -> dict:
 
-    def build(self, intent: dict) -> dict:
-        """
-        Entrada: intent_parser output
-        Salida: query plan ejecutable
-        """
+        semantic_map = semantic_map or {}
 
         query_plan = {
-            "operation": intent.get("action"),
-            "filters": intent.get("filters", []),
-            "group_by": intent.get("group_by", []),
+            "operation": intent.get("operation", "filter"),
+            "filters": [],
             "aggregation": None,
-            "sort": intent.get("sort"),
-            "limit": intent.get("limit"),
-            "visualization": None
+            "group_by": None,
+            "limit": None
         }
 
-        # ---------------------------
-        # 1. AGREGACIONES
-        # ---------------------------
-        agg = intent.get("aggregation")
+        # ---------------------------------------------------
+        # 1. RIESGO CLÍNICO (desde semantic mapper)
+        # ---------------------------------------------------
+        if semantic_map:
+            for fg, cfg in semantic_map.items():
 
-        if agg:
+                # ejemplo: NIVEL_ADE_CG >= 3
+                query_plan["filters"].append({
+                    "field": cfg["field"],
+                    "operator": ">=",
+                    "value": cfg["threshold"]
+                })
+
+        # ---------------------------------------------------
+        # 2. CONDICIONES EXPLÍCITAS (intent parser)
+        # ---------------------------------------------------
+        for c in intent.get("comparators", []):
+            query_plan["filters"].append({
+                "field": None,   # se resuelve en resolver final
+                "operator": c["op"],
+                "value": c["value"]
+            })
+
+        # ---------------------------------------------------
+        # 3. OPERACIÓN CLÍNICA
+        # ---------------------------------------------------
+        op = intent.get("operation")
+
+        if op in ["count", "mean", "sum", "percent"]:
             query_plan["aggregation"] = {
-                "type": agg.get("type"),
-                "field": agg.get("field"),
-                "condition": agg.get("condition")
+                "type": op,
+                "field": None
             }
 
-        # ---------------------------
-        # 2. VISUALIZACIÓN AUTOMÁTICA
-        # ---------------------------
-        query_plan["visualization"] = self._build_visualization(intent)
+        # ---------------------------------------------------
+        # 4. CONCEPTO CLÍNICO
+        # ---------------------------------------------------
+        concept = intent.get("concept")
+
+        if concept:
+            query_plan["concept"] = concept
+
+        # ---------------------------------------------------
+        # 5. DEFAULT SEGURIDAD
+        # ---------------------------------------------------
+        if not query_plan["filters"] and not query_plan["aggregation"]:
+            query_plan["operation"] = "noop"
 
         return query_plan
-
-    # -------------------------------------------------
-    # VISUALIZACIÓN
-    # -------------------------------------------------
-
-    def _build_visualization(self, intent: dict) -> dict | None:
-        """
-        Decide automáticamente tipo de gráfico.
-        """
-
-        action = intent.get("action")
-
-        # ---------------------------
-        # COUNT / AGGREGATES → BAR
-        # ---------------------------
-        if action == "aggregate":
-            return {
-                "type": "bar",
-                "x": intent.get("group_by", [None])[0],
-                "y": "value"
-            }
-
-        # ---------------------------
-        # TOP N → BAR HORIZONTAL
-        # ---------------------------
-        if action == "top":
-            return {
-                "type": "barh",
-                "x": "value",
-                "y": "category"
-            }
-
-        # ---------------------------
-        # GROUPBY → BAR
-        # ---------------------------
-        if action == "groupby":
-            return {
-                "type": "bar",
-                "x": intent.get("group_by", [None])[0],
-                "y": "count"
-            }
-
-        # ---------------------------
-        # FILTER SIMPLE → TABLE
-        # ---------------------------
-        if action == "filter":
-            return {
-                "type": "table"
-            }
-
-        # DEFAULT
-        return {
-            "type": "table"
-        }
