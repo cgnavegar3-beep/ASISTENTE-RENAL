@@ -3,7 +3,7 @@ import traceback
 
 from core.orchestrator import Orchestrator
 from core.normalizer import Normalizer
-from core.capa_2 import Capa2Controller
+from core.capa2 import Capa2Controller
 from core.execution_engine import ExecutionEngine
 from core.fallback_engine import FallbackEngine
 
