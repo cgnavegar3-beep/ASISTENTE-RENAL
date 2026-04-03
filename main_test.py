@@ -1,90 +1,162 @@
-import pandas as pd
-import traceback
+nl_parser.py
+   ↓
+normalizer.py
+   ↓
+synonym_resolver.py  (+ column_synonyms.py)
+   ↓
+intent_parser.py
+   ↓
+clinical_semantic_mapper.py
+   ↓
+query_builder.py
+   ↓
+execution_engine.py
+   ↓
+viz_builder.py
+   ↓
+response_templates.py
+📦 🔍 QUÉ HACE CADA ARCHIVO (CLARO Y SIN RUIDO)
+🟢 1. ENTRADA Y LIMPIEZA
+nl_parser.py
 
-from core.orchestrator import Orchestrator
-from core.normalizer import Normalizer
-from core.capa2 import Capa2Controller
-from core.execution_engine import ExecutionEngine
-from core.fallback_engine import FallbackEngine
-from core.session_cache import SessionCache
+👉 punto de entrada
 
+recibe texto del usuario
+lo pasa al pipeline
+normalizer.py
 
-# -----------------------------
-# MOCK DATA
-# -----------------------------
-df_dict = {
-    "main": pd.DataFrame({
-        "edad": [20, 30, 40, 70],
-        "paciente": ["a", "b", "c", "d"]
-    })
+👉 limpia texto
+
+minúsculas
+acentos
+espacios
+synonym_resolver.py
+
+👉 traduce lenguaje → columnas reales
+
+usa:
+
+column_synonyms.py
+
+👉 diccionario (TU clave real)
+
+Ej:
+
+"filtrado glomerular" → FG_CG
+"riesgo" → NIVEL_ADE_CG
+🟡 2. INTERPRETACIÓN (SIN IA)
+intent_parser.py
+
+👉 detecta:
+
+count / mean / sum / %
+filtros básicos
+group by
+tipo de output
+clinical_semantic_mapper.py
+
+👉 convierte conceptos clínicos → valores reales
+
+Ej:
+
+"riesgo alto" → NIVEL_ADE_CG >= 3
+
+⚠️ importante: aquí NO se decide nada clínico, solo equivalencias
+
+🔵 3. COMPILACIÓN (EL CORE REAL)
+query_builder.py 🔥
+
+👉 convierte todo → DSL final
+
+{
+  "filters": [],
+  "aggregation": {},
+  "group_by": ...
 }
 
+👉 ESTE es tu “compilador”
 
-# -----------------------------
-# MOCK COMPONENTS SIMPLES
-# -----------------------------
-class DummySemantic:
-    def process(self, x):
-        return x
+🔴 4. EJECUCIÓN
+execution_engine.py
 
+👉 ejecuta en pandas:
 
-class DummyMatcher:
-    def match(self, x):
-        return x
+filtros
+groupby
+agregaciones
+top N
+viz_builder.py
 
+👉 convierte resultado → gráfico
 
-# -----------------------------
-# DEPENDENCIAS
-# -----------------------------
-normalizer = Normalizer()
+bar
+histogram
+ranking
+response_templates.py
 
-semantic_layer = DummySemantic()
-matcher = DummyMatcher()
+👉 convierte resultado → lenguaje humano
 
-capa2 = Capa2Controller(
-    llm=lambda x: '{"operation": "count"}'
-)
+tabla
+lista
+texto tipo “hay X pacientes…”
+🟣 5. SOPORTE (NO TOCAR DE MOMENTO)
+semantic_cache.py
 
-executor = ExecutionEngine()
-fallback = FallbackEngine()
+👉 cachea consultas (bien 👍)
 
-session_cache = SessionCache()
+session_cache.py
 
+👉 contexto sesión (opcional)
 
-# -----------------------------
-# ORCHESTRATOR
-# -----------------------------
-orchestrator = Orchestrator(
-    semantic_layer,
-    matcher,
-    capa2,
-    executor,
-    fallback,
-    session_cache
-)
+schema_definitions.py
 
+👉 define columnas válidas
 
-# -----------------------------
-# TEST QUERY
-# -----------------------------
-query = "cuenta pacientes"
+schema_resolver.py
 
+👉 valida columnas
 
-# -----------------------------
-# EJECUCIÓN CON DEBUG
-# -----------------------------
-try:
-    print("\n🧪 EJECUTANDO TEST...\n")
+validation_engine.py
 
-    result = orchestrator.run(query, df_dict)
+👉 evita queries inválidas
 
-    print("\n✅ RESULTADO FINAL:")
-    print(result)
+⚪ 6. NO CRÍTICOS (PUEDEN QUEDARSE)
+matcher.py
 
-except Exception as e:
+👉 matching (puede quedar)
 
-    print("\n❌ ERROR DETECTADO:")
-    print(str(e))
+semantic_layer.py
 
-    print("\n📍 TRACE COMPLETO (dónde falla):")
-    traceback.print_exc()
+👉 capa semántica (ligera, no IA)
+
+fallback_engine.py
+
+👉 por si algo falla
+
+capa2.py
+
+👉 si es tu antigua capa IA → ahora NO se usa
+(no hace falta tocar aún)
+
+🧠 RESUMEN CLAVE (MUY IMPORTANTE)
+
+Tu sistema ahora es:
+
+Lenguaje natural
+   ↓
+Normalización + sinónimos
+   ↓
+Intento estructurado
+   ↓
+Mapeo clínico simple
+   ↓
+🔥 QUERY BUILDER (DSL)
+   ↓
+Pandas real
+   ↓
+Visualización / respuesta
+🔒 ESTADO ACTUAL
+✔ NO necesitas eliminar nada
+✔ NO necesitas añadir nada
+✔ YA tienes todo
+🚀 SIGUIENTE PASO (REAL, NO TEÓRICO)
