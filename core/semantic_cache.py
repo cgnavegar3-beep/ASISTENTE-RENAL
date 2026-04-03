@@ -1,92 +1,42 @@
-# core/semantic_cache.py
-
 import hashlib
-import json
-import pandas as pd
+from typing import Optional, Dict, Any
+
+# =========================================================
+# SEMANTIC CACHE MODULE
+# Reduce coste de tokens y latencia
+# =========================================================
 
 
 class SemanticCache:
-    """
-    Cache semántico del compilador clínico.
-
-    Evita recomputar:
-    - intent parsing
-    - query plan
-    - execution
-    """
 
     def __init__(self):
-        # cache en memoria (puedes migrar luego a Redis)
-        self._cache = {}
+        # Cache en memoria (RAM)
+        self.cache: Dict[str, Any] = {}
 
-    # -------------------------------------------------
-    # PUBLIC API
-    # -------------------------------------------------
-    def get(self, query: str, context: dict = None):
-        key = self._build_key(query, context)
+    # ---------------------------------------------------------
+    # KEY GENERATION (SIN IA → IMPORTANTE PARA NO GASTAR TOKENS)
+    # ---------------------------------------------------------
+    def _make_key(self, text: str, context: Optional[Dict] = None) -> str:
+        """
+        Genera clave estable para cache.
+        """
+        normalized = text.lower().strip()
 
-        if key in self._cache:
-            return self._cache[key]
-
-        return None
-
-    def set(self, query: str, result: dict, context: dict = None):
-        key = self._build_key(query, context)
-        self._cache[key] = result
-
-    def clear(self):
-        self._cache = {}
-
-    # -------------------------------------------------
-    # KEY GENERATION (SEMÁNTICO)
-    # -------------------------------------------------
-    def _build_key(self, query: str, context: dict):
-
-        normalized_query = self._normalize(query)
-
-        context_str = ""
         if context:
-            # solo campos relevantes clínicos
-            context_str = json.dumps(
-                self._normalize_context(context),
-                sort_keys=True
-            )
+            normalized += str(sorted(context.items()))
 
-        raw_key = f"{normalized_query}::{context_str}"
+        return hashlib.md5(normalized.encode()).hexdigest()
 
-        return self._hash(raw_key)
+    # ---------------------------------------------------------
+    # GET
+    # ---------------------------------------------------------
+    def get(self, text: str, context: Optional[Dict] = None):
+        key = self._make_key(text, context)
+        return self.cache.get(key)
 
-    # -------------------------------------------------
-    # NORMALIZACIÓN
-    # -------------------------------------------------
-    def _normalize(self, text: str) -> str:
-        return (
-            text.lower()
-            .strip()
-        )
-
-    def _normalize_context(self, context: dict):
-        """
-        Reduce ruido del contexto:
-        solo variables clínicas relevantes
-        """
-        allowed_keys = {
-            "fg",
-            "tipo_filtrado",
-            "edad",
-            "sexo",
-            "centro",
-            "nivel_ade"
-        }
-
-        return {
-            k: context[k]
-            for k in context
-            if k in allowed_keys
-        }
-
-    # -------------------------------------------------
-    # HASH
-    # -------------------------------------------------
-    def _hash(self, text: str) -> str:
-        return hashlib.md5(text.encode()).hexdigest()
+    # ---------------------------------------------------------
+    # SET
+    # ---------------------------------------------------------
+    def set(self, text: str, value: Any, context: Optional[Dict] = None):
+        key = self._make_key(text, context)
+        self.cache[key] = value
