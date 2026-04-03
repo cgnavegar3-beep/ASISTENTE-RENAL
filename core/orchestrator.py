@@ -1,8 +1,8 @@
-from typing import Dict, Any
+from typing import Dict
 import pandas as pd
 
 from core.normalizer import Normalizer
-from core.capa_2 import Capa2Controller
+from core.capa2 import Capa2Controller
 from core.execution_engine import ExecutionEngine
 from core.fallback_engine import FallbackEngine
 from core.session_cache import SessionCache
@@ -14,9 +14,9 @@ class Orchestrator:
         self,
         semantic_layer,
         matcher,
-        capa2,
-        executor,
-        fallback_engine,
+        capa2: Capa2Controller,
+        executor: ExecutionEngine,
+        fallback: FallbackEngine,
         session_cache: SessionCache = None
     ):
         # -------------------------
@@ -27,7 +27,7 @@ class Orchestrator:
         self.matcher = matcher
         self.capa2 = capa2
         self.executor = executor
-        self.fallback = fallback_engine
+        self.fallback = fallback
         self.cache = session_cache
 
     def run(self, user_input: str, df_dict: Dict[str, pd.DataFrame]):
