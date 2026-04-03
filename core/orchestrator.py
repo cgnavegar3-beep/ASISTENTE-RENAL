@@ -1,18 +1,18 @@
 # core/orchestrator.py
 
-from core.semantic_cache import SemanticCache
-from core.normalizer import Normalizer
-from core.synonym_resolver import SynonymResolver
-from core.intent_parser import IntentParser
-from core.clinical_semantic_mapper import ClinicalSemanticMapper
-from core.query_builder import QueryBuilder
-from core.execution_engine import ExecutionEngine
-from core.viz_builder import VizBuilder
+from semantic_cache import SemanticCache
+from normalizer import Normalizer
+from synonym_resolver import SynonymResolver
+from intent_parser import IntentParser
+from clinical_semantic_mapper import ClinicalSemanticMapper
+from query_builder import QueryBuilder
+from execution_engine import ExecutionEngine
+from viz_builder import VizBuilder
 
 
 class Orchestrator:
 
-    def __init__(self, df):
+    def __init__(self, df=None):
         self.df = df
 
         self.cache = SemanticCache()
@@ -22,6 +22,8 @@ class Orchestrator:
         self.intent = IntentParser()
         self.mapper = ClinicalSemanticMapper()
         self.query_builder = QueryBuilder()
+
+        # ⚠️ df puede ser None en test simple
         self.executor = ExecutionEngine(df)
         self.viz = VizBuilder()
 
@@ -106,11 +108,10 @@ class Orchestrator:
 # -------------------------------------------------
 # WRAPPER PARA TEST (IMPORTANTE)
 # -------------------------------------------------
-def run_query(query, df, context=None):
+def run_query(query, df=None, context=None):
     orchestrator = Orchestrator(df)
     response = orchestrator.run(query, context)
 
-    # salida simplificada para consola
     if response.get("visualization"):
         return response["visualization"]
 
