@@ -6,6 +6,7 @@ from core.normalizer import Normalizer
 from core.capa2 import Capa2Controller
 from core.execution_engine import ExecutionEngine
 from core.fallback_engine import FallbackEngine
+from core.session_cache import SessionCache
 
 
 # -----------------------------
@@ -25,6 +26,7 @@ df_dict = {
 class DummySemantic:
     def process(self, x):
         return x
+
 
 class DummyMatcher:
     def match(self, x):
@@ -46,17 +48,19 @@ capa2 = Capa2Controller(
 executor = ExecutionEngine()
 fallback = FallbackEngine()
 
+session_cache = SessionCache()
+
 
 # -----------------------------
 # ORCHESTRATOR
 # -----------------------------
 orchestrator = Orchestrator(
-    normalizer,
     semantic_layer,
     matcher,
     capa2,
     executor,
-    fallback
+    fallback,
+    session_cache
 )
 
 
