@@ -1,104 +1,92 @@
+# core/semantic_cache.py
+
 import hashlib
-from typing import Optional, Dict, Callable, Any
-
-# =========================================================
-# SEMANTIC CACHE MODULE
-# Reduce coste de tokens y latencia
-# =========================================================
-
-# Cache en memoria (RAM)
-CACHE: Dict[str, Any] = {}
+import json
+import pandas as pd
 
 
-# ---------------------------------------------------------
-# KEY GENERATION (SIN IA → IMPORTANTE PARA NO GASTAR TOKENS)
-# ---------------------------------------------------------
-def _make_key(text: str, context: Optional[Dict] = None) -> str:
+class SemanticCache:
     """
-    Genera una clave estable para cache.
-    ⚠️ NO usa IA ni semantic_layer (evita gasto de tokens).
+    Cache semántico del compilador clínico.
+
+    Evita recomputar:
+    - intent parsing
+    - query plan
+    - execution
     """
 
-    normalized = text.lower().strip()
+    def __init__(self):
+        # cache en memoria (puedes migrar luego a Redis)
+        self._cache = {}
 
-    # Contexto reducido y estable (evita colisiones pero sin ruido)
-    if context:
-        try:
-            ctx_items = sorted(
-                (k, str(v)) for k, v in context.items()
+    # -------------------------------------------------
+    # PUBLIC API
+    # -------------------------------------------------
+    def get(self, query: str, context: dict = None):
+        key = self._build_key(query, context)
+
+        if key in self._cache:
+            return self._cache[key]
+
+        return None
+
+    def set(self, query: str, result: dict, context: dict = None):
+        key = self._build_key(query, context)
+        self._cache[key] = result
+
+    def clear(self):
+        self._cache = {}
+
+    # -------------------------------------------------
+    # KEY GENERATION (SEMÁNTICO)
+    # -------------------------------------------------
+    def _build_key(self, query: str, context: dict):
+
+        normalized_query = self._normalize(query)
+
+        context_str = ""
+        if context:
+            # solo campos relevantes clínicos
+            context_str = json.dumps(
+                self._normalize_context(context),
+                sort_keys=True
             )
-            ctx_str = str(ctx_items)
-        except Exception:
-            ctx_str = str(context)
-    else:
-        ctx_str = ""
 
-    raw = f"{normalized}|{ctx_str}"
-    return hashlib.md5(raw.encode("utf-8")).hexdigest()
+        raw_key = f"{normalized_query}::{context_str}"
 
+        return self._hash(raw_key)
 
-# ---------------------------------------------------------
-# GET CACHE
-# ---------------------------------------------------------
-def get_cached(text: str, context: Optional[Dict] = None) -> Optional[Any]:
-    """Recupera valor cacheado si existe."""
-    key = _make_key(text, context)
-    return CACHE.get(key)
+    # -------------------------------------------------
+    # NORMALIZACIÓN
+    # -------------------------------------------------
+    def _normalize(self, text: str) -> str:
+        return (
+            text.lower()
+            .strip()
+        )
 
+    def _normalize_context(self, context: dict):
+        """
+        Reduce ruido del contexto:
+        solo variables clínicas relevantes
+        """
+        allowed_keys = {
+            "fg",
+            "tipo_filtrado",
+            "edad",
+            "sexo",
+            "centro",
+            "nivel_ade"
+        }
 
-# ---------------------------------------------------------
-# SET CACHE
-# ---------------------------------------------------------
-def set_cache(text: str, value: Any, context: Optional[Dict] = None) -> None:
-    """Guarda resultado en cache."""
-    if value is None:
-        return
+        return {
+            k: context[k]
+            for k in context
+            if k in allowed_keys
+        }
 
-    key = _make_key(text, context)
-    CACHE[key] = value
-
-
-# ---------------------------------------------------------
-# WRAPPER PRINCIPAL (PROXY CACHE)
-# ---------------------------------------------------------
-def resolve_with_cache(
-    text: str,
-    resolver_fn: Callable[[str], Any],
-    context: Optional[Dict] = None
-) -> Any:
-    """
-    1. Busca en cache
-    2. Si existe → devuelve directo (0 tokens)
-    3. Si no existe → ejecuta IA/orchestrator
-    4. Guarda resultado
-    """
-
-    cached = get_cached(text, context)
-    if cached is not None:
-        return cached
-
-    result = resolver_fn(text)
-    set_cache(text, result, context)
-
-    return result
-
-
-# ---------------------------------------------------------
-# UTILIDADES
-# ---------------------------------------------------------
-def clear_cache() -> None:
-    """Limpia cache completo."""
-    CACHE.clear()
-
-
-def cache_size() -> int:
-    """Número de entradas en cache."""
-    return len(CACHE)
-
-
-def get_cache_stats() -> Dict[str, Any]:
-    """Estadísticas básicas del cache."""
-    return {
-        "entries": len(CACHE),
-        "memory_object_id": id(CACHE)
-    }
+    # -------------------------------------------------
+    # HASH
+    # -------------------------------------------------
+    def _hash(self, text: str) -> str:
+        return hashlib.md5(text.encode()).hexdigest()
