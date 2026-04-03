@@ -1,70 +1,58 @@
 # core/query_builder.py
 
-
 class QueryBuilder:
     """
-    Convierte intención + semántica clínica en un query_plan
-    ejecutable por ExecutionEngine.
+    Compilador final:
+    convierte intención estructurada → DSL pandas clínico
     """
 
-    def build(self, intent: dict, semantic_map: dict = None) -> dict:
+    def build(self, mapped: dict) -> dict:
 
-        semantic_map = semantic_map or {}
-
-        query_plan = {
-            "operation": intent.get("operation", "filter"),
+        query = {
+            "select": ["*"],
             "filters": [],
-            "aggregation": None,
+            "logic": "AND",
             "group_by": None,
-            "limit": None
+            "aggregation": None,
+            "order_by": None,
+            "limit": None,
+            "output": {"type": "table"}
         }
 
-        # ---------------------------------------------------
-        # 1. RIESGO CLÍNICO (desde semantic mapper)
-        # ---------------------------------------------------
-        if semantic_map:
-            for fg, cfg in semantic_map.items():
+        # -------------------------
+        # FILTROS
+        # -------------------------
+        if "filters" in mapped:
+            query["filters"] = mapped["filters"]
 
-                # ejemplo: NIVEL_ADE_CG >= 3
-                query_plan["filters"].append({
-                    "field": cfg["field"],
-                    "operator": ">=",
-                    "value": cfg["threshold"]
-                })
+        # -------------------------
+        # GROUP BY
+        # -------------------------
+        if "group_by" in mapped:
+            query["group_by"] = mapped["group_by"]
 
-        # ---------------------------------------------------
-        # 2. CONDICIONES EXPLÍCITAS (intent parser)
-        # ---------------------------------------------------
-        for c in intent.get("comparators", []):
-            query_plan["filters"].append({
-                "field": None,   # se resuelve en resolver final
-                "operator": c["op"],
-                "value": c["value"]
-            })
+        # -------------------------
+        # AGGREGATION
+        # -------------------------
+        if "aggregation" in mapped:
+            query["aggregation"] = mapped["aggregation"]
 
-        # ---------------------------------------------------
-        # 3. OPERACIÓN CLÍNICA
-        # ---------------------------------------------------
-        op = intent.get("operation")
+        # -------------------------
+        # ORDER BY
+        # -------------------------
+        if "order_by" in mapped:
+            query["order_by"] = mapped["order_by"]
 
-        if op in ["count", "mean", "sum", "percent"]:
-            query_plan["aggregation"] = {
-                "type": op,
-                "field": None
-            }
+        # -------------------------
+        # LIMIT
+        # -------------------------
+        if "limit" in mapped:
+            query["limit"] = mapped["limit"]
 
-        # ---------------------------------------------------
-        # 4. CONCEPTO CLÍNICO
-        # ---------------------------------------------------
-        concept = intent.get("concept")
+        # -------------------------
+        # OUTPUT TYPE
+        # -------------------------
+        if "output" in mapped:
+            query["output"] = mapped["output"]
 
-        if concept:
-            query_plan["concept"] = concept
-
-        # ---------------------------------------------------
-        # 5. DEFAULT SEGURIDAD
-        # ---------------------------------------------------
-        if not query_plan["filters"] and not query_plan["aggregation"]:
-            query_plan["operation"] = "noop"
-
-        return query_plan
+        return query
