@@ -101,3 +101,17 @@ class Orchestrator:
         self.cache.set(query, response, context)
 
         return response
+
+
+# -------------------------------------------------
+# WRAPPER PARA TEST (IMPORTANTE)
+# -------------------------------------------------
+def run_query(query, df, context=None):
+    orchestrator = Orchestrator(df)
+    response = orchestrator.run(query, context)
+
+    # salida simplificada para consola
+    if response.get("visualization"):
+        return response["visualization"]
+
+    return response["data"]
