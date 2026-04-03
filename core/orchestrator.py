@@ -1,62 +1,103 @@
 # core/orchestrator.py
 
-import pandas as pd
-
-from core.normalizer import normalize_query
+from core.semantic_cache import SemanticCache
+from core.normalizer import Normalizer
 from core.synonym_resolver import SynonymResolver
 from core.intent_parser import IntentParser
+from core.clinical_semantic_mapper import ClinicalSemanticMapper
 from core.query_builder import QueryBuilder
 from core.execution_engine import ExecutionEngine
 from core.viz_builder import VizBuilder
 
 
 class Orchestrator:
-    """
-    PIPELINE COMPLETO:
-    Lenguaje natural → ejecución pandas → visualización
-    """
 
-    def __init__(self, df: pd.DataFrame, synonym_map: dict):
+    def __init__(self, df):
         self.df = df
 
-        # módulos
-        self.synonyms = SynonymResolver(synonym_map)
+        self.cache = SemanticCache()
+
+        self.normalizer = Normalizer()
+        self.synonyms = SynonymResolver()
         self.intent = IntentParser()
+        self.mapper = ClinicalSemanticMapper()
         self.query_builder = QueryBuilder()
         self.executor = ExecutionEngine(df)
         self.viz = VizBuilder()
 
-    # -----------------------------
+    # -------------------------------------------------
     # ENTRY POINT
-    # -----------------------------
-    def run(self, user_query: str, output_type="table", viz_config=None):
+    # -------------------------------------------------
+    def run(self, query: str, context: dict = None):
 
-        # 1. NORMALIZAR TEXTO
-        query_norm = normalize_query(user_query)
+        # -------------------------------------------------
+        # 1. CACHE CHECK
+        # -------------------------------------------------
+        cached = self.cache.get(query, context)
+        if cached:
+            cached["meta"]["cache"] = True
+            return cached
 
-        # 2. RESOLVER SINÓNIMOS (columnas clínicas)
-        query_resolved = self.synonyms.resolve(query_norm)
+        trace = {
+            "query_original": query,
+            "steps": {}
+        }
 
-        # 3. DETECTAR INTENCIÓN
-        intent = self.intent.parse(query_resolved)
+        # -------------------------------------------------
+        # 2. NORMALIZATION
+        # -------------------------------------------------
+        query_norm = self.normalizer.normalize(query)
+        trace["steps"]["normalizer"] = query_norm
 
-        # 4. CONSTRUIR QUERY PLAN (JSON pandas)
-        query_plan = self.query_builder.build(intent)
+        # -------------------------------------------------
+        # 3. SYNONYM RESOLUTION
+        # -------------------------------------------------
+        query_syn = self.synonyms.resolve(query_norm)
+        trace["steps"]["synonym_resolver"] = query_syn
 
-        # 5. EJECUTAR SOBRE DATAFRAME
+        # -------------------------------------------------
+        # 4. INTENT PARSING
+        # -------------------------------------------------
+        intent = self.intent.parse(query_syn)
+        trace["steps"]["intent"] = intent
+
+        # -------------------------------------------------
+        # 5. CLINICAL SEMANTIC MAPPER
+        # -------------------------------------------------
+        mapped = self.mapper.map(intent, context)
+        trace["steps"]["clinical_mapper"] = mapped
+
+        # -------------------------------------------------
+        # 6. QUERY BUILDER
+        # -------------------------------------------------
+        query_plan = self.query_builder.build(mapped)
+        trace["steps"]["query_plan"] = query_plan
+
+        # -------------------------------------------------
+        # 7. EXECUTION
+        # -------------------------------------------------
         result_df = self.executor.execute(query_plan)
 
-        # 6. GENERAR SALIDA FINAL
-        output = self.viz.build(
-            result_df,
-            output_type=output_type,
-            config=viz_config
-        )
+        # -------------------------------------------------
+        # 8. VISUALIZATION
+        # -------------------------------------------------
+        viz = self.viz.build(result_df, query_plan)
 
-        return {
-            "query": user_query,
-            "normalized": query_norm,
-            "intent": intent,
-            "query_plan": query_plan,
-            "result": output
+        # -------------------------------------------------
+        # 9. RESPONSE FINAL
+        # -------------------------------------------------
+        response = {
+            "data": result_df,
+            "visualization": viz,
+            "meta": {
+                "cache": False
+            },
+            "trace": trace
         }
+
+        # -------------------------------------------------
+        # 10. CACHE STORE
+        # -------------------------------------------------
+        self.cache.set(query, response, context)
+
+        return response
