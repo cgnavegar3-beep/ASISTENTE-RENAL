@@ -1,4 +1,4 @@
-# --- ACTUALIZACIÓN EVOLUCIONADA 29 MAR 13:20 ---
+mi app.py es :# --- ACTUALIZACIÓN EVOLUCIONADA 29 MAR 13:20 ---
 # INTEGRACIÓN DE ORQUESTADOR IA EN CONSULTA DINÁMICA
 
 import streamlit as st
@@ -19,6 +19,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 import time
 import math
+from core.orchestrator import ClinicoOrchestrator
 
 # MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (IMPORTACIONES VISUALIZACIÓN)
 import plotly.express as px
@@ -89,6 +90,9 @@ if "filtros_dinamicos" not in st.session_state:
 for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
     if key not in st.session_state:
         st.session_state[key] = ""
+
+if "orq" not in st.session_state:
+    st.session_state.orq = ClinicoOrchestrator()
 
 # --- CONFIGURACIÓN IA ---
 try:
@@ -621,14 +625,36 @@ with tabs[4]:
         query_text = st.text_input("Haz una pregunta sobre los datos:", placeholder="Ej: ¿Cuáles son los 5 fármacos más ajustados en Marín?")
         if query_text:
             with st.spinner("IA analizando datos..."):
-                # Simulación de orquestación IA: El prompt mapea la pregunta a filtros técnicos.
-                # Nota: Aquí invocas llamar_ia_en_cascada con un prompt de sistema para extraer JSON.
-                # Por brevedad en esta actualización, la IA guía la configuración manual.
-                st.info(f"💡 Sugerencia IA: Para responder '{query_text}', selecciona Origen: 'Medicamentos', en Bloque B elige 'MEDICAMENTO', Operación 'Conteo' y Agrupa por 'CENTRO' con Filtro 'CENTRO == MARÍN'.")
 
-    tipo_origen = st.radio("Seleccionar origen de datos:", ["Validaciones (General)", "Medicamentos (Detalle)"], horizontal=True)
-    df_pool = st.session_state["df_sync_val"].copy() if "Validaciones" in tipo_origen else st.session_state["df_sync_meds"].copy()
-    if not df_pool.empty:
+                tipo_origen = st.radio(
+                    "Seleccionar origen de datos:",
+                    ["Validaciones (General)", "Medicamentos (Detalle)"],
+                    horizontal=True
+                )
+
+                df_pool = (
+                    st.session_state["df_sync_val"].copy()
+                    if "Validaciones" in tipo_origen
+                    else st.session_state["df_sync_meds"].copy()
+                )
+
+                df = df_pool
+
+                query_json, frase, figura = st.session_state.orq.procesar_pregunta(
+                    query_text,
+                    df
+                )
+
+                st.write(frase)
+
+                if figura is not None:
+                    st.plotly_chart(figura, use_container_width=True)
+
+                if query_json is not None:
+                    st.json(query_json)
+                  
+                  
+    if "df_pool" in locals() and not df_pool.empty:
         with st.container(border=True):
             st.markdown("#### 🔍 Bloque A – Configurar Cohorte: <span style='font-size: 0.8em; color: gray;'>Condiciones o filtros de lo que quiero medir.</span>", unsafe_allow_html=True)
             col_a1, col_a2 = st.columns([1, 1])
