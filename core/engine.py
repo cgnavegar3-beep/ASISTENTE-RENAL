@@ -1,17 +1,19 @@
-# core/engine.py
 import pandas as pd
 import numpy as np
 import plotly.express as px
 from core.dictionary import obtener_respuesta_aleatoria
 from core.normalizer import limpiar_texto
+# --- ADICIÓN DE ERROR ---
+from core.errors import CoreError
 
 class ExecutionEngine:
     def __init__(self):
         pass
 
     def aplicar_filtros(self, df, filtros_json):
-        """Aplica los filtros del Bloque A sobre el DataFrame."""
+        """Aplica los filtros del Bloque A con validación estricta."""
         if df is None or df.empty:
+            # No lanzamos error aquí, simplemente devolvemos vacío para que el análisis lo gestione
             return df
             
         mask = pd.Series(True, index=df.index)
@@ -22,7 +24,8 @@ class ExecutionEngine:
             val = f.get("val")
             
             if col not in df.columns:
-                continue
+                # Lanzamos CoreError porque el validador falló o el DF no es el esperado
+                raise CoreError("engine.py", f"Columna no encontrada en el dataset activo", col)
 
             try:
                 val_n = limpiar_texto(val)
@@ -41,18 +44,23 @@ class ExecutionEngine:
                     mask &= (df_col_n.str.contains(val_n, na=False))
 
             except Exception as e:
-                print(f"⚠️ Error en filtro '{col}': {e}")
-                continue
+                # Si el casteo a float falla o hay datos corruptos, informamos
+                raise CoreError(
+                    modulo="engine.py",
+                    mensaje=f"Error de tipos al aplicar filtro en '{col}'",
+                    detalle=f"Operación: {op}, Valor: {val}. Error: {str(e)}"
+                )
                 
         return df[mask]
 
     def ejecutar_analisis(self, df_filtrado, query_json):
-        """Calcula el resultado (Bloque B) y genera la respuesta humana."""
+        """Calcula el resultado (Bloque B) con gestión de estados vacíos."""
         config_b = query_json.get("bloque_b", {})
         var = config_b.get("variable", "ID_REGISTRO")
         op = config_b.get("operacion", "Conteo Único (Pacientes)")
         
         if df_filtrado is None or df_filtrado.empty:
+            # Caso de negocio: no hay datos. No es un error de sistema, es un resultado.
             return 0, obtener_respuesta_aleatoria("sin_resultados"), df_filtrado
 
         try:
@@ -60,16 +68,23 @@ class ExecutionEngine:
                 resultado = len(df_filtrado)
                 cat = "conteo"
             elif "Único" in op:
+                if var not in df_filtrado.columns:
+                    raise CoreError("engine.py", "Variable de conteo único no disponible", var)
                 resultado = df_filtrado[var].nunique()
                 cat = "kpi"
             elif "Promedio" in op:
-                resultado = round(pd.to_numeric(df_filtrado[var], errors='coerce').mean(), 2)
+                col_num = pd.to_numeric(df_filtrado[var], errors='coerce')
+                if col_num.isnull().all():
+                     raise CoreError("engine.py", "Imposible calcular promedio: la columna no es numérica", var)
+                resultado = round(col_num.mean(), 2)
                 cat = "promedio"
             else:
                 resultado = len(df_filtrado)
                 cat = "kpi"
-        except:
-            return 0, obtener_respuesta_aleatoria("sin_resultados"), df_filtrado
+        except CoreError as ce:
+            raise ce
+        except Exception as e:
+            raise CoreError("engine.py", "Fallo inesperado en cálculo métrico", str(e))
 
         res_humana = obtener_respuesta_aleatoria(
             cat, valor=resultado, variable=var,
@@ -78,40 +93,44 @@ class ExecutionEngine:
         return resultado, res_humana, df_filtrado
 
     def generar_grafico(self, df_res, query_json):
-        """Genera gráficos de barras (H/V) y sectores (Bloque C)."""
+        """Genera objetos Plotly con validación de renderizado."""
         if df_res is None or df_res.empty:
             return None
 
         formato = limpiar_texto(query_json.get("bloque_c", {}).get("formato", ""))
         config_b = query_json.get("bloque_b", {})
-        eje_x = config_b.get("agrupar", "SEXO") # Por defecto agrupar por sexo si no hay nada
+        eje_x = config_b.get("agrupar", "SEXO")
         
-        # Si no hay agrupación definida, no podemos hacer barras/sectores útiles
         if eje_x == "Ninguno":
             eje_x = "SEXO" 
 
+        if eje_x not in df_res.columns:
+            raise CoreError("engine.py", "Columna de agrupación no encontrada para gráfico", eje_x)
+
         try:
-            # 1. GRÁFICO DE SECTORES (Torta / Pie)
+            # 1. SECTORES
             if any(w in formato for w in ["torta", "pie", "sectores", "circular"]):
                 fig = px.pie(df_res, names=eje_x, title=f"Proporción por {eje_x}")
             
-            # 2. BARRAS HORIZONTALES
+            # 2. BARRAS H
             elif "horizontal" in formato:
-                # Contamos ocurrencias para el gráfico
                 df_counts = df_res[eje_x].value_counts().reset_index()
                 fig = px.bar(df_counts, x='count', y=eje_x, orientation='h', 
-                             title=f"Distribución Horizontal por {eje_x}",
-                             labels={'count': 'Cantidad', eje_x: eje_x})
+                             title=f"Distribución Horizontal por {eje_x}")
             
-            # 3. BARRAS VERTICALES (Por defecto)
-            else:
+            # 3. BARRAS V (Default)
+            elif "barras" in formato or formato == "" or "vertical" in formato:
                 df_counts = df_res[eje_x].value_counts().reset_index()
-                fig = px.bar(df_counts, x=eje_x, y='count', 
-                             title=f"Distribución por {eje_x}",
-                             labels={'count': 'Cantidad'})
+                fig = px.bar(df_counts, x=eje_x, y='count', title=f"Distribución por {eje_x}")
+            
+            else:
+                # Si llega aquí algo que el generador aprobó pero el engine no sabe hacer:
+                raise CoreError("engine.py", "Formato de gráfico reconocido pero no implementado", formato)
 
             fig.update_layout(template="plotly_white", margin=dict(l=20, r=20, t=40, b=20))
             return fig
+            
+        except CoreError as ce:
+            raise ce
         except Exception as e:
-            print(f"❌ Error al crear gráfico: {e}")
-            return None
+            raise CoreError("engine.py", "Error crítico en motor Plotly", str(e))
