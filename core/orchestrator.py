@@ -1,63 +1,62 @@
-import streamlit as st
 import traceback
-# --- ADICIÓN DE ERROR ---
 from core.errors import CoreError
+from core.policy_defaults import apply_clinical_policies
 
 class ClinicoOrchestrator:
     def __init__(self):
-        # Importación diferida para evitar ciclos
         from core.query_generator import QueryGenerator
-        from core.validator import validar_query
         from core.engine import ExecutionEngine
         
-        self.generator = QueryGenerator()
-        self.validar_func = validar_query # Referencia a la función de validación
+        self.parser = QueryGenerator()
         self.engine = ExecutionEngine()
 
+    def _ast_to_engine_schema(self, ast):
+        """
+        MAPPING PURO: Traduce la estructura del AST al esquema de bloques.
+        No decide valores, solo transfiere datos.
+        """
+        req = ast.get("request", {})
+        meta = ast.get("metadata", {})
+
+        return {
+            "origen": meta.get("source"),
+            "bloque_a": req.get("filters", []),
+            "bloque_b": {
+                "variable": req.get("target_col"),
+                "operacion": req.get("metric"),
+                "agrupar": req.get("group_by") or "Ninguno"
+            },
+            "bloque_c": {
+                "tipo": req.get("chart_type")
+            },
+            "bloque_d": {
+                "limit": 10  # Parámetro técnico de paginación/render
+            }
+        }
+
     def procesar_pregunta(self, pregunta, df):
-        """Punto de entrada principal con gestión de errores modular."""
         if df is None or df.empty:
-            return None, "⚠️ **Error de Datos:** La base de datos no está cargada o está vacía.", None
+            return None, "⚠️ Error: DataFrame no disponible.", None
             
-        # Ejecución del flujo capturando errores específicos del Core
         try:
-            return self._ejecutar_flujo(pregunta, df)
-        
+            # 1. Interpretación (AST Crudo)
+            ast_raw = self.parser.parse_query(pregunta)
+            
+            # 2. Aplicación de Políticas (Inyección de Defaults)
+            ast_policed = apply_clinical_policies(ast_raw)
+            
+            # 3. Compilación Estructural (AST -> JSON Engine)
+            query_json = self._ast_to_engine_schema(ast_policed)
+            
+            # 4. Ejecución determinista
+            df_filtrado = self.engine.aplicar_filtros(df, query_json["bloque_a"])
+            res_num, frase, df_final = self.engine.ejecutar_analisis(df_filtrado, query_json)
+            figura = self.engine.generar_grafico(df_final, query_json)
+            
+            return query_json, frase, figura
+
         except CoreError as e:
-            # --- CAPTURA DE ERROR ESTRUCTURADO ---
-            mensaje_clinico = (
-                f"{str(e)}\n\n"
-                f"👉 **Archivo a modificar:** `{e.modulo}`\n"
-                f"💡 **Sugerencia:** Envíame el código original de `{e.modulo}` para aplicar el parche mínimo."
-            )
-            return None, mensaje_clinico, None
-
+            return None, f"❌ Error en {e.modulo}: {e.mensaje}", None
         except Exception as e:
-            # --- CAPTURA DE ERROR IMPREVISTO (CRASH) ---
-            error_stack = traceback.format_exc()
-            mensaje_inesperado = (
-                f"🚨 **Error Crítico Inesperado**\n\n"
-                f"**Detalle:** `{str(e)}`\n"
-                f"--- \n"
-                f"Verifica la conexión con los módulos o el estado del DataFrame."
-            )
-            # Log para consola del desarrollador
-            print(f"--- CRITICAL DEBUG ---\n{error_stack}")
-            return None, mensaje_inesperado, None
-
-    def _ejecutar_flujo(self, pregunta, df):
-        """Privado: Ejecuta la cadena de responsabilidad."""
-        
-        # 1. GENERACIÓN: NL -> JSON (Puede lanzar CoreError en query_generator.py)
-        query_json = self.generator.generar_json(pregunta)
-        
-        # 2. VALIDACIÓN: (Puede lanzar CoreError en validator.py)
-        self.validar_func(query_json)
-        
-        # 3. FILTRADO: (Puede lanzar CoreError en engine.py)
-        df_filtrado = self.engine.aplicar_filtros(df, query_json.get("bloque_a", []))
-        
-        # 4. ANÁLISIS MÉTRICO: (Puede lanzar CoreError en engine.py)
-        resultado_num, frase_ia, df_final = self.engine.ejecutar_analisis(df_filtrado, query_json)
-        
-        return query_json, frase_ia, df_final
+            print(f"DEBUG: {traceback.format_exc()}")
+            return None, f"🚨 Error Crítico: {str(e)}", None
