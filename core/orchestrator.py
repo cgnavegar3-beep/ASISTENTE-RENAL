@@ -1,13 +1,13 @@
 import traceback
+
 from core.errors import CoreError
 from core.policy_defaults import apply_clinical_policies
+from core.query_generator import QueryGenerator
+from core.engine import ExecutionEngine
 
 
 class ClinicoOrchestrator:
     def __init__(self):
-        from core.query_generator import QueryGenerator
-        from core.engine import ExecutionEngine
-
         self.parser = QueryGenerator()
         self.engine = ExecutionEngine()
 
@@ -36,7 +36,7 @@ class ClinicoOrchestrator:
             },
 
             "bloque_d": {
-                "limit": req.get("limit")  # ← FIX: ya no hardcodeado
+                "limit": req.get("limit")
             }
         }
 
