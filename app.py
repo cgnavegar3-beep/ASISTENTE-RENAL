@@ -1,5 +1,4 @@
-# --- ACTUALIZACIÓN EVOLUCIONADA 29 MAR 13:20 ---
-
+# --- ASISTENTE RENAL: EDICIÓN EVOLUCIONADA 29 MAR 13:20 ---
 import streamlit as st
 import pandas as pd
 import io
@@ -13,13 +12,13 @@ import hashlib
 import unicodedata
 import uuid
 
-# --- NUEVAS LIBRERÍAS PARA GOOGLE SHEETS & SERIALIZACIÓN ---
+# --- LIBRERÍAS PARA GOOGLE SHEETS & SERIALIZACIÓN ---
 import gspread
 from google.oauth2.service_account import Credentials
 import time
 import math
 
-# MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (IMPORTACIONES VISUALIZACIÓN)
+# MÓDULO DE EVOLUCIÓN (VISUALIZACIÓN)
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -54,6 +53,26 @@ import plotly.graph_objects as go
 # =================================================================
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
+
+# --- CLASES DE EVOLUCIÓN: ORQUESTADOR Y ERRORES ---
+class CoreError(Exception):
+    """Manejo de errores críticos del núcleo renal"""
+    pass
+
+class ClinicoOrchestrator:
+    """Orquesta la validación clínica cruzando datos actuales e históricos"""
+    @staticmethod
+    def analizar_tendencia(id_paciente, fg_actual):
+        if st.session_state["df_sync_val"].empty: return "Sin histórico"
+        hist = st.session_state["df_sync_val"][st.session_state["df_sync_val"]["ID_REGISTRO"] == id_paciente]
+        if hist.empty: return "Primer registro"
+        try:
+            ultimo_fg = float(hist.iloc[-1]["FG_CG"])
+            dif = fg_actual - ultimo_fg
+            if dif < -10: return f"⚠️ DESCENSO CRÍTICO ({dif} mL/min)"
+            if dif > 10: return f"📈 MEJORÍA SIGNIFICATIVA (+{dif} mL/min)"
+            return "Estable"
+        except: return "Error en tendencia"
 
 # --- INICIALIZACIÓN ---
 if "active_model" not in st.session_state:
@@ -166,7 +185,7 @@ def cargar_datos_cacheados():
     df_analisis = raw_to_clean_df_cache("ANALISIS")
     return df_val, df_meds, df_analisis
 
-# --- INTEGRACIÓN DE CARGA (SUSTITUCIÓN PUNTO ÚNICO) ---
+# --- INTEGRACIÓN DE CARGA ---
 if st.session_state["df_sync_val"].empty:
     try:
         df_val_c, df_meds_c, df_analisis_c = cargar_datos_cacheados()
@@ -296,7 +315,7 @@ def reset_meds():
 def limpiar_filtros_dinamicos():
     st.session_state.filtros_dinamicos = []
 
-# --- EVOLUCIÓN: MOTOR DE RANKING UNIVERSAL ---
+# --- MOTOR DE RANKING UNIVERSAL ---
 def ejecutar_ranking_v29(df, dim, met, top_n, unique_key):
     try:
         df_rank = df.copy()
@@ -419,12 +438,10 @@ with tabs[0]:
                 st.session_state.analisis_realizado = True
             else:
                 with st.spinner("Analizando..."):
-                    try:
-                        import constants as c
-                        prompt_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
-                    except:
-                        prompt_final = f"Actúa como experto en nefrología. Analiza estos fármacos para FG C-G {valor_fg}, CKD {val_ckd} y MDRD {val_mdrd}. MEDICAMENTOS: {st.session_state.main_meds}. Formato de salida: Síntesis con iconos ||| Tabla HTML ||| Análisis detallado ||| Bloque JSON con campos 'paciente' y 'medicamentos'."
-                    
+                    import constants as c
+                    # EVOLUCIÓN: Análisis de tendencia integrado
+                    tendencia = ClinicoOrchestrator.analizar_tendencia(st.session_state.reg_id, float(valor_fg))
+                    prompt_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\nTENDENCIA HISTÓRICA: {tendencia}\n\nMEDS:\n{st.session_state.main_meds}"
                     st.session_state.resp_ia = llamar_ia_en_cascada(prompt_final)
                     st.session_state.ultima_huella = huella_actual
                     st.session_state.analisis_realizado = True
@@ -570,12 +587,7 @@ with tabs[3]:
                 color_map = { "Sin ajuste": "#2f855a", "Precaución": "#faf089", "Ajuste dosis": "#ffd27f", "Toxicidad": "#c05621", "Contraindicado": "#c53030" }
                 df_cat["ETIQUETA"] = df_cat["NIVEL_ADE_CG"].map(map_riesgos)
                 tipo_graf_riesgo = st.selectbox("Visualización", ["-- seleccionar --", "Sectores", "Barras H", "Barras V"], key="sel_riesgo")
-                if tipo_graf_riesgo == "-- seleccionar --":
-                    fig_riesgo = px.pie(df_cat, names="ETIQUETA", values="count", color="ETIQUETA", color_discrete_map=color_map, hole=0.4)
-                    fig_riesgo.update_layout(height=300, margin=dict(t=10, b=10, l=40, r=10), showlegend=True, legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.05))
-                    fig_riesgo.update_traces(sort=False)
-                    st.plotly_chart(fig_riesgo, use_container_width=True)
-                elif tipo_graf_riesgo == "Sectores":
+                if tipo_graf_riesgo == "-- seleccionar --" or tipo_graf_riesgo == "Sectores":
                     fig_riesgo = px.pie(df_cat, names="ETIQUETA", values="count", color="ETIQUETA", color_discrete_map=color_map, hole=0.4)
                     fig_riesgo.update_layout(height=300, margin=dict(t=10, b=10, l=40, r=10), showlegend=True, legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.05))
                     fig_riesgo.update_traces(sort=False)
@@ -598,11 +610,7 @@ with tabs[3]:
                     df_top = df_alertas.groupby("MED_NORM").size().reset_index(name='Frecuencia').sort_values(by="Frecuencia", ascending=False)
                     df_top['Rank'] = df_top['Frecuencia'].rank(method='min', ascending=False)
                     df_top_final = df_top[df_top['Rank'] <= 5].sort_values(by="Frecuencia", ascending=False)
-                    if tipo_graf_top == "-- seleccionar --":
-                        fig_top = px.bar(df_top_final, y="MED_NORM", x="Frecuencia", orientation='h', text="Frecuencia", color="Frecuencia", color_continuous_scale="Reds")
-                        fig_top.update_layout(showlegend=False, height=300, margin=dict(t=10, b=10, l=10, r=10), yaxis={'categoryorder':'total ascending'})
-                        st.plotly_chart(fig_top, use_container_width=True)
-                    elif tipo_graf_top == "Barras Horizontales":
+                    if tipo_graf_top == "-- seleccionar --" or tipo_graf_top == "Barras Horizontales":
                         fig_top = px.bar(df_top_final, y="MED_NORM", x="Frecuencia", orientation='h', text="Frecuencia", color="Frecuencia", color_continuous_scale="Reds")
                         fig_top.update_layout(showlegend=False, height=300, margin=dict(t=10, b=10, l=10, r=10), yaxis={'categoryorder':'total ascending'})
                         st.plotly_chart(fig_top, use_container_width=True)
