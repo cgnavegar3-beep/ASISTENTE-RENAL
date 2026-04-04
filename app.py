@@ -419,8 +419,12 @@ with tabs[0]:
                 st.session_state.analisis_realizado = True
             else:
                 with st.spinner("Analizando..."):
-                    import constants as c
-                    prompt_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
+                    try:
+                        import constants as c
+                        prompt_final = f"{c.PROMPT_AFR_V10}\n\nFG C-G: {valor_fg}\nFG CKD: {val_ckd}\nFG MDRD: {val_mdrd}\n\nMEDS:\n{st.session_state.main_meds}"
+                    except:
+                        prompt_final = f"Actúa como experto en nefrología. Analiza estos fármacos para FG C-G {valor_fg}, CKD {val_ckd} y MDRD {val_mdrd}. MEDICAMENTOS: {st.session_state.main_meds}. Formato de salida: Síntesis con iconos ||| Tabla HTML ||| Análisis detallado ||| Bloque JSON con campos 'paciente' y 'medicamentos'."
+                    
                     st.session_state.resp_ia = llamar_ia_en_cascada(prompt_final)
                     st.session_state.ultima_huella = huella_actual
                     st.session_state.analisis_realizado = True
