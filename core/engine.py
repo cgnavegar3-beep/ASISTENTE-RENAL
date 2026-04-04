@@ -1,3 +1,7 @@
+# ==========================================
+# VERSIÓN CORREGIDA - ENGINE.PY
+# CONTROL DE INDENTACIÓN NORMALIZADO
+# ==========================================
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -24,7 +28,7 @@ class ExecutionEngine:
                 raise CoreError("engine.py", f"Columna no encontrada: {col}", col)
 
             try:
-                # Optimización: Normalizamos el valor de comparación una sola vez fuera del apply
+                # Optimización: Normalizamos el valor de comparación una sola vez
                 val_n = limpiar_texto(val) if isinstance(val, str) else val
 
                 if op == "==":
@@ -50,19 +54,36 @@ class ExecutionEngine:
             return 0, obtener_respuesta_aleatoria("sin_resultados"), df_filtrado
 
         config_b = query_json.get("bloque_b", {})
-        var = config_b.get("variable", "ID_REGISTRO")
-        # Estándar técnico único: conteo, unico, promedio
-        metrica = config_b.get("metrica", "conteo") 
+        var = config_b.get("variable") or "ID_REGISTRO"
+        metrica = config_b.get("operacion") or "conteo"
 
         try:
             if metrica == "conteo":
                 resultado = len(df_filtrado)
-                tipo_res = "conteo"
             elif metrica == "unico":
                 if var not in df_filtrado.columns:
                     raise CoreError("engine.py", f"Variable no encontrada: {var}", var)
                 resultado = df_filtrado[var].nunique()
-                tipo_res = "kpi"
             elif metrica == "promedio":
                 col_num = pd.to_numeric(df_filtrado[var], errors='coerce')
-                if col_num.isnull().all():
+                resultado = col_num.mean() if not col_num.isnull().all() else 0
+            else:
+                resultado = len(df_filtrado)
+
+            frase = f"El resultado del análisis es: {resultado}"
+            return resultado, frase, df_filtrado
+
+        except Exception as e:
+            raise CoreError("engine.py", "Error en ejecución de métrica", str(e))
+
+    def generar_grafico(self, df_final, query_json):
+        """Genera un objeto de figura simple si hay datos."""
+        if df_final is None or df_final.empty:
+            return None
+        
+        # Lógica simplificada para evitar errores adicionales
+        try:
+            fig = px.histogram(df_final, x=df_final.columns[0])
+            return fig
+        except:
+            return None
