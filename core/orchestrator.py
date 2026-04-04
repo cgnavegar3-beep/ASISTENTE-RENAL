@@ -1,6 +1,6 @@
 # ==========================================
-# VERSIÓN CORREGIDA - CONTROL DE INDENTACIÓN
-# FECHA DE CARGA: 2026-04-04
+# VERSIÓN CORREGIDA - CLINICO ORCHESTRATOR
+# CONTROL DE INDENTACIÓN Y FILTROS VACÍOS
 # ==========================================
 import traceback
 
@@ -19,9 +19,17 @@ class ClinicoOrchestrator:
         req = ast.get("request", {})
         meta = ast.get("metadata", {})
 
+        # Limpieza de seguridad: Ignorar filtros que tengan valores vacíos o nulos
+        # Esto evita que 'CENTRO: ""' haga que la búsqueda devuelva 0 resultados.
+        filtros_originales = req.get("filters", [])
+        filtros_validos = [
+            f for f in filtros_originales 
+            if f.get("val") not in [None, "", "null", []]
+        ]
+
         return {
             "origen": meta.get("source"),
-            "bloque_a": req.get("filters", []),
+            "bloque_a": filtros_validos,
             "bloque_b": {
                 "variable": req.get("target_col"),
                 "operacion": req.get("metric"),
@@ -40,18 +48,25 @@ class ClinicoOrchestrator:
             return None, "⚠️ Error: DataFrame no disponible.", None
 
         try:
+            # 1. Generar AST desde el lenguaje natural
             ast_raw = self.parser.parse_query(pregunta)
+            
+            # 2. Aplicar políticas clínicas (seguridad/privacidad)
             ast_policed = apply_clinical_policies(ast_raw)
 
+            # 3. Transformar al esquema que entiende el motor (Engine)
             query_json = self._ast_to_engine_schema(ast_policed)
 
+            # 4. Ejecutar filtrado de datos
             df_filtrado = self.engine.aplicar_filtros(df, query_json["bloque_a"])
 
+            # 5. Ejecutar cálculos estadísticos/métricas
             res_num, frase, df_final = self.engine.ejecutar_analisis(
                 df_filtrado,
                 query_json
             )
 
+            # 6. Generar visualización
             figura = self.engine.generar_grafico(df_final, query_json)
 
             return query_json, frase, figura
