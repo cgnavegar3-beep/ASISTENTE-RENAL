@@ -1,3 +1,7 @@
+# ==========================================
+# VERSIÓN CORREGIDA - CONTROL DE INDENTACIÓN
+# FECHA DE CARGA: 2026-04-04
+# ==========================================
 import traceback
 
 from core.errors import CoreError
