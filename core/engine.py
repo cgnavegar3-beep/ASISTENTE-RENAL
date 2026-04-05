@@ -8,7 +8,7 @@ from core.errors import CoreError
 
 class ExecutionEngine:
     def __init__(self):
-        # 🔥 FIX: mapping clínico robusto (mantiene tu base)
+        # 🔥 FIX: mapping clínico robusto
         self.column_fix = {
             "fg": "FG_CG",
             "fg_cg": "FG_CG",
@@ -120,8 +120,12 @@ class ExecutionEngine:
     # ANALÍTICA
     # -----------------------------
     def ejecutar_analisis(self, df_filtrado, query_json):
-        if df_filtrado is None or df_filtrado.empty:
-            return 0, obtener_respuesta_aleatoria("sin_resultados"), df_filtrado
+        # 🔥 FIX 1: semántica correcta de vacío
+        if df_filtrado is None:
+            return 0, "Sin datos disponibles", df_filtrado
+
+        if df_filtrado.empty:
+            return 0, "Resultado: 0 registros", df_filtrado
 
         config_b = query_json.get("bloque_b", {})
         var = self.resolve_column(config_b.get("variable") or "ID_REGISTRO", df_filtrado)
@@ -159,8 +163,12 @@ class ExecutionEngine:
                 return resultado, f"Resultado: {resultado}", df_filtrado
 
             # ---------------- GROUP BY ----------------
+            # 🔥 FIX 2: TOP MEDICAMENTOS automático
             if group_by not in df_filtrado.columns:
-                raise CoreError("engine.py", f"Group by no válido: {group_by}", group_by)
+                if "MEDICAMENTO" in df_filtrado.columns:
+                    group_by = "MEDICAMENTO"
+                else:
+                    raise CoreError("engine.py", f"Group by no válido: {group_by}", group_by)
 
             data = df_filtrado.groupby(group_by).size().reset_index(name="count")
             data = data.sort_values("count", ascending=False)
