@@ -5,6 +5,7 @@ from core.dictionary import obtener_respuesta_aleatoria
 from core.normalizer import limpiar_texto
 from core.errors import CoreError
 
+
 class ExecutionEngine:
     def __init__(self):
         pass
@@ -21,26 +22,47 @@ class ExecutionEngine:
             if col not in df.columns:
                 raise CoreError("engine.py", f"Columna no encontrada: {col}", col)
 
-            try:
-                if val is None or val == "":
-                    continue
+            if val is None or val == "":
+                continue
 
-                val_n = limpiar_texto(val) if isinstance(val, str) else val
+            val_n = limpiar_texto(val) if isinstance(val, str) else val
+
+            try:
+                series = df[col]
 
                 if op == "==":
                     if isinstance(val, (int, float)):
-                        mask &= (pd.to_numeric(df[col], errors='coerce') == val)
+                        mask &= (pd.to_numeric(series, errors='coerce') == val)
                     else:
-                        mask &= (df[col].astype(str).apply(limpiar_texto) == val_n)
+                        mask &= (series.astype(str).apply(limpiar_texto) == val_n)
+
+                elif op == "!=":
+                    if isinstance(val, (int, float)):
+                        mask &= (pd.to_numeric(series, errors='coerce') != val)
+                    else:
+                        mask &= (series.astype(str).apply(limpiar_texto) != val_n)
 
                 elif op == ">":
-                    mask &= (pd.to_numeric(df[col], errors='coerce') > float(val))
+                    mask &= (pd.to_numeric(series, errors='coerce') > float(val))
 
                 elif op == "<":
-                    mask &= (pd.to_numeric(df[col], errors='coerce') < float(val))
+                    mask &= (pd.to_numeric(series, errors='coerce') < float(val))
+
+                elif op == ">=":
+                    mask &= (pd.to_numeric(series, errors='coerce') >= float(val))
+
+                elif op == "<=":
+                    mask &= (pd.to_numeric(series, errors='coerce') <= float(val))
 
                 elif op in ["contiene", "contains"]:
-                    mask &= (df[col].astype(str).apply(limpiar_texto).str.contains(str(val_n), na=False))
+                    mask &= (
+                        series.astype(str)
+                        .apply(limpiar_texto)
+                        .str.contains(str(val_n), na=False)
+                    )
+
+                else:
+                    raise CoreError("engine.py", f"Operador no soportado: {op}", op)
 
             except Exception as e:
                 raise CoreError("engine.py", f"Error en filtro: {col} {op} {val}", str(e))
@@ -65,8 +87,12 @@ class ExecutionEngine:
             elif metrica == "promedio":
                 if var not in df_filtrado.columns:
                     raise CoreError("engine.py", f"Variable no encontrada: {var}", var)
+
                 col_num = pd.to_numeric(df_filtrado[var], errors='coerce')
-                resultado = col_num.mean() if not col_num.isnull().all() else 0
+                if col_num.isnull().all():
+                    resultado = 0
+                else:
+                    resultado = col_num.mean()
 
             else:
                 resultado = len(df_filtrado)
@@ -82,8 +108,21 @@ class ExecutionEngine:
             return None
 
         try:
-            col = df_final.columns[0]
+            config_b = query_json.get("bloque_b", {})
+            var = config_b.get("variable")
+
+            if var and var in df_final.columns:
+                col = var
+            else:
+                # fallback más seguro
+                numeric_cols = df_final.select_dtypes(include=np.number).columns
+                col = numeric_cols[0] if len(numeric_cols) > 0 else None
+
+            if col is None:
+                return None
+
             fig = px.histogram(df_final, x=col)
             return fig
-        except:
+
+        except Exception:
             return None
