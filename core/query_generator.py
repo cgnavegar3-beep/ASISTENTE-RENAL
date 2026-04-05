@@ -1,6 +1,6 @@
 import re
 from core.catalog import SCHEMA
-from core.dictionary import SINONIMOS_COLUMNAS
+from core.dictionary import SINONIMOS_COLUMNAS, MAPEO_VISUAL
 from core.normalizer import limpiar_texto
 from core.errors import CoreError
 
@@ -21,7 +21,7 @@ class QueryGenerator:
         return "Medicamentos" if any(kw in texto for kw in keywords_meds) else "Validaciones"
 
     # -----------------------------
-    # MÉTRICA PRINCIPAL
+    # OPERACIÓN
     # -----------------------------
     def _extract_operation(self, texto):
         if any(w in texto for w in ["media", "promedio"]):
@@ -33,37 +33,59 @@ class QueryGenerator:
         if any(w in texto for w in ["cuantos", "cuántos", "numero", "número", "total"]):
             return "conteo"
 
-        if any(w in texto for w in ["suma"]):
+        if "suma" in texto:
             return "suma"
 
-        if any(w in texto for w in ["max", "máximo"]):
+        if "max" in texto:
             return "max"
 
-        if any(w in texto for w in ["min", "mínimo"]):
+        if "min" in texto:
             return "min"
 
         return "conteo"
 
     # -----------------------------
-    # OUTPUT VISUAL
+    # OUTPUT
     # -----------------------------
     def _parse_output_type(self, texto):
-        if any(w in texto for w in ["histograma", "distribución", "distribucion"]):
+        if any(w in texto for w in ["histograma", "distribucion", "distribución"]):
             return "histogram"
 
-        if any(w in texto for w in ["sectores", "tarta", "pie", "circular"]):
+        if any(w in texto for w in ["tarta", "sectores", "pie", "circular"]):
             return "pie"
 
-        if any(w in texto for w in ["barras", "bar", "gráfico", "grafico"]):
+        if any(w in texto for w in ["barras", "grafico", "gráfico"]):
             return "bar"
 
-        if any(w in texto for w in ["lista", "listado", "tabla"]):
+        if any(w in texto for w in ["tabla", "lista", "listado"]):
             return "table"
 
         return "kpi"
 
     # -----------------------------
-    # TOP N
+    # VARIABLE
+    # -----------------------------
+    def _extract_variable(self, texto):
+        for palabra, col in self.sinonimos.items():
+            if palabra in texto:
+                return col
+        return "ID_REGISTRO"
+
+    # -----------------------------
+    # GROUP BY
+    # -----------------------------
+    def _extract_group_by(self, texto):
+        if "por " in texto:
+            partes = texto.split("por ")
+            if len(partes) > 1:
+                posible = partes[1].strip().split(" ")[0]
+                for palabra, col in self.sinonimos.items():
+                    if palabra == posible:
+                        return col
+        return None
+
+    # -----------------------------
+    # LIMIT (TOP N)
     # -----------------------------
     def _extract_limit(self, texto):
         match = re.search(r"(top\s*\d+|primeros\s*\d+)", texto)
@@ -73,16 +95,7 @@ class QueryGenerator:
         return None
 
     # -----------------------------
-    # VARIABLE PRINCIPAL
-    # -----------------------------
-    def _extract_variable(self, texto):
-        for palabra, col in self.sinonimos.items():
-            if palabra in texto:
-                return col
-        return "ID_REGISTRO"
-
-    # -----------------------------
-    # FILTROS
+    # FILTROS (🔥 FIX CLAVE)
     # -----------------------------
     def _extract_filters(self, texto, source):
         if source not in self.schema:
@@ -90,28 +103,25 @@ class QueryGenerator:
 
         extracted = []
 
+        texto_proc = texto
+
+        # 🔥 1. aplicar sinónimos antes del regex
+        for palabra, col_tecnica in self.sinonimos.items():
+            if palabra in texto_proc:
+                texto_proc = texto_proc.replace(palabra, col_tecnica.lower())
+
+        # 🔥 2. regex sobre columnas reales
         patrones = re.findall(
-            r'([A-Z0-9Ñ_º]+)\s*(>=|<=|!=|=|>|<)\s*([\w\.]+)',
-            texto.upper()
+            r'([a-zA-Z0-9_]+)\s*(>=|<=|!=|==|=|>|<)\s*([\w\.]+)',
+            texto_proc
         )
 
         for col, op, val in patrones:
             extracted.append({
-                "col": col,
-                "op": op,
-                "val": val
+                "col": col.upper(),
+                "op": op if op != "=" else "==",
+                "val": float(val) if val.replace('.', '', 1).isdigit() else val
             })
-
-        for palabra, col_tecnica in self.sinonimos.items():
-            if palabra in texto and not any(f["col"] == col_tecnica for f in extracted):
-                numeros = re.findall(r'\d+', texto)
-                valor = int(numeros[0]) if numeros else None
-
-                extracted.append({
-                    "col": col_tecnica,
-                    "op": "=",
-                    "val": valor
-                })
 
         return extracted
 
@@ -132,15 +142,14 @@ class QueryGenerator:
 
             source = self._get_target_source(texto)
             operation = self._extract_operation(texto)
-            chart_type = self._parse_output_type(texto)
+            raw_output = self._parse_output_type(texto)
+            chart_type = MAPEO_VISUAL.get(raw_output, raw_output)
+
             variable = self._extract_variable(texto)
+            group_by = self._extract_group_by(texto)
             filters = self._extract_filters(texto, source)
             limit = self._extract_limit(texto)
             intent = self._extract_intent(operation, chart_type)
-
-            group_by = None
-            if chart_type in ["bar", "pie"]:
-                group_by = variable
 
             return {
                 "metadata": {
