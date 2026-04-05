@@ -8,7 +8,19 @@ from core.errors import CoreError
 
 class ExecutionEngine:
     def __init__(self):
-        pass
+        # 🔥 FIX: mapping seguro de columnas técnicas
+        self.column_fix = {
+            "FG": "FG_CG",
+            "FG_CG": "FG_CG",
+            "FG_MDRD": "FG_MDRD",
+            "FG_CKD": "FG_CKD",
+            "MEDICAMENTO": "MEDICAMENTO",
+            "MEDICAMENTOS": "MEDICAMENTO",
+            "PACIENTE": "ID_REGISTRO",
+            "ID_REGISTRO": "ID_REGISTRO",
+            "EDAD": "EDAD",
+            "SEXO": "SEXO"
+        }
 
     # -----------------------------
     # FILTROS
@@ -20,7 +32,12 @@ class ExecutionEngine:
         mask = pd.Series(True, index=df.index)
 
         for f in filtros_json:
-            col, op, val = f.get("col"), f.get("op"), f.get("val")
+            col = f.get("col")
+            op = f.get("op")
+            val = f.get("val")
+
+            # 🔥 FIX 1: normalizar columna antes de usarla
+            col = self.column_fix.get(col, col)
 
             if col not in df.columns:
                 raise CoreError("engine.py", f"Columna no encontrada: {col}", col)
@@ -68,7 +85,11 @@ class ExecutionEngine:
                     raise CoreError("engine.py", f"Operador no soportado: {op}", op)
 
             except Exception as e:
-                raise CoreError("engine.py", f"Error en filtro: {col} {op} {val}", str(e))
+                raise CoreError(
+                    "engine.py",
+                    f"Error en filtro: {col} {op} {val}",
+                    str(e)
+                )
 
         return df[mask]
 
@@ -86,6 +107,10 @@ class ExecutionEngine:
 
         limit = query_json.get("bloque_d", {}).get("limit")
 
+        # 🔥 FIX VARIABLE
+        var = self.column_fix.get(var, var)
+        group_by = self.column_fix.get(group_by, group_by) if group_by else None
+
         try:
             # ---------------- KPI SIMPLE ----------------
             if group_by is None:
@@ -95,7 +120,7 @@ class ExecutionEngine:
                 if metrica == "conteo":
                     resultado = len(df_filtrado)
 
-                elif metrica in ["media"]:
+                elif metrica == "media":
                     col_num = pd.to_numeric(series, errors="coerce")
                     resultado = col_num.mean() if series is not None else 0
 
@@ -112,15 +137,12 @@ class ExecutionEngine:
                     resultado = col_num.min()
 
                 elif metrica == "porcentaje":
-                    # FIX REAL: porcentaje necesita condición (ya filtrado)
-                    total_global = len(df_filtrado)
-                    resultado = 100 if total_global > 0 else 0
+                    resultado = 100 if len(df_filtrado) > 0 else 0
 
                 else:
                     resultado = len(df_filtrado)
 
-                frase = f"Resultado: {resultado}"
-                return resultado, frase, df_filtrado
+                return resultado, f"Resultado: {resultado}", df_filtrado
 
             # ---------------- AGRUPADO ----------------
             if group_by not in df_filtrado.columns:
@@ -132,8 +154,7 @@ class ExecutionEngine:
             if limit:
                 data = data.head(limit)
 
-            frase = "Resultado agrupado generado"
-            return data, frase, data
+            return data, "Resultado agrupado generado", data
 
         except Exception as e:
             raise CoreError(
@@ -156,6 +177,8 @@ class ExecutionEngine:
             var = config_b.get("variable")
             chart_type = config_c.get("tipo", "kpi")
 
+            var = self.column_fix.get(var, var)
+
             # ---------------- HISTOGRAMA ----------------
             if chart_type == "histogram":
                 numeric_cols = df_final.select_dtypes(include=np.number).columns
@@ -176,11 +199,6 @@ class ExecutionEngine:
                     return px.bar(df_final, x=df_final.columns[0], y="count")
                 return None
 
-            # ---------------- TABLE ----------------
-            if chart_type == "table":
-                return None
-
-            # fallback
             return None
 
         except Exception:
