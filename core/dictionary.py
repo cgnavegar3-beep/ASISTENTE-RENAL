@@ -1,22 +1,60 @@
 import random
 
 SINONIMOS_COLUMNAS = {
-    "edad": "EDAD", "años": "EDAD", "sexo": "SEXO", "género": "SEXO",
-    "mujer": "SEXO", "hombre": "SEXO", "peso": "PESO", "kilos": "PESO",
-    "creatinina": "CREATININA", "pastillas": "Nº_TOTAL_MEDS_PAC",
-    "medicamentos": "MEDICAMENTO", "fármacos": "MEDICAMENTO",
-    "función renal": "FG_CG", "filtrado": "FG_CG", "fg": "FG_CG",
-    "mdrd": "FG_MDRD", "ckd": "FG_CKD", "contraindicados": "Nº_CONTRAIND_CG",
-    "ajuste": "Nº_AJUSTE_DOS_CG", "centro": "CENTRO", "residencia": "RESIDENCIA"
+    # edad
+    "edad": "EDAD",
+    "años": "EDAD",
+    "edad años": "EDAD",
+
+    # sexo
+    "sexo": "SEXO",
+    "género": "SEXO",
+    "genero": "SEXO",
+    "mujer": "SEXO",
+    "hombre": "SEXO",
+    "femenino": "SEXO",
+    "masculino": "SEXO",
+
+    # peso
+    "peso": "PESO",
+    "kilos": "PESO",
+
+    # renal
+    "creatinina": "CREATININA",
+    "función renal": "FG_CG",
+    "funcion renal": "FG_CG",
+    "filtrado": "FG_CG",
+    "fg": "FG_CG",
+    "fg cg": "FG_CG",
+    "fg_cg": "FG_CG",
+    "mdrd": "FG_MDRD",
+    "ckd": "FG_CKD",
+
+    # medicación
+    "medicamentos": "MEDICAMENTO",
+    "medicamento": "MEDICAMENTO",
+    "fármacos": "MEDICAMENTO",
+    "farmacos": "MEDICAMENTO",
+    "pastillas": "Nº_TOTAL_MEDS_PAC",
+
+    # otros clínicos
+    "contraindicados": "Nº_CONTRAIND_CG",
+    "ajuste": "Nº_AJUSTE_DOS_CG",
+
+    # centros
+    "centro": "CENTRO",
+    "residencia": "RESIDENCIA"
 }
 
 MAPEO_OPERADORES = {
     "mayor": ">",
+    "más": ">",
     "más de": ">",
     "menor": "<",
     "menos de": "<",
     "igual": "==",
     "distinto": "!=",
+    "diferente": "!=",
     "contiene": "contains",
     "incluye": "contains"
 }
@@ -26,39 +64,31 @@ RESPUESTAS = {
         "El valor obtenido es {valor}.",
         "Hay {valor} registros.",
         "El resultado final es {valor}.",
-        "El cálculo devuelve un total de {valor}.",
         "Se ha obtenido un valor de {valor}.",
         "El número total es {valor}."
     ],
     "conteo": [
         "Se han identificado {valor} registros que cumplen los criterios.",
         "Tras aplicar los filtros, aparecen {valor} casos.",
-        "El sistema ha encontrado {valor} registros coincidentes.",
-        "Se contabilizan {valor} entradas que cumplen las condiciones.",
-        "El análisis devuelve {valor} coincidencias.",
-        "Hay {valor} registros dentro del grupo solicitado."
+        "El sistema ha encontrado {valor} registros.",
+        "Se contabilizan {valor} coincidencias."
     ],
     "ranking": [
-        "Los {N} elementos principales son: {lista}.",
-        "El ranking queda así: {lista}.",
-        "Los más frecuentes son: {lista}.",
-        "Top resultados: {lista}.",
-        "Los elementos más representativos son: {lista}."
+        "Top {N}: {lista}.",
+        "Ranking: {lista}.",
+        "Los principales resultados son: {lista}."
     ],
     "promedio": [
         "La media de {variable} es {valor}.",
-        "El promedio de {variable} es {valor}.",
-        "Valor medio de {variable}: {valor}."
+        "El promedio de {variable} es {valor}."
     ],
     "agrupacion": [
         "Distribución por {grupo}: {resumen}.",
-        "Resumen por {grupo}: {resumen}.",
-        "Comparación por {grupo}: {resumen}."
+        "Resumen por {grupo}: {resumen}."
     ],
     "grafico": [
         "Gráfico {tipo_grafico} de {variable}.",
-        "Visualización {tipo_grafico} sobre {variable}.",
-        "Se genera gráfico de {tipo_grafico}."
+        "Visualización {tipo_grafico} sobre {variable}."
     ],
     "sin_resultados": [
         "No se han encontrado registros.",
