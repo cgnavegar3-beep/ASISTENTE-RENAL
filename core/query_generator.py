@@ -10,35 +10,63 @@ class QueryGenerator:
         self.schema = SCHEMA
         self.sinonimos = SINONIMOS_COLUMNAS
 
-    def _get_target_source(self, texto_n):
+    # -----------------------------
+    # 1. ORIGEN DE DATOS
+    # -----------------------------
+    def _get_target_source(self, texto):
         keywords_meds = ["medicamento", "farmaco", "pastilla", "metformina", "insulina"]
-        if any(kw in texto_n for kw in keywords_meds):
+        if any(kw in texto for kw in keywords_meds):
             return "Medicamentos"
         return "Validaciones"
 
-    def _parse_visual_intent(self, texto_n):
-        if "histograma" in texto_n:
-            raise CoreError("query_generator.py", "Gráfico no soportado", "histograma")
+    # -----------------------------
+    # 2. OPERACIÓN REAL (KPI CORE)
+    # -----------------------------
+    def _extract_operation(self, texto):
+        if "media" in texto:
+            return "media"
+        if "porcentaje" in texto or "%" in texto:
+            return "porcentaje"
+        if "cuantos" in texto or "cuántos" in texto or "numero" in texto or "número" in texto:
+            return "conteo"
+        if "suma" in texto:
+            return "suma"
+        if "max" in texto or "máximo" in texto:
+            return "max"
+        if "min" in texto or "mínimo" in texto:
+            return "min"
+        return "conteo"
 
-        if any(w in texto_n for w in ["torta", "sectores", "pie", "circular"]):
+    # -----------------------------
+    # 3. SALIDA VISUAL (SOLO RENDER)
+    # -----------------------------
+    def _parse_output_type(self, texto):
+        if any(w in texto for w in ["histograma", "distribucion", "distribución"]):
+            return "histogram"
+
+        if any(w in texto for w in ["torta", "sectores", "pie", "circular"]):
             return "pie"
-        if "horizontal" in texto_n:
-            return "bar_h"
-        if any(w in texto_n for w in ["grafico", "dibuja", "barras", "visualiza"]):
+
+        if any(w in texto for w in ["barras", "bar", "visualiza", "grafico", "gráfico"]):
             return "bar"
+
+        if any(w in texto for w in ["tabla", "listado", "lista"]):
+            return "table"
 
         return "kpi"
 
-    def _extract_filters(self, texto_n, source):
+    # -----------------------------
+    # 4. FILTROS
+    # -----------------------------
+    def _extract_filters(self, texto, source):
         if source not in self.schema:
             raise CoreError("query_generator.py", "Origen no válido", source)
 
         extracted = []
 
-        # 🔥 FIX REGEX: soporta columnas con Nº, _, números
         patrones = re.findall(
             r'([A-Z0-9Ñ_º]+)\s*(>=|<=|!=|=|>|<)\s*([\w\.]+)',
-            texto_n.upper()
+            texto.upper()
         )
 
         for col, op, val in patrones:
@@ -48,11 +76,10 @@ class QueryGenerator:
                 "val": val
             })
 
-        # fallback por sinónimos
         for palabra, col_tecnica in self.sinonimos.items():
-            if palabra in texto_n and not any(f["col"] == col_tecnica for f in extracted):
-                numeros = re.findall(r'\d+', texto_n)
-                valor = int(numeros[0]) if numeros else ""
+            if palabra in texto and not any(f["col"] == col_tecnica for f in extracted):
+                numeros = re.findall(r'\d+', texto)
+                valor = int(numeros[0]) if numeros else None
                 extracted.append({
                     "col": col_tecnica,
                     "op": "==",
@@ -61,30 +88,50 @@ class QueryGenerator:
 
         return extracted
 
+    # -----------------------------
+    # 5. VARIABLE PRINCIPAL
+    # -----------------------------
+    def _extract_variable(self, texto):
+        for palabra, col_tecnica in self.sinonimos.items():
+            if palabra in texto:
+                return col_tecnica
+        return "ID_REGISTRO"
+
+    # -----------------------------
+    # 6. INTENCIÓN IMPLÍCITA
+    # -----------------------------
+    def _extract_intent(self, operation, output_type):
+        if output_type in ["pie", "bar", "histogram", "table"]:
+            return "visual"
+        if operation == "conteo":
+            return "kpi"
+        return "kpi"
+
+    # -----------------------------
+    # 7. PARSER PRINCIPAL
+    # -----------------------------
     def parse_query(self, pregunta_usuario):
         try:
-            texto_n = limpiar_texto(pregunta_usuario)
+            texto = limpiar_texto(pregunta_usuario)
 
-            source = self._get_target_source(texto_n)
-            visual_type = self._parse_visual_intent(texto_n)
-
-            dimension = None
-            for palabra, col_tecnica in self.sinonimos.items():
-                if palabra in texto_n:
-                    dimension = col_tecnica
-                    break
+            source = self._get_target_source(texto)
+            operation = self._extract_operation(texto)
+            chart_type = self._parse_output_type(texto)
+            variable = self._extract_variable(texto)
+            filters = self._extract_filters(texto, source)
+            intent = self._extract_intent(operation, chart_type)
 
             return {
                 "metadata": {
                     "source": source,
-                    "intent": "visual" if visual_type != "kpi" else "metric"
+                    "intent": intent
                 },
                 "request": {
-                    "metric": "conteo",
-                    "target_col": dimension or "ID_REGISTRO",
-                    "filters": self._extract_filters(texto_n, source),
-                    "group_by": dimension,
-                    "chart_type": visual_type
+                    "metric": operation,
+                    "target_col": variable,
+                    "filters": filters,
+                    "group_by": variable if chart_type in ["bar", "pie"] else None,
+                    "chart_type": chart_type
                 }
             }
 
