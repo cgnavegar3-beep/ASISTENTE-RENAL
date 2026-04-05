@@ -21,6 +21,8 @@ class ClinicoOrchestrator:
             if f.get("val") not in [None, "", "null", []]
         ]
 
+        limit = req.get("limit") or None
+
         return {
             "origen": meta.get("source"),
             "bloque_a": filtros_validos,
@@ -33,7 +35,7 @@ class ClinicoOrchestrator:
                 "tipo": req.get("chart_type")
             },
             "bloque_d": {
-                "limit": req.get("limit")
+                "limit": limit
             }
         }
 
@@ -65,7 +67,7 @@ class ClinicoOrchestrator:
 
             # 6. GRAFICO (SAFE)
             figura = None
-            if df_final is not None and hasattr(df_final, "empty") and not df_final.empty:
+            if df_final is not None and not df_final.empty:
                 figura = self.engine.generar_grafico(df_final, query_json)
 
             # 7. RETURN CONSISTENTE
