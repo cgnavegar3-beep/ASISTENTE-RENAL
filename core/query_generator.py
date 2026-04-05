@@ -1,23 +1,14 @@
 import re
 from core.catalog import SCHEMA
-from core.dictionary import SINONIMOS_COLUMNAS, MAPEO_OPERADORES
+from core.dictionary import SINONIMOS_COLUMNAS
 from core.normalizer import limpiar_texto
 from core.errors import CoreError
+
 
 class QueryGenerator:
     def __init__(self):
         self.schema = SCHEMA
         self.sinonimos = SINONIMOS_COLUMNAS
-        self.operadores = {
-            "mayor": ">",
-            "más de": ">",
-            "menor": "<",
-            "menos de": "<",
-            "igual": "==",
-            "distinto": "!=",
-            "contiene": "contains",
-            "incluye": "contains"
-        }
 
     def _get_target_source(self, texto_n):
         keywords_meds = ["medicamento", "farmaco", "pastilla", "metformina", "insulina"]
@@ -44,12 +35,15 @@ class QueryGenerator:
 
         extracted = []
 
-        # filtros ya normalizados tipo FG_CG < 60
-        patrones = re.findall(r'([a-zA-Z_]+)\s*(>=|<=|!=|=|>|<)\s*([\w\.]+)', texto_n)
+        # 🔥 FIX REGEX: soporta columnas con Nº, _, números
+        patrones = re.findall(
+            r'([A-Z0-9Ñ_º]+)\s*(>=|<=|!=|=|>|<)\s*([\w\.]+)',
+            texto_n.upper()
+        )
 
         for col, op, val in patrones:
             extracted.append({
-                "col": col.upper(),
+                "col": col,
                 "op": op,
                 "val": val
             })
@@ -87,18 +81,19 @@ class QueryGenerator:
                 },
                 "request": {
                     "metric": "conteo",
-                    "target_col": "ID_REGISTRO",
+                    "target_col": dimension or "ID_REGISTRO",
                     "filters": self._extract_filters(texto_n, source),
                     "group_by": dimension,
                     "chart_type": visual_type
                 }
             }
 
-        except CoreError as e:
-            raise e
+        except CoreError:
+            raise
+
         except Exception as e:
             raise CoreError(
-                modulo="query_generator.py",
-                mensaje="Error interpretando la consulta clínica",
-                detalle=str(e)
+                "query_generator.py",
+                "Error interpretando la consulta clínica",
+                str(e)
             )
