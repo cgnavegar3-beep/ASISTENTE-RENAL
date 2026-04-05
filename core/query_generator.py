@@ -95,32 +95,31 @@ class QueryGenerator:
         return None
 
     # -----------------------------
-    # FILTROS (🔥 FIX CLAVE)
+    # FILTROS (🔥 FIX DEFINITIVO)
     # -----------------------------
     def _extract_filters(self, texto, source):
         if source not in self.schema:
             raise CoreError("query_generator.py", "Origen no válido", source)
 
         extracted = []
-
         texto_proc = texto
 
-        # 🔥 1. aplicar sinónimos antes del regex
+        # 🔥 1. sustituir sinónimos por columnas reales
         for palabra, col_tecnica in self.sinonimos.items():
             if palabra in texto_proc:
                 texto_proc = texto_proc.replace(palabra, col_tecnica.lower())
 
-        # 🔥 2. regex sobre columnas reales
+        # 🔥 2. detectar operadores tipo "< 60"
         patrones = re.findall(
-            r'([a-zA-Z0-9_]+)\s*(>=|<=|!=|==|=|>|<)\s*([\w\.]+)',
+            r'([a-zA-Z0-9_]+)\s*(>=|<=|!=|==|=|>|<)\s*([\d\.]+)',
             texto_proc
         )
 
         for col, op, val in patrones:
             extracted.append({
                 "col": col.upper(),
-                "op": op if op != "=" else "==",
-                "val": float(val) if val.replace('.', '', 1).isdigit() else val
+                "op": "==" if op == "=" else op,
+                "val": float(val)
             })
 
         return extracted
@@ -150,6 +149,10 @@ class QueryGenerator:
             filters = self._extract_filters(texto, source)
             limit = self._extract_limit(texto)
             intent = self._extract_intent(operation, chart_type)
+
+            # 🔥 FIX CLAVE: si hay TOP → forzar agrupación por variable
+            if limit and not group_by:
+                group_by = variable
 
             return {
                 "metadata": {
