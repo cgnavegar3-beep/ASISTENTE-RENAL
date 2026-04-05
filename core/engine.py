@@ -10,6 +10,9 @@ class ExecutionEngine:
     def __init__(self):
         pass
 
+    # -----------------------------
+    # FILTROS
+    # -----------------------------
     def aplicar_filtros(self, df, filtros_json):
         if df is None or df.empty:
             return df
@@ -69,6 +72,9 @@ class ExecutionEngine:
 
         return df[mask]
 
+    # -----------------------------
+    # KPI + ANALÍTICA
+    # -----------------------------
     def ejecutar_analisis(self, df_filtrado, query_json):
         if df_filtrado is None or df_filtrado.empty:
             return 0, obtener_respuesta_aleatoria("sin_resultados"), df_filtrado
@@ -76,54 +82,58 @@ class ExecutionEngine:
         config_b = query_json.get("bloque_b", {})
         var = config_b.get("variable") or "ID_REGISTRO"
         metrica = config_b.get("operacion") or "conteo"
+        group_by = config_b.get("agrupar")
+
+        limit = query_json.get("bloque_d", {}).get("limit")
 
         try:
-            series = df_filtrado[var] if var in df_filtrado.columns else None
+            # ---------------- KPI SIMPLE ----------------
+            if group_by is None:
 
-            if metrica == "conteo":
-                resultado = len(df_filtrado)
+                series = df_filtrado[var] if var in df_filtrado.columns else None
 
-            elif metrica in ["unico", "conteo_unico"]:
-                resultado = series.nunique() if series is not None else 0
+                if metrica == "conteo":
+                    resultado = len(df_filtrado)
 
-            elif metrica in ["promedio", "media"]:
-                if series is None:
-                    raise CoreError("engine.py", f"Variable no encontrada: {var}", var)
+                elif metrica in ["media"]:
+                    col_num = pd.to_numeric(series, errors="coerce")
+                    resultado = col_num.mean() if series is not None else 0
 
-                col_num = pd.to_numeric(series, errors="coerce")
-                resultado = col_num.mean() if not col_num.isnull().all() else 0
+                elif metrica == "suma":
+                    col_num = pd.to_numeric(series, errors="coerce")
+                    resultado = col_num.sum() if series is not None else 0
 
-            elif metrica == "suma":
-                if series is None:
-                    raise CoreError("engine.py", f"Variable no encontrada: {var}", var)
+                elif metrica == "max":
+                    col_num = pd.to_numeric(series, errors="coerce")
+                    resultado = col_num.max()
 
-                col_num = pd.to_numeric(series, errors="coerce")
-                resultado = col_num.sum() if not col_num.isnull().all() else 0
+                elif metrica == "min":
+                    col_num = pd.to_numeric(series, errors="coerce")
+                    resultado = col_num.min()
 
-            elif metrica == "porcentaje":
-                total = len(df_filtrado)
-                if total == 0:
-                    resultado = 0
+                elif metrica == "porcentaje":
+                    # FIX REAL: porcentaje necesita condición (ya filtrado)
+                    total_global = len(df_filtrado)
+                    resultado = 100 if total_global > 0 else 0
+
                 else:
-                    resultado = (len(df_filtrado) / total) * 100
+                    resultado = len(df_filtrado)
 
-            elif metrica == "max":
-                if series is None:
-                    raise CoreError("engine.py", f"Variable no encontrada: {var}", var)
-                col_num = pd.to_numeric(series, errors="coerce")
-                resultado = col_num.max()
+                frase = f"Resultado: {resultado}"
+                return resultado, frase, df_filtrado
 
-            elif metrica == "min":
-                if series is None:
-                    raise CoreError("engine.py", f"Variable no encontrada: {var}", var)
-                col_num = pd.to_numeric(series, errors="coerce")
-                resultado = col_num.min()
+            # ---------------- AGRUPADO ----------------
+            if group_by not in df_filtrado.columns:
+                raise CoreError("engine.py", f"Group by no válido: {group_by}", group_by)
 
-            else:
-                resultado = len(df_filtrado)
+            data = df_filtrado.groupby(group_by).size().reset_index(name="count")
+            data = data.sort_values("count", ascending=False)
 
-            frase = f"El resultado del análisis es: {resultado}"
-            return resultado, frase, df_filtrado
+            if limit:
+                data = data.head(limit)
+
+            frase = "Resultado agrupado generado"
+            return data, frase, data
 
         except Exception as e:
             raise CoreError(
@@ -132,6 +142,9 @@ class ExecutionEngine:
                 str(e)
             )
 
+    # -----------------------------
+    # GRÁFICOS
+    # -----------------------------
     def generar_grafico(self, df_final, query_json):
         if df_final is None or df_final.empty:
             return None
@@ -143,13 +156,13 @@ class ExecutionEngine:
             var = config_b.get("variable")
             chart_type = config_c.get("tipo", "kpi")
 
+            # ---------------- HISTOGRAMA ----------------
             if chart_type == "histogram":
-                if var and var in df_final.columns:
-                    return px.histogram(df_final, x=var)
                 numeric_cols = df_final.select_dtypes(include=np.number).columns
-                col = numeric_cols[0] if len(numeric_cols) > 0 else None
+                col = var if var in df_final.columns else (numeric_cols[0] if len(numeric_cols) else None)
                 return px.histogram(df_final, x=col) if col else None
 
+            # ---------------- PIE ----------------
             if chart_type == "pie":
                 if var and var in df_final.columns:
                     data = df_final[var].value_counts().reset_index()
@@ -157,20 +170,18 @@ class ExecutionEngine:
                     return px.pie(data, names=var, values="count")
                 return None
 
+            # ---------------- BAR ----------------
             if chart_type == "bar":
-                if var and var in df_final.columns:
-                    data = df_final[var].value_counts().reset_index()
-                    data.columns = [var, "count"]
-                    return px.bar(data, x=var, y="count")
+                if "count" in df_final.columns:
+                    return px.bar(df_final, x=df_final.columns[0], y="count")
                 return None
 
+            # ---------------- TABLE ----------------
             if chart_type == "table":
                 return None
 
-            # fallback seguro
-            numeric_cols = df_final.select_dtypes(include=np.number).columns
-            col = numeric_cols[0] if len(numeric_cols) > 0 else None
-            return px.histogram(df_final, x=col) if col else None
+            # fallback
+            return None
 
         except Exception:
             return None
