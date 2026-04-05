@@ -619,42 +619,20 @@ with tabs[3]:
 with tabs[4]:
     st.markdown("### 🔍 Consulta Dinámica Renal")
     
-    # EVOLUCIÓN: ORQUESTADOR DE CONSULTAS IA
-    with st.container(border=True):
-        st.markdown("#### 🤖 Orquestador IA (Consultas Rápidas)")
-        query_text = st.text_input("Haz una pregunta sobre los datos:", placeholder="Ej: ¿Cuáles son los 5 fármacos más ajustados en Marín?")
-        if query_text:
-            with st.spinner("IA analizando datos..."):
+    # EVOLUCIÓN: POOL DE DATOS Y FILTROS SIEMPRE VISIBLES
+    tipo_origen = st.radio(
+        "Seleccionar origen de datos:",
+        ["Validaciones (General)", "Medicamentos (Detalle)"],
+        horizontal=True
+    )
 
-                tipo_origen = st.radio(
-                    "Seleccionar origen de datos:",
-                    ["Validaciones (General)", "Medicamentos (Detalle)"],
-                    horizontal=True
-                )
+    df_pool = (
+        st.session_state["df_sync_val"].copy()
+        if "Validaciones" in tipo_origen
+        else st.session_state["df_sync_meds"].copy()
+    )
 
-                df_pool = (
-                    st.session_state["df_sync_val"].copy()
-                    if "Validaciones" in tipo_origen
-                    else st.session_state["df_sync_meds"].copy()
-                )
-
-                df = df_pool
-
-                query_json, frase, figura = st.session_state.orq.procesar_pregunta(
-                    query_text,
-                    df
-                )
-
-                st.write(frase)
-
-                if figura is not None:
-                    st.plotly_chart(figura, use_container_width=True)
-
-                if query_json is not None:
-                    st.json(query_json)
-                  
-                  
-    if "df_pool" in locals() and not df_pool.empty:
+    if not df_pool.empty:
         with st.container(border=True):
             st.markdown("#### 🔍 Bloque A – Configurar Cohorte: <span style='font-size: 0.8em; color: gray;'>Condiciones o filtros de lo que quiero medir.</span>", unsafe_allow_html=True)
             col_a1, col_a2 = st.columns([1, 1])
@@ -800,10 +778,25 @@ with tabs[4]:
         st.markdown("---")
         with st.expander("📄 Ver Datos Crutos de la Cohorte"):
             st.dataframe(df_filtered_query, use_container_width=True)
+
+        # EVOLUCIÓN: ORQUESTADOR DE CONSULTAS IA AL FINAL
+        with st.container(border=True):
+            st.markdown("#### 🤖 Orquestador IA (Consultas Rápidas)")
+            query_text = st.text_input("Haz una pregunta sobre los datos:", placeholder="Ej: ¿Cuáles son los 5 fármacos más ajustados en Marín?")
+            if query_text:
+                with st.spinner("IA analizando datos..."):
+                    query_json, frase, figura = st.session_state.orq.procesar_pregunta(
+                        query_text,
+                        df_pool
+                    )
+                    st.write(frase)
+                    if figura is not None:
+                        st.plotly_chart(figura, use_container_width=True)
+                    if query_json is not None:
+                        st.json(query_json)
+
     else:
         st.info("No hay datos sincronizados para realizar consultas dinámicas.")
 
 st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un soporte de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
 st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 29 mar 2026 13:20</div>', unsafe_allow_html=True)
-
-# He verificado todos los elementos estructurales y principios fundamentales; la estructura y funcionalidad permanecen blindadas y sin cambios no autorizados.
