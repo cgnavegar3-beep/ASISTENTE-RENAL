@@ -1,7 +1,5 @@
-# core/dictionary.py
 import random
 
-# Mapeo de términos a columnas (Sin cambios)
 SINONIMOS_COLUMNAS = {
     "edad": "EDAD", "años": "EDAD", "sexo": "SEXO", "género": "SEXO",
     "mujer": "SEXO", "hombre": "SEXO", "peso": "PESO", "kilos": "PESO",
@@ -13,18 +11,23 @@ SINONIMOS_COLUMNAS = {
 }
 
 MAPEO_OPERADORES = {
-    "mayor": "> (MAYOR QUE)", "más de": "> (MAYOR QUE)",
-    "menor": "< (MENOR QUE)", "menos de": "< (MENOR QUE)",
-    "igual": "== (IGUAL)", "distinto": "!= (DISTINTO DE)",
-    "contiene": "contiene", "incluye": "contiene"
+    "mayor": ">",
+    "más de": ">",
+    "menor": "<",
+    "menos de": "<",
+    "igual": "==",
+    "distinto": "!=",
+    "contiene": "contains",
+    "incluye": "contains"
 }
 
-# Banco de respuestas estructurado
 RESPUESTAS = {
     "kpi": [
-        "El valor obtenido es {valor}.", "Hay {valor} registros.",
-        "El resultado final es {valor}.", "El cálculo devuelve un total de {valor}.",
-        "Se ha obtenido un valor de {valor}.", "El recuento global asciende a {valor}.",
+        "El valor obtenido es {valor}.",
+        "Hay {valor} registros.",
+        "El resultado final es {valor}.",
+        "El cálculo devuelve un total de {valor}.",
+        "Se ha obtenido un valor de {valor}.",
         "El número total es {valor}."
     ],
     "conteo": [
@@ -37,49 +40,34 @@ RESPUESTAS = {
     ],
     "ranking": [
         "Los {N} elementos principales son: {lista}.",
-        "Los {N} más destacados son: {lista}.",
-        "Los {N} más frecuentes en este grupo son: {lista}.",
         "El ranking queda así: {lista}.",
-        "Los {N} primeros puestos corresponden a: {lista}.",
+        "Los más frecuentes son: {lista}.",
+        "Top resultados: {lista}.",
         "Los elementos más representativos son: {lista}."
     ],
     "promedio": [
-        "El valor medio de {variable} es {valor}.",
-        "La media de {variable} se sitúa en {valor}.",
-        "El promedio calculado para {variable} es {valor}.",
-        "En este grupo, {variable} presenta un valor medio de {valor}.",
-        "El valor central de {variable} es {valor}.",
-        "La media obtenida para {variable} asciende a {valor}."
+        "La media de {variable} es {valor}.",
+        "El promedio de {variable} es {valor}.",
+        "Valor medio de {variable}: {valor}."
     ],
     "agrupacion": [
-        "Distribucion por {grupo}: {resumen}.",
-        "La distribución por {grupo} es la siguiente: {resumen}.",
-        "El análisis por {grupo} muestra: {resumen}.",
-        "Así queda la segmentación por {grupo}: {resumen}.",
+        "Distribución por {grupo}: {resumen}.",
         "Resumen por {grupo}: {resumen}.",
-        "La comparación entre grupos ({grupo}) ofrece este resultado: {resumen}."
+        "Comparación por {grupo}: {resumen}."
     ],
     "grafico": [
-        "Se ha generado un gráfico de tipo {tipo_grafico} sobre {variable}.",
-        "Se ha creado un gráfico de {tipo_grafico} para visualizar {variable}.",
-        "El gráfico representa la distribución de {variable}.",
-        "Se muestra un {tipo_grafico} que resume {variable}.",
-        "El gráfico permite observar cómo se comporta {variable}.",
-        "Visualización generada: {tipo_grafico} sobre {variable}."
+        "Gráfico {tipo_grafico} de {variable}.",
+        "Visualización {tipo_grafico} sobre {variable}.",
+        "Se genera gráfico de {tipo_grafico}."
     ],
     "sin_resultados": [
-        "No se han encontrado registros con los criterios aplicados.",
-        "No hay datos que coincidan con los filtros seleccionados.",
-        "El análisis no devuelve resultados para estos criterios.",
-        "No se han identificado registros compatibles con la búsqueda.",
-        "La consulta no ha producido coincidencias.",
-        "No existen casos que cumplan las condiciones indicadas."
+        "No se han encontrado registros.",
+        "Sin resultados para los criterios.",
+        "No hay coincidencias."
     ]
 }
 
 def obtener_respuesta_aleatoria(categoria, **kwargs):
-    """Selecciona una frase aleatoria y la formatea con los datos obtenidos."""
     if categoria not in RESPUESTAS:
         return "Procesamiento finalizado."
-    frase = random.choice(RESPUESTAS[categoria])
-    return frase.format(**kwargs)
+    return random.choice(RESPUESTAS[categoria]).format(**kwargs)
