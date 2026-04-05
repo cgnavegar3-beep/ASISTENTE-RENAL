@@ -32,27 +32,27 @@ class ExecutionEngine:
 
                 if op == "==":
                     if isinstance(val, (int, float)):
-                        mask &= (pd.to_numeric(series, errors='coerce') == val)
+                        mask &= (pd.to_numeric(series, errors="coerce") == val)
                     else:
                         mask &= (series.astype(str).apply(limpiar_texto) == val_n)
 
                 elif op == "!=":
                     if isinstance(val, (int, float)):
-                        mask &= (pd.to_numeric(series, errors='coerce') != val)
+                        mask &= (pd.to_numeric(series, errors="coerce") != val)
                     else:
                         mask &= (series.astype(str).apply(limpiar_texto) != val_n)
 
                 elif op == ">":
-                    mask &= (pd.to_numeric(series, errors='coerce') > float(val))
+                    mask &= (pd.to_numeric(series, errors="coerce") > float(val))
 
                 elif op == "<":
-                    mask &= (pd.to_numeric(series, errors='coerce') < float(val))
+                    mask &= (pd.to_numeric(series, errors="coerce") < float(val))
 
                 elif op == ">=":
-                    mask &= (pd.to_numeric(series, errors='coerce') >= float(val))
+                    mask &= (pd.to_numeric(series, errors="coerce") >= float(val))
 
                 elif op == "<=":
-                    mask &= (pd.to_numeric(series, errors='coerce') <= float(val))
+                    mask &= (pd.to_numeric(series, errors="coerce") <= float(val))
 
                 elif op in ["contiene", "contains"]:
                     mask &= (
@@ -78,21 +78,46 @@ class ExecutionEngine:
         metrica = config_b.get("operacion") or "conteo"
 
         try:
+            series = df_filtrado[var] if var in df_filtrado.columns else None
+
             if metrica == "conteo":
                 resultado = len(df_filtrado)
 
-            elif metrica == "unico":
-                resultado = df_filtrado[var].nunique() if var in df_filtrado.columns else 0
+            elif metrica in ["unico", "conteo_unico"]:
+                resultado = series.nunique() if series is not None else 0
 
-            elif metrica == "promedio":
-                if var not in df_filtrado.columns:
+            elif metrica in ["promedio", "media"]:
+                if series is None:
                     raise CoreError("engine.py", f"Variable no encontrada: {var}", var)
 
-                col_num = pd.to_numeric(df_filtrado[var], errors='coerce')
-                if col_num.isnull().all():
+                col_num = pd.to_numeric(series, errors="coerce")
+                resultado = col_num.mean() if not col_num.isnull().all() else 0
+
+            elif metrica == "suma":
+                if series is None:
+                    raise CoreError("engine.py", f"Variable no encontrada: {var}", var)
+
+                col_num = pd.to_numeric(series, errors="coerce")
+                resultado = col_num.sum() if not col_num.isnull().all() else 0
+
+            elif metrica == "porcentaje":
+                total = len(df_filtrado)
+                if total == 0:
                     resultado = 0
                 else:
-                    resultado = col_num.mean()
+                    resultado = (len(df_filtrado) / total) * 100
+
+            elif metrica == "max":
+                if series is None:
+                    raise CoreError("engine.py", f"Variable no encontrada: {var}", var)
+                col_num = pd.to_numeric(series, errors="coerce")
+                resultado = col_num.max()
+
+            elif metrica == "min":
+                if series is None:
+                    raise CoreError("engine.py", f"Variable no encontrada: {var}", var)
+                col_num = pd.to_numeric(series, errors="coerce")
+                resultado = col_num.min()
 
             else:
                 resultado = len(df_filtrado)
@@ -101,7 +126,11 @@ class ExecutionEngine:
             return resultado, frase, df_filtrado
 
         except Exception as e:
-            raise CoreError("engine.py", "Error en ejecución de métrica", str(e))
+            raise CoreError(
+                "engine.py",
+                "Error en ejecución de métrica",
+                str(e)
+            )
 
     def generar_grafico(self, df_final, query_json):
         if df_final is None or df_final.empty:
@@ -109,20 +138,39 @@ class ExecutionEngine:
 
         try:
             config_b = query_json.get("bloque_b", {})
-            var = config_b.get("variable")
+            config_c = query_json.get("bloque_c", {})
 
-            if var and var in df_final.columns:
-                col = var
-            else:
-                # fallback más seguro
+            var = config_b.get("variable")
+            chart_type = config_c.get("tipo", "kpi")
+
+            if chart_type == "histogram":
+                if var and var in df_final.columns:
+                    return px.histogram(df_final, x=var)
                 numeric_cols = df_final.select_dtypes(include=np.number).columns
                 col = numeric_cols[0] if len(numeric_cols) > 0 else None
+                return px.histogram(df_final, x=col) if col else None
 
-            if col is None:
+            if chart_type == "pie":
+                if var and var in df_final.columns:
+                    data = df_final[var].value_counts().reset_index()
+                    data.columns = [var, "count"]
+                    return px.pie(data, names=var, values="count")
                 return None
 
-            fig = px.histogram(df_final, x=col)
-            return fig
+            if chart_type == "bar":
+                if var and var in df_final.columns:
+                    data = df_final[var].value_counts().reset_index()
+                    data.columns = [var, "count"]
+                    return px.bar(data, x=var, y="count")
+                return None
+
+            if chart_type == "table":
+                return None
+
+            # fallback seguro
+            numeric_cols = df_final.select_dtypes(include=np.number).columns
+            col = numeric_cols[0] if len(numeric_cols) > 0 else None
+            return px.histogram(df_final, x=col) if col else None
 
         except Exception:
             return None
