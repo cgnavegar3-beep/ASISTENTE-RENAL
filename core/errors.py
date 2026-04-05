@@ -3,18 +3,23 @@ class CoreError(Exception):
         self.modulo = modulo
         self.mensaje = mensaje
         self.detalle = detalle
-        super().__init__(self.mensaje)
+        super().__init__(mensaje)
 
     def __str__(self):
-        det = f" ({self.detalle})" if self.detalle else ""
-        return f"❌ Error en {self.modulo}: {self.mensaje}{det}"
+        if self.detalle:
+            return f"❌ Error en {self.modulo}: {self.mensaje} ({self.detalle})"
+        return f"❌ Error en {self.modulo}: {self.mensaje}"
 
     def obtener_sugerencia(self):
         msj = self.mensaje.lower()
+
         if "grafico" in msj or "gráfico" in msj:
-            return "💡 Sugerencia: Revisa la lógica de renderizado en engine.py."
+            return "Revisar engine.py (renderizado de gráficos)"
+
         if "json" in msj or "formato" in msj:
-            return "💡 Sugerencia: Verifica la estructura en validator.py o el prompt en query_generator.py."
-        if "columna" in msj or "catálogo" in msj:
-            return "💡 Sugerencia: Revisa catalog.py para asegurar que la columna existe."
-        return "💡 Sugerencia: Revisa los logs internos del módulo afectado."
+            return "Revisar query_generator.py o validator.py"
+
+        if "columna" in msj:
+            return "Revisar catalog.py (schema)"
+
+        return "Revisar logs del módulo afectado"
