@@ -4,120 +4,97 @@ from core.dictionary import SINONIMOS_COLUMNAS, MAPEO_VISUAL
 from core.normalizer import limpiar_texto
 from core.errors import CoreError
 
-
 class QueryGenerator:
     def __init__(self):
         self.schema = SCHEMA
         self.sinonimos = SINONIMOS_COLUMNAS
 
-    # -----------------------------
-    # ORIGEN
-    # -----------------------------
     def _get_target_source(self, texto):
-        meds = ["medicamento", "farmaco", "fármaco", "pastilla", "insulina", "metformina"]
+        meds = ["medicamento", "farmaco", "fármaco", "pastilla", "insulina", "metformina", "tratamiento"]
         return "Medicamentos" if any(w in texto for w in meds) else "Validaciones"
 
-    # -----------------------------
-    # OPERACIÓN
-    # -----------------------------
     def _extract_operation(self, texto):
-        if "media" in texto or "promedio" in texto:
-            return "media"
-        if "%" in texto or "porcentaje" in texto:
-            return "porcentaje"
-        if any(w in texto for w in ["cuantos", "cuántos", "numero", "número", "total"]):
-            return "conteo"
+        if any(w in texto for w in ["media", "promedio", "average"]): return "media"
+        if any(w in texto for w in ["%", "porcentaje", "proporcion"]): return "porcentaje"
+        if any(w in texto for w in ["maximo", "max", "mas alto"]): return "max"
+        if any(w in texto for w in ["minimo", "min", "mas bajo"]): return "min"
         return "conteo"
 
-    # -----------------------------
-    # OUTPUT
-    # -----------------------------
-    def _parse_output_type(self, texto):
-        if "histograma" in texto:
-            return "histogram"
-        if any(w in texto for w in ["pie", "sectores", "tarta"]):
-            return "pie"
-        if any(w in texto for w in ["grafico", "gráfico", "barras"]):
-            return "bar"
-        return "kpi"
+    def _parse_output_type(self, texto, has_grouping=False):
+        if "histograma" in texto: return "histogram"
+        if any(w in texto for w in ["pie", "sectores", "tarta", "quesito"]): return "pie"
+        if any(w in texto for w in ["grafico", "gráfico", "barras", "visualizar"]): return "bar"
+        if any(w in texto for w in ["tabla", "lista", "ranking", "top"]): return "table"
+        return "bar" if has_grouping else "kpi"
 
-    # -----------------------------
-    # VARIABLE
-    # -----------------------------
     def _extract_variable(self, texto):
-        for palabra, col in self.sinonimos.items():
+        # Ordenamos sinónimos por longitud (de mayor a menor) para evitar falsos positivos
+        for palabra in sorted(self.sinonimos.keys(), key=len, reverse=True):
             if palabra in texto:
-                return col
+                return self.sinonimos[palabra]
         return "ID_REGISTRO"
 
-    # -----------------------------
-    # GROUP BY (🔥 FIX REAL)
-    # -----------------------------
     def _extract_group_by(self, texto):
-        match = re.search(r"por\s+(\w+)", texto)
+        # Captura "por centro", "por sexo", pero también "segun centro" o "distribucion de centro"
+        match = re.search(r"(?:por|segun|distribucion\s+de)\s+([a-zA-Záéíóú]+)", texto)
         if match:
             palabra = match.group(1)
-            for k, v in self.sinonimos.items():
-                if palabra == k:
-                    return v
+            if palabra in self.sinonimos:
+                return self.sinonimos[palabra]
         return None
 
-    # -----------------------------
-    # LIMIT
-    # -----------------------------
     def _extract_limit(self, texto):
         match = re.search(r"top\s*(\d+)", texto)
         return int(match.group(1)) if match else None
 
-    # -----------------------------
-    # FILTROS (🔥 FIX CLAVE TOTAL)
-    # -----------------------------
     def _extract_filters(self, texto, source):
         extracted = []
+        
+        # 1. Normalización de operadores verbales a símbolos
+        texto = re.sub(r"menor\s+que|menor\s+de|debajo\s+de", "<", texto)
+        texto = re.sub(r"mayor\s+que|mayor\s+de|encima\s+de", ">", texto)
+        texto = re.sub(r"igual\s+a", "=", texto)
 
-        # 🔥 NORMALIZAR lenguaje clínico manualmente (clave)
-        texto = texto.replace("menor de", "<")
-        texto = texto.replace("mayor de", ">")
+        # 2. Búsqueda de filtros numéricos (Columna + Op + Valor)
+        # Usamos los sinónimos para identificar qué columna se está filtrando
+        for palabra, col_real in self.sinonimos.items():
+            pattern = rf"{palabra}\s*(<|>|=|<=|>=)\s*(\d+(?:\.\d+)?)"
+            match = re.search(pattern, texto)
+            if match:
+                op = match.group(1)
+                val = match.group(2)
+                extracted.append({
+                    "col": col_real,
+                    "op": "==" if op == "=" else op,
+                    "val": float(val)
+                })
 
-        # 🔥 aplicar sinónimos → columnas reales
-        for palabra, col in self.sinonimos.items():
-            texto = texto.replace(palabra, col.lower())
-
-        # 🔥 detectar patrones tipo FG_CG < 60
-        patrones = re.findall(r'([a-zA-Z0-9_]+)\s*(<|>|<=|>=|=)\s*(\d+)', texto)
-
-        for col, op, val in patrones:
-            extracted.append({
-                "col": col.upper(),
-                "op": "==" if op == "=" else op,
-                "val": float(val)
-            })
+        # 3. Búsqueda de filtros categóricos (ej: "centro cambados")
+        # Esto requiere que sepamos qué columnas son categóricas (ej: CENTRO)
+        centros = ["cambados", "pontevedra", "vigo", "salnes"] # Esto debería venir de un catálogo
+        for c in centros:
+            if c in texto:
+                extracted.append({"col": "CENTRO", "op": "==", "val": c.upper()})
 
         return extracted
 
-    # -----------------------------
-    # PARSER
-    # -----------------------------
     def parse_query(self, pregunta_usuario):
-        texto = limpiar_texto(pregunta_usuario)
+        texto = limpiar_texto(pregunta_usuario.lower())
 
         source = self._get_target_source(texto)
         operation = self._extract_operation(texto)
-        chart_type = self._parse_output_type(texto)
-
         variable = self._extract_variable(texto)
         group_by = self._extract_group_by(texto)
-        filters = self._extract_filters(texto, source)
         limit = self._extract_limit(texto)
-
-        # 🔥 FIX TOP
-        if limit:
+        filters = self._extract_filters(texto, source)
+        
+        # Lógica de TOP N: Si hay top, la variable es el objeto y agrupamos por ella
+        if limit and variable != "ID_REGISTRO":
             group_by = variable
-            chart_type = "bar"
+            operation = "conteo"
 
-        # 🔥 FIX GROUP BY
-        if group_by and chart_type == "kpi":
-            chart_type = "bar"
+        # Determinar tipo de salida
+        chart_type = self._parse_output_type(texto, has_grouping=(group_by is not None))
 
         return {
             "metadata": {
@@ -130,6 +107,6 @@ class QueryGenerator:
                 "filters": filters,
                 "group_by": group_by,
                 "chart_type": chart_type,
-                "limit": limit
+                "limit": limit or (10 if limit else None) 
             }
         }
