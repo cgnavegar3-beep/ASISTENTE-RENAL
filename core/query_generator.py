@@ -81,17 +81,18 @@ class QueryGenerator:
         extracted = []
         texto_original = texto
 
-        # 1. NORMALIZAR OPERADORES
+        # ---------------- NORMALIZAR OPERADORES ----------------
         texto = re.sub(r"menor\s+que|menor\s+a|menor\s+de|debajo\s+de|menor", "<", texto)
         texto = re.sub(r"mayor\s+que|mayor\s+a|mayor\s+de|encima\s+de|mayor", ">", texto)
         texto = re.sub(r"igual\s+a|igual", "=", texto)
 
-        # 2. FILTROS NUMÉRICOS
+        # ---------------- FILTROS NUMÉRICOS ----------------
         sinonimos_ordenados = sorted(self.sinonimos.items(), key=lambda x: len(x[0]), reverse=True)
 
         for palabra, col_real in sinonimos_ordenados:
             pattern = rf"{palabra}\s*(<|>|=|<=|>=)\s*(\d+(?:\.\d+)?)"
             match = re.search(pattern, texto)
+
             if match:
                 op = match.group(1)
                 val = match.group(2)
@@ -104,7 +105,7 @@ class QueryGenerator:
 
                 texto = texto.replace(match.group(0), "")
 
-        # 🔥 EXTRA: detectar "< 60" sin repetir variable
+        # 🔥 EXTRA: detectar "< 60" sin variable explícita
         match_extra = re.search(r"(<|>|<=|>=)\s*(\d+(?:\.\d+)?)", texto)
         if match_extra and not extracted:
             op = match_extra.group(1)
@@ -117,16 +118,16 @@ class QueryGenerator:
                     "val": float(val)
                 })
 
-        # 3. SEXO
+        # ---------------- SEXO ----------------
         if "hombre" in texto_original:
             extracted.append({"col": "SEXO", "op": "contiene", "val": "hombre"})
         if "mujer" in texto_original:
             extracted.append({"col": "SEXO", "op": "contiene", "val": "mujer"})
 
-        # 4. MEDICAMENTOS
-        if source == "Medicamentos":
+        # ---------------- MEDICAMENTOS ----------------
+        if source == "Medicamentos" and "top" not in texto_original:
             palabras = texto_original.split()
-            stopwords = ["pacientes", "cuantos", "numero", "top", "media"]
+            stopwords = ["pacientes", "cuantos", "numero", "media", "edad"]
 
             for p in palabras:
                 if len(p) > 4 and p not in stopwords:
@@ -137,7 +138,7 @@ class QueryGenerator:
                     })
                     break
 
-        # 5. CENTRO
+        # ---------------- CENTRO ----------------
         if "centro" in texto_original:
             partes = texto_original.split("centro")
             if len(partes) > 1:
@@ -149,7 +150,7 @@ class QueryGenerator:
                         "val": valor
                     })
 
-        # 6. RESIDENCIA
+        # ---------------- RESIDENCIA ----------------
         if "residencia" in texto_original:
             partes = texto_original.split("residencia")
             if len(partes) > 1:
