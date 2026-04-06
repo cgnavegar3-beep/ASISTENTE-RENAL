@@ -7,7 +7,6 @@ from core.errors import CoreError
 
 class ExecutionEngine:
     def __init__(self):
-        # Mantenemos el fix pero priorizamos el match exacto
         self.column_fix = {
             "fg": "FG_CG",
             "fg_cg": "FG_CG",
@@ -25,19 +24,16 @@ class ExecutionEngine:
         if col is None or df is None:
             return None
         
-        # 1. SI YA EXISTE, NO TOCAR (Evita FG_CG_CG)
         if col in df.columns:
             return col
             
         col_norm = limpiar_texto(str(col))
 
-        # 2. Match en mapping clínico
         if col_norm in self.column_fix:
             mapped = self.column_fix[col_norm]
             if mapped in df.columns:
                 return mapped
 
-        # 3. Match flexible (case insensitive / sin espacios)
         for c in df.columns:
             if limpiar_texto(c) == col_norm:
                 return c
@@ -56,11 +52,8 @@ class ExecutionEngine:
             val = f.get("val")
 
             if col is None:
-                # Si no encontramos la columna, el filtro es inválido pero no rompemos, 
-                # simplemente devolvemos vacío para no dar el "12" engañoso.
-                return df.iloc[0:0] 
+                return df.iloc[0:0]
 
-            # Normalizar el valor si es un Centro (usando el diccionario)
             val_str = str(val).lower()
             if col == "CENTRO" and val_str in VALORES_CATEGORICOS:
                 val = VALORES_CATEGORICOS[val_str]
@@ -69,7 +62,7 @@ class ExecutionEngine:
             series = df[col]
 
             try:
-                # NUMÉRICO
+                # ---------------- NUMÉRICO ----------------
                 if op in [">", "<", ">=", "<="]:
                     s = pd.to_numeric(series, errors="coerce")
                     v = float(val)
@@ -78,18 +71,37 @@ class ExecutionEngine:
                     elif op == ">=": mask &= s >= v
                     elif op == "<=": mask &= s <= v
 
-                # IGUALDAD / CATEGÓRICO
+                # ---------------- IGUALDAD ----------------
                 elif op == "==":
                     if isinstance(val, (int, float)):
                         mask &= pd.to_numeric(series, errors="coerce") == val
                     else:
                         mask &= series.astype(str).str.upper().str.strip() == str(val).upper().strip()
 
-                elif op == "contains":
-                    mask &= series.astype(str).apply(limpiar_texto).str.contains(str(val_n), na=False)
+                # 🔥 ---------------- CONTAINS (FIX CLAVE) ----------------
+                elif op in ["contains", "contiene"]:
+                    serie_limpia = series.astype(str).apply(limpiar_texto)
+                    val_clean = str(val_n)
 
-            except Exception as e:
-                continue # Ignorar filtros mal formados para evitar crash
+                    # 🔥 FIX SEXO
+                    if col == "SEXO":
+                        if "hombre" in val_clean:
+                            mask &= serie_limpia.isin(["hombre", "h", "varon"])
+                        elif "mujer" in val_clean:
+                            mask &= serie_limpia.isin(["mujer", "m"])
+                        else:
+                            mask &= serie_limpia.str.contains(val_clean, na=False)
+
+                    # 🔥 FIX MEDICAMENTOS
+                    elif col == "MEDICAMENTO":
+                        mask &= serie_limpia.str.contains(val_clean, na=False)
+
+                    # 🔥 RESTO COLUMNAS
+                    else:
+                        mask &= serie_limpia.str.contains(val_clean, na=False)
+
+            except Exception:
+                continue
 
         return df[mask]
 
@@ -97,7 +109,6 @@ class ExecutionEngine:
         if df_filtrado is None or df_filtrado.empty:
             return 0, "No se encontraron registros con esos criterios.", pd.DataFrame()
 
-        # Extraer parámetros de la petición (Bloques B, C y D)
         req = query_json.get("request", {})
         metrica = req.get("metric", "conteo")
         var = self.resolve_column(req.get("target_col"), df_filtrado)
@@ -105,9 +116,8 @@ class ExecutionEngine:
         limit = req.get("limit")
 
         try:
-            # --- CASO 1: AGRUPACIÓN (Gráficos, Tablas, Rankings) ---
+            # ---------------- AGRUPACIÓN ----------------
             if group_by:
-                # Contamos ocurrencias por grupo
                 res = df_filtrado.groupby(group_by).size().reset_index(name="count")
                 res = res.sort_values("count", ascending=False)
                 
@@ -116,7 +126,7 @@ class ExecutionEngine:
                 
                 return res, f"Resultados por {group_by}", res
 
-            # --- CASO 2: KPI (Un solo número) ---
+            # ---------------- KPI ----------------
             if metrica == "conteo":
                 resultado = len(df_filtrado)
             else:
@@ -145,15 +155,12 @@ class ExecutionEngine:
                 return px.histogram(df_final, x=target_col, title=f"Distribución de {target_col}")
 
             if chart_type == "pie":
-                # Si viene de un group_by ya tiene columna 'count'
                 if "count" in df_final.columns:
                     return px.pie(df_final, names=df_final.columns[0], values="count")
-                # Si no, agrupamos aquí
                 return px.pie(df_final, names=target_col)
 
             if chart_type == "bar":
                 if "count" in df_final.columns:
-                    # Usamos la primera columna (la dimensión) y 'count'
                     return px.bar(df_final, x=df_final.columns[0], y="count", text="count")
                 
             return None
