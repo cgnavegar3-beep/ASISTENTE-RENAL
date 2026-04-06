@@ -124,17 +124,19 @@ class QueryGenerator:
         if "mujer" in texto_original:
             extracted.append({"col": "SEXO", "op": "contiene", "val": "mujer"})
 
-        # ---------------- MEDICAMENTOS ----------------
+        # ---------------- MEDICAMENTOS (MEJORADO) ----------------
         if source == "Medicamentos" and "top" not in texto_original:
             palabras = texto_original.split()
-            stopwords = ["pacientes", "cuantos", "numero", "media", "edad"]
+            # Stopwords para no capturar comandos como si fueran nombres de medicina
+            stopwords = ["pacientes", "cuantos", "numero", "media", "edad", "medicamento", "medicamentos", "con", "del", "un", "el"]
 
             for p in palabras:
-                if len(p) > 4 and p not in stopwords:
+                # Si la palabra es larga, no es una instrucción y no es una columna, es el nombre del fármaco
+                if len(p) > 3 and p not in stopwords and p not in self.sinonimos:
                     extracted.append({
                         "col": "MEDICAMENTO",
                         "op": "contiene",
-                        "val": p
+                        "val": p.upper()
                     })
                     break
 
@@ -143,11 +145,11 @@ class QueryGenerator:
             partes = texto_original.split("centro")
             if len(partes) > 1:
                 valor = partes[1].strip().split(" ")[0]
-                if valor:
+                if valor and len(valor) > 2:
                     extracted.append({
                         "col": "CENTRO",
                         "op": "contiene",
-                        "val": valor
+                        "val": valor.upper()
                     })
 
         # ---------------- RESIDENCIA ----------------
@@ -155,11 +157,11 @@ class QueryGenerator:
             partes = texto_original.split("residencia")
             if len(partes) > 1:
                 valor = partes[1].strip().split(" ")[0]
-                if valor:
+                if valor and len(valor) > 2:
                     extracted.append({
                         "col": "RESIDENCIA",
                         "op": "contiene",
-                        "val": valor
+                        "val": valor.upper()
                     })
 
         return extracted
@@ -177,10 +179,12 @@ class QueryGenerator:
         limit = self._extract_limit(texto)
         filters = self._extract_filters(texto, source)
 
-        # 🔥 TOP FIX
+        # 🔥 TOP FIX: Si hay límite y variable nominal, agrupamos por ella para el ranking
         if limit and variable != "ID_REGISTRO":
             group_by = variable
             operation = "conteo"
+            # Limpieza: Si es un TOP, eliminamos filtros que busquen el nombre de la propia categoría
+            filters = [f for f in filters if str(f['val']).lower() not in ["medicamento", "medicamentos"]]
 
         chart_type = self._parse_output_type(texto, has_grouping=(group_by is not None))
 
