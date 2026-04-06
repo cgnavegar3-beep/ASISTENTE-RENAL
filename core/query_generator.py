@@ -72,16 +72,15 @@ class QueryGenerator:
         return "ID_REGISTRO"
 
     # -----------------------------
-    # GROUP BY
+    # GROUP BY (🔥 FIX)
     # -----------------------------
     def _extract_group_by(self, texto):
-        if "por " in texto:
-            partes = texto.split("por ")
-            if len(partes) > 1:
-                posible = partes[1].strip().split(" ")[0]
-                for palabra, col in self.sinonimos.items():
-                    if palabra == posible:
-                        return col
+        match = re.search(r"por\s+([a-zA-Z_]+)", texto)
+        if match:
+            palabra = match.group(1)
+            for k, v in self.sinonimos.items():
+                if k == palabra:
+                    return v
         return None
 
     # -----------------------------
@@ -95,7 +94,7 @@ class QueryGenerator:
         return None
 
     # -----------------------------
-    # FILTROS (🔥 FIX DEFINITIVO)
+    # FILTROS (🔥 FIX CRÍTICO)
     # -----------------------------
     def _extract_filters(self, texto, source):
         if source not in self.schema:
@@ -104,12 +103,11 @@ class QueryGenerator:
         extracted = []
         texto_proc = texto
 
-        # 🔥 1. sustituir sinónimos por columnas reales
-        for palabra, col_tecnica in self.sinonimos.items():
-            if palabra in texto_proc:
-                texto_proc = texto_proc.replace(palabra, col_tecnica.lower())
+        # 🔥 1. reemplazar sinónimos por columnas reales
+        for palabra, col in self.sinonimos.items():
+            texto_proc = texto_proc.replace(palabra, col.lower())
 
-        # 🔥 2. detectar operadores tipo "< 60"
+        # 🔥 2. patrones tipo "fg < 60"
         patrones = re.findall(
             r'([a-zA-Z0-9_]+)\s*(>=|<=|!=|==|=|>|<)\s*([\d\.]+)',
             texto_proc
@@ -119,6 +117,19 @@ class QueryGenerator:
             extracted.append({
                 "col": col.upper(),
                 "op": "==" if op == "=" else op,
+                "val": float(val)
+            })
+
+        # 🔥 3. FIX CLAVE: detectar "menor de / mayor de"
+        patrones_txt = re.findall(
+            r'(fg_cg|edad|fg_mdrd|fg_ckd)\s*(<|>)\s*([\d\.]+)',
+            texto_proc
+        )
+
+        for col, op, val in patrones_txt:
+            extracted.append({
+                "col": col.upper(),
+                "op": op,
                 "val": float(val)
             })
 
@@ -150,9 +161,14 @@ class QueryGenerator:
             limit = self._extract_limit(texto)
             intent = self._extract_intent(operation, chart_type)
 
-            # 🔥 FIX CLAVE: si hay TOP → forzar agrupación por variable
-            if limit and not group_by:
+            # 🔥 FIX 1: TOP → forzar agrupación + gráfico
+            if limit:
                 group_by = variable
+                chart_type = "bar"
+
+            # 🔥 FIX 2: si hay "por X" → gráfico
+            if group_by and chart_type == "kpi":
+                chart_type = "bar"
 
             return {
                 "metadata": {
