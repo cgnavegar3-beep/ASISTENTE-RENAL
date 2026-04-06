@@ -1,5 +1,7 @@
 import random
 
+# 🔥 MEJORA: Ordenamos de más largo a más corto para evitar que "fg" 
+# rompa a "filtrado glomerular"
 SINONIMOS_COLUMNAS = {
     # identidad paciente
     "id registro": "ID_REGISTRO",
@@ -27,37 +29,30 @@ SINONIMOS_COLUMNAS = {
     # =========================
     # 🔥 FILTRADO GLOMERULAR
     # =========================
-
-    # CG
+    "filtrado glomerular cg": "FG_CG",
+    "filtrado glomerular mdrd": "FG_MDRD",
+    "filtrado glomerular ckd": "FG_CKD",
+    "filtrado glomerular": "FG_CG",
     "función renal": "FG_CG",
     "funcion renal": "FG_CG",
-    "filtrado glomerular": "FG_CG",
-    "filtrado glomerular cg": "FG_CG",
-    "fg": "FG_CG",
+    "cockcroft": "FG_CG",
     "fg cg": "FG_CG",
     "fg_cg": "FG_CG",
-    "cockcroft": "FG_CG",
-
-    # MDRD
     "fg mdrd": "FG_MDRD",
-    "filtrado glomerular mdrd": "FG_MDRD",
-
-    # CKD
     "fg ckd": "FG_CKD",
-    "filtrado glomerular ckd": "FG_CKD",
+    "fg": "FG_CG", # Al final para que no pise a los anteriores
 
     # =========================
     # 💊 MEDICACIÓN
     # =========================
-    "medicamentos": "MEDICAMENTO",
-    "medicamento": "MEDICAMENTO",
-    "fármacos": "MEDICAMENTO",
-    "farmacos": "MEDICAMENTO",
-
     "total medicamentos": "Nº_TOTAL_MEDS_PAC",
     "meds totales": "Nº_TOTAL_MEDS_PAC",
     "numero de medicamentos": "Nº_TOTAL_MEDS_PAC",
     "nº medicamentos": "Nº_TOTAL_MEDS_PAC",
+    "medicamentos": "MEDICAMENTO",
+    "medicamento": "MEDICAMENTO",
+    "fármacos": "MEDICAMENTO",
+    "farmacos": "MEDICAMENTO",
     "validaciones": "Nº_TOTAL_MEDS_PAC",
 
     # =========================
@@ -89,11 +84,9 @@ SINONIMOS_COLUMNAS = {
     "riesgo cg": "RIESGO_CG",
     "categoria cg": "CAT_RIESGO_CG",
     "nivel cg": "NIVEL_ADE_CG",
-
     "riesgo mdrd": "RIESGO_MDRD",
     "categoria mdrd": "CAT_RIESGO_MDRD",
     "nivel mdrd": "NIVEL_ADE_MDRD",
-
     "riesgo ckd": "RIESGO_CKD",
     "categoria ckd": "CAT_RIESGO_CKD",
     "nivel ckd": "NIVEL_ADE_CKD",
@@ -104,15 +97,24 @@ SINONIMOS_COLUMNAS = {
     "aceptacion medico": "ACEPTACION_MEDICO",
     "aceptación médico": "ACEPTACION_MEDICO",
     "aceptación map": "ACEPTACION_MEDICO",
-    "propuestas aceptadas": "ACEPTACION_MEDICO"
+    "propuestas aceptadas": "ACEPTACION_MEDICO",
+    
+    # Adición para centros (Para que no dé "12" al filtrar)
+    "centro": "CENTRO",
+    "residencia": "RESIDENCIA"
 }
 
+# 🔥 Crucial para que "pacientes con edad menor a 50" funcione
 MAPEO_OPERADORES = {
-    "mayor": ">",
-    "más": ">",
-    "más de": ">",
+    "menor de": "<",
+    "menor a": "<",
     "menor": "<",
+    "mayor de": ">",
+    "mayor a": ">",
+    "mayor": ">",
+    "más de": ">",
     "menos de": "<",
+    "igual a": "==",
     "igual": "==",
     "distinto": "!=",
     "diferente": "!=",
@@ -120,9 +122,14 @@ MAPEO_OPERADORES = {
     "incluye": "contains"
 }
 
-# =========================
-# 📊 VISUALIZACIÓN
-# =========================
+# Valores de centros conocidos para el normalizador
+VALORES_CATEGORICOS = {
+    "cambados": "CAMBADOS",
+    "pontevedra": "PONTEVEDRA",
+    "salnes": "SALNES",
+    "vilagarcía": "VILAGARCÍA"
+}
+
 MAPEO_VISUAL = {
     "barras_h": "bar",
     "barras_v": "bar",
