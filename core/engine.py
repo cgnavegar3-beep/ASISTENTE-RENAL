@@ -1,77 +1,69 @@
 import pandas as pd
 import numpy as np
 import plotly.express as px
-from core.dictionary import obtener_respuesta_aleatoria
+from core.dictionary import obtener_respuesta_aleatoria, VALORES_CATEGORICOS
 from core.normalizer import limpiar_texto
 from core.errors import CoreError
 
-
 class ExecutionEngine:
     def __init__(self):
-        # 🔥 FIX: mapping clínico robusto
+        # Mantenemos el fix pero priorizamos el match exacto
         self.column_fix = {
             "fg": "FG_CG",
             "fg_cg": "FG_CG",
             "fg_mdrd": "FG_MDRD",
             "fg_ckd": "FG_CKD",
             "filtrado glomerular": "FG_CG",
-
             "medicamento": "MEDICAMENTO",
-            "medicamentos": "MEDICAMENTO",
-
             "paciente": "ID_REGISTRO",
-            "id": "ID_REGISTRO",
-            "id_registro": "ID_REGISTRO",
-
             "edad": "EDAD",
-            "sexo": "SEXO"
+            "sexo": "SEXO",
+            "centro": "CENTRO"
         }
 
-    # -----------------------------
-    # NORMALIZADOR DE COLUMNAS
-    # -----------------------------
     def resolve_column(self, col, df):
-        if col is None:
+        if col is None or df is None:
             return None
-
-        col_norm = limpiar_texto(str(col))
-
-        # 1. match directo
+        
+        # 1. SI YA EXISTE, NO TOCAR (Evita FG_CG_CG)
         if col in df.columns:
             return col
+            
+        col_norm = limpiar_texto(str(col))
 
-        # 2. mapping clínico
+        # 2. Match en mapping clínico
         if col_norm in self.column_fix:
             mapped = self.column_fix[col_norm]
             if mapped in df.columns:
                 return mapped
 
-        # 3. match flexible
+        # 3. Match flexible (case insensitive / sin espacios)
         for c in df.columns:
             if limpiar_texto(c) == col_norm:
                 return c
-
         return None
 
-    # -----------------------------
-    # FILTROS
-    # -----------------------------
     def aplicar_filtros(self, df, filtros_json):
-        if df is None or df.empty:
+        if df is None or df.empty or not filtros_json:
             return df
 
         mask = pd.Series(True, index=df.index)
 
         for f in filtros_json:
-            col = self.resolve_column(f.get("col"), df)
+            col_raw = f.get("col")
+            col = self.resolve_column(col_raw, df)
             op = f.get("op")
             val = f.get("val")
 
             if col is None:
-                raise CoreError("engine.py", f"Columna no encontrada: {f.get('col')}", col)
+                # Si no encontramos la columna, el filtro es inválido pero no rompemos, 
+                # simplemente devolvemos vacío para no dar el "12" engañoso.
+                return df.iloc[0:0] 
 
-            if val is None or val == "":
-                continue
+            # Normalizar el valor si es un Centro (usando el diccionario)
+            val_str = str(val).lower()
+            if col == "CENTRO" and val_str in VALORES_CATEGORICOS:
+                val = VALORES_CATEGORICOS[val_str]
 
             val_n = limpiar_texto(val) if isinstance(val, str) else val
             series = df[col]
@@ -81,136 +73,89 @@ class ExecutionEngine:
                 if op in [">", "<", ">=", "<="]:
                     s = pd.to_numeric(series, errors="coerce")
                     v = float(val)
+                    if op == ">": mask &= s > v
+                    elif op == "<": mask &= s < v
+                    elif op == ">=": mask &= s >= v
+                    elif op == "<=": mask &= s <= v
 
-                    if op == ">":
-                        mask &= s > v
-                    elif op == "<":
-                        mask &= s < v
-                    elif op == ">=":
-                        mask &= s >= v
-                    elif op == "<=":
-                        mask &= s <= v
-
-                # IGUALDAD
+                # IGUALDAD / CATEGÓRICO
                 elif op == "==":
                     if isinstance(val, (int, float)):
                         mask &= pd.to_numeric(series, errors="coerce") == val
                     else:
-                        mask &= series.astype(str).apply(limpiar_texto) == val_n
+                        mask &= series.astype(str).str.upper().str.strip() == str(val).upper().strip()
 
-                elif op == "!=":
-                    if isinstance(val, (int, float)):
-                        mask &= pd.to_numeric(series, errors="coerce") != val
-                    else:
-                        mask &= series.astype(str).apply(limpiar_texto) != val_n
-
-                # TEXTO
-                elif op in ["contiene", "contains"]:
+                elif op == "contains":
                     mask &= series.astype(str).apply(limpiar_texto).str.contains(str(val_n), na=False)
 
-                else:
-                    raise CoreError("engine.py", f"Operador no soportado: {op}", op)
-
             except Exception as e:
-                raise CoreError("engine.py", f"Error en filtro: {col} {op} {val}", str(e))
+                continue # Ignorar filtros mal formados para evitar crash
 
         return df[mask]
 
-    # -----------------------------
-    # ANALÍTICA
-    # -----------------------------
     def ejecutar_analisis(self, df_filtrado, query_json):
-        # 🔥 FIX 1: semántica correcta de vacío
-        if df_filtrado is None:
-            return 0, "Sin datos disponibles", df_filtrado
+        if df_filtrado is None or df_filtrado.empty:
+            return 0, "No se encontraron registros con esos criterios.", pd.DataFrame()
 
-        if df_filtrado.empty:
-            return 0, "Resultado: 0 registros", df_filtrado
-
-        config_b = query_json.get("bloque_b", {})
-        var = self.resolve_column(config_b.get("variable") or "ID_REGISTRO", df_filtrado)
-        metrica = config_b.get("operacion") or "conteo"
-        group_by = self.resolve_column(config_b.get("agrupar"), df_filtrado)
-
-        limit = query_json.get("bloque_d", {}).get("limit")
+        # Extraer parámetros de la petición (Bloques B, C y D)
+        req = query_json.get("request", {})
+        metrica = req.get("metric", "conteo")
+        var = self.resolve_column(req.get("target_col"), df_filtrado)
+        group_by = self.resolve_column(req.get("group_by"), df_filtrado)
+        limit = req.get("limit")
 
         try:
-            # ---------------- KPI ----------------
-            if group_by is None:
+            # --- CASO 1: AGRUPACIÓN (Gráficos, Tablas, Rankings) ---
+            if group_by:
+                # Contamos ocurrencias por grupo
+                res = df_filtrado.groupby(group_by).size().reset_index(name="count")
+                res = res.sort_values("count", ascending=False)
+                
+                if limit:
+                    res = res.head(int(limit))
+                
+                return res, f"Resultados por {group_by}", res
 
-                if metrica == "conteo":
-                    resultado = len(df_filtrado)
+            # --- CASO 2: KPI (Un solo número) ---
+            if metrica == "conteo":
+                resultado = len(df_filtrado)
+            else:
+                s = pd.to_numeric(df_filtrado[var], errors="coerce").dropna()
+                if metrica == "media": resultado = round(s.mean(), 2)
+                elif metrica == "max": resultado = s.max()
+                elif metrica == "min": resultado = s.min()
+                else: resultado = len(df_filtrado)
 
-                else:
-                    if var is None or var not in df_filtrado.columns:
-                        return len(df_filtrado), "Variable no encontrada → conteo", df_filtrado
-
-                    s = pd.to_numeric(df_filtrado[var], errors="coerce")
-
-                    if metrica == "media":
-                        resultado = s.mean()
-                    elif metrica == "suma":
-                        resultado = s.sum()
-                    elif metrica == "max":
-                        resultado = s.max()
-                    elif metrica == "min":
-                        resultado = s.min()
-                    elif metrica == "porcentaje":
-                        resultado = 100 if len(df_filtrado) > 0 else 0
-                    else:
-                        resultado = len(df_filtrado)
-
-                return resultado, f"Resultado: {resultado}", df_filtrado
-
-            # ---------------- GROUP BY ----------------
-            # 🔥 FIX 2: TOP MEDICAMENTOS automático
-            if group_by not in df_filtrado.columns:
-                if "MEDICAMENTO" in df_filtrado.columns:
-                    group_by = "MEDICAMENTO"
-                else:
-                    raise CoreError("engine.py", f"Group by no válido: {group_by}", group_by)
-
-            data = df_filtrado.groupby(group_by).size().reset_index(name="count")
-            data = data.sort_values("count", ascending=False)
-
-            if limit:
-                data = data.head(limit)
-
-            return data, "Resultado agrupado generado", data
+            return resultado, f"{resultado}", df_filtrado
 
         except Exception as e:
-            raise CoreError("engine.py", "Error en ejecución de métrica", str(e))
+            return 0, f"Error en cálculo: {str(e)}", df_filtrado
 
-    # -----------------------------
-    # GRÁFICOS
-    # -----------------------------
     def generar_grafico(self, df_final, query_json):
-        if df_final is None or df_final.empty:
+        if not isinstance(df_final, pd.DataFrame) or df_final.empty:
             return None
+
+        req = query_json.get("request", {})
+        chart_type = req.get("chart_type", "kpi")
+        group_by = req.get("group_by")
+        target_col = req.get("target_col")
 
         try:
-            config_b = query_json.get("bloque_b", {})
-            config_c = query_json.get("bloque_c", {})
-
-            var = self.resolve_column(config_b.get("variable"), df_final)
-            chart_type = config_c.get("tipo", "kpi")
-
-            # ---------------- HISTOGRAMA ----------------
             if chart_type == "histogram":
-                col = var if var in df_final.columns else None
-                return px.histogram(df_final, x=col) if col else None
+                return px.histogram(df_final, x=target_col, title=f"Distribución de {target_col}")
 
-            # ---------------- PIE ----------------
-            if chart_type == "pie" and var:
-                data = df_final[var].value_counts().reset_index()
-                data.columns = [var, "count"]
-                return px.pie(data, names=var, values="count")
+            if chart_type == "pie":
+                # Si viene de un group_by ya tiene columna 'count'
+                if "count" in df_final.columns:
+                    return px.pie(df_final, names=df_final.columns[0], values="count")
+                # Si no, agrupamos aquí
+                return px.pie(df_final, names=target_col)
 
-            # ---------------- BAR ----------------
-            if chart_type == "bar" and "count" in df_final.columns:
-                return px.bar(df_final, x=df_final.columns[0], y="count")
-
+            if chart_type == "bar":
+                if "count" in df_final.columns:
+                    # Usamos la primera columna (la dimensión) y 'count'
+                    return px.bar(df_final, x=df_final.columns[0], y="count", text="count")
+                
             return None
-
-        except Exception:
+        except:
             return None
