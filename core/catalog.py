@@ -1,3 +1,5 @@
+# core/catalog.py
+
 SCHEMA = {
     "Validaciones": {
         "columnas": [
@@ -39,3 +41,8 @@ OPERADORES = [
 FORMATOS_VISUALIZACION = [
     "kpi", "listar", "tabla", "barras_h", "barras_v", "sectores", "histograma"
 ]
+
+# --- RECOMENDACIÓN PARA EL DICCIONARIO ---
+# Para evitar el error FG_CG_CG, en tu dictionary.py asegúrate de que 
+# los sinónimos apunten a la columna exacta y que el QueryGenerator 
+# no haga reemplazos recursivos.
