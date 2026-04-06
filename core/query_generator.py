@@ -14,52 +14,31 @@ class QueryGenerator:
     # ORIGEN
     # -----------------------------
     def _get_target_source(self, texto):
-        keywords_meds = [
-            "medicamento", "farmaco", "fármaco",
-            "pastilla", "tratamiento", "insulina", "metformina"
-        ]
-        return "Medicamentos" if any(kw in texto for kw in keywords_meds) else "Validaciones"
+        meds = ["medicamento", "farmaco", "fármaco", "pastilla", "insulina", "metformina"]
+        return "Medicamentos" if any(w in texto for w in meds) else "Validaciones"
 
     # -----------------------------
     # OPERACIÓN
     # -----------------------------
     def _extract_operation(self, texto):
-        if any(w in texto for w in ["media", "promedio"]):
+        if "media" in texto or "promedio" in texto:
             return "media"
-
         if "%" in texto or "porcentaje" in texto:
             return "porcentaje"
-
         if any(w in texto for w in ["cuantos", "cuántos", "numero", "número", "total"]):
             return "conteo"
-
-        if "suma" in texto:
-            return "suma"
-
-        if "max" in texto:
-            return "max"
-
-        if "min" in texto:
-            return "min"
-
         return "conteo"
 
     # -----------------------------
     # OUTPUT
     # -----------------------------
     def _parse_output_type(self, texto):
-        if any(w in texto for w in ["histograma", "distribucion", "distribución"]):
+        if "histograma" in texto:
             return "histogram"
-
-        if any(w in texto for w in ["tarta", "sectores", "pie", "circular"]):
+        if any(w in texto for w in ["pie", "sectores", "tarta"]):
             return "pie"
-
-        if any(w in texto for w in ["barras", "grafico", "gráfico"]):
+        if any(w in texto for w in ["grafico", "gráfico", "barras"]):
             return "bar"
-
-        if any(w in texto for w in ["tabla", "lista", "listado"]):
-            return "table"
-
         return "kpi"
 
     # -----------------------------
@@ -72,46 +51,40 @@ class QueryGenerator:
         return "ID_REGISTRO"
 
     # -----------------------------
-    # GROUP BY (🔥 FIX)
+    # GROUP BY (🔥 FIX REAL)
     # -----------------------------
     def _extract_group_by(self, texto):
-        match = re.search(r"por\s+([a-zA-Z_]+)", texto)
+        match = re.search(r"por\s+(\w+)", texto)
         if match:
             palabra = match.group(1)
             for k, v in self.sinonimos.items():
-                if k == palabra:
+                if palabra == k:
                     return v
         return None
 
     # -----------------------------
-    # LIMIT (TOP N)
+    # LIMIT
     # -----------------------------
     def _extract_limit(self, texto):
-        match = re.search(r"(top\s*\d+|primeros\s*\d+)", texto)
-        if match:
-            nums = re.findall(r"\d+", match.group())
-            return int(nums[0]) if nums else None
-        return None
+        match = re.search(r"top\s*(\d+)", texto)
+        return int(match.group(1)) if match else None
 
     # -----------------------------
-    # FILTROS (🔥 FIX CRÍTICO)
+    # FILTROS (🔥 FIX CLAVE TOTAL)
     # -----------------------------
     def _extract_filters(self, texto, source):
-        if source not in self.schema:
-            raise CoreError("query_generator.py", "Origen no válido", source)
-
         extracted = []
-        texto_proc = texto
 
-        # 🔥 1. reemplazar sinónimos por columnas reales
+        # 🔥 NORMALIZAR lenguaje clínico manualmente (clave)
+        texto = texto.replace("menor de", "<")
+        texto = texto.replace("mayor de", ">")
+
+        # 🔥 aplicar sinónimos → columnas reales
         for palabra, col in self.sinonimos.items():
-            texto_proc = texto_proc.replace(palabra, col.lower())
+            texto = texto.replace(palabra, col.lower())
 
-        # 🔥 2. patrones tipo "fg < 60"
-        patrones = re.findall(
-            r'([a-zA-Z0-9_]+)\s*(>=|<=|!=|==|=|>|<)\s*([\d\.]+)',
-            texto_proc
-        )
+        # 🔥 detectar patrones tipo FG_CG < 60
+        patrones = re.findall(r'([a-zA-Z0-9_]+)\s*(<|>|<=|>=|=)\s*(\d+)', texto)
 
         for col, op, val in patrones:
             extracted.append({
@@ -120,77 +93,43 @@ class QueryGenerator:
                 "val": float(val)
             })
 
-        # 🔥 3. FIX CLAVE: detectar "menor de / mayor de"
-        patrones_txt = re.findall(
-            r'(fg_cg|edad|fg_mdrd|fg_ckd)\s*(<|>)\s*([\d\.]+)',
-            texto_proc
-        )
-
-        for col, op, val in patrones_txt:
-            extracted.append({
-                "col": col.upper(),
-                "op": op,
-                "val": float(val)
-            })
-
         return extracted
 
     # -----------------------------
-    # INTENT
-    # -----------------------------
-    def _extract_intent(self, operation, output_type):
-        if output_type in ["bar", "pie", "histogram", "table"]:
-            return "visual"
-        return "kpi"
-
-    # -----------------------------
-    # PARSER PRINCIPAL
+    # PARSER
     # -----------------------------
     def parse_query(self, pregunta_usuario):
-        try:
-            texto = limpiar_texto(pregunta_usuario)
+        texto = limpiar_texto(pregunta_usuario)
 
-            source = self._get_target_source(texto)
-            operation = self._extract_operation(texto)
-            raw_output = self._parse_output_type(texto)
-            chart_type = MAPEO_VISUAL.get(raw_output, raw_output)
+        source = self._get_target_source(texto)
+        operation = self._extract_operation(texto)
+        chart_type = self._parse_output_type(texto)
 
-            variable = self._extract_variable(texto)
-            group_by = self._extract_group_by(texto)
-            filters = self._extract_filters(texto, source)
-            limit = self._extract_limit(texto)
-            intent = self._extract_intent(operation, chart_type)
+        variable = self._extract_variable(texto)
+        group_by = self._extract_group_by(texto)
+        filters = self._extract_filters(texto, source)
+        limit = self._extract_limit(texto)
 
-            # 🔥 FIX 1: TOP → forzar agrupación + gráfico
-            if limit:
-                group_by = variable
-                chart_type = "bar"
+        # 🔥 FIX TOP
+        if limit:
+            group_by = variable
+            chart_type = "bar"
 
-            # 🔥 FIX 2: si hay "por X" → gráfico
-            if group_by and chart_type == "kpi":
-                chart_type = "bar"
+        # 🔥 FIX GROUP BY
+        if group_by and chart_type == "kpi":
+            chart_type = "bar"
 
-            return {
-                "metadata": {
-                    "source": source,
-                    "intent": intent
-                },
-                "request": {
-                    "metric": operation,
-                    "target_col": variable,
-                    "filters": filters,
-                    "group_by": group_by,
-                    "chart_type": chart_type,
-                    "limit": limit
-                }
+        return {
+            "metadata": {
+                "source": source,
+                "intent": "visual" if chart_type != "kpi" else "kpi"
+            },
+            "request": {
+                "metric": operation,
+                "target_col": variable,
+                "filters": filters,
+                "group_by": group_by,
+                "chart_type": chart_type,
+                "limit": limit
             }
-
-        except CoreError:
-            raise
-
-        except Exception as e:
-            raise CoreError(
-                "query_generator.py",
-                "Error interpretando la consulta clínica",
-                str(e)
-            )
+        }
