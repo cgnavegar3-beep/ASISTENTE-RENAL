@@ -40,8 +40,7 @@ class QueryGenerator:
             filters.append({"col": "CENTRO", "op": "contiene", "val": val_centro})
             t_clean = t_clean.replace(centro_match.group(0), " ")
 
-        # 3. Filtro de MEDICAMENTO (Específico: ej. 'enalapril')
-        # Solo extraemos como filtro si NO es una pregunta de "Top medicamentos"
+        # 3. Filtro de MEDICAMENTO
         if source == "Medicamentos" and not any(w in t_clean for w in ["top", "ranking", "mas frecuentes"]):
             stopwords = ["cuantos", "pacientes", "toman", "tienen", "del", "en", "el", "la", "centro", "media", "edad", "sexo", "que", "hay", "con"]
             palabras = t_clean.split()
@@ -52,8 +51,24 @@ class QueryGenerator:
         
         return filters
 
+    def _extract_group_by(self, texto):
+        """Detecta sobre qué columna agrupar si se pide un gráfico o distribución."""
+        # Búsqueda por conectores
+        match = re.search(r"(?:por|segun|por\s+el|por\s+la|distribucion\s+de)\s+([a-zA-Záéíóú]+)", texto)
+        if match:
+            palabra = match.group(1)
+            if palabra in self.sinonimos:
+                return self.sinonimos[palabra]
+
+        # Búsqueda implícita si el usuario pide gráfico/visualización
+        if any(w in texto for w in ["grafico", "gráfico", "visualizar", "barras", "reparto", "distribucion"]):
+            for palabra in ["edad", "sexo", "centro", "residencia", "medicamento", "riesgo"]:
+                if palabra in texto:
+                    return self.sinonimos.get(palabra) if palabra in self.sinonimos else palabra.upper()
+        return None
+
     # ---------------------------------------------------------
-    # PARSER PRINCIPAL CON LÓGICA TOP N
+    # PARSER PRINCIPAL
     # ---------------------------------------------------------
     def parse_query(self, pregunta_usuario):
         texto = limpiar_texto(pregunta_usuario.lower())
@@ -61,29 +76,29 @@ class QueryGenerator:
         source = self._get_target_source(texto)
         operation = self._extract_operation(texto)
         filters = self._extract_all_filters(texto, source)
+        group_by = self._extract_group_by(texto)
         
         # 1. DETECTAR LÍMITE (TOP N)
         limit_match = re.search(r"(?:top|ranking)\s*(\d+)", texto)
         limit_val = int(limit_match.group(1)) if limit_match else None
         
-        # 2. DETERMINAR VARIABLE Y AGRUPACIÓN
+        # 2. DETERMINAR VARIABLE Y LÓGICA DE AGRUPACIÓN
         variable = "ID_REGISTRO"
-        group_by = None
         
-        # Si pide TOP MEDICAMENTOS:
+        # Caso Top N Medicamentos
         if limit_val and (source == "Medicamentos" or "medicamento" in texto):
             group_by = "MEDICAMENTO"
             variable = "MEDICAMENTO"
-            operation = "conteo" # El top siempre cuenta frecuencias
+            operation = "conteo"
         
-        # Si pide MEDIA:
+        # Caso Media (Edad o Filtrado Glomerular)
         elif operation == "media":
             if "edad" in texto: variable = "EDAD"
-            elif "fg" in texto: variable = "FG_CG"
+            elif any(w in texto for w in ["fg", "filtrado", "glomerular"]): variable = "FG_CG"
 
         # 3. DETERMINAR TIPO DE GRÁFICO
-        # Si hay agrupación o es un Top, forzamos gráfico o tabla
-        if limit_val or group_by:
+        # Si hay group_by, forzamos salida visual (barras o tabla)
+        if group_by:
             chart_type = "bar" if any(w in texto for w in ["grafico", "barras", "visualizar"]) else "table"
         else:
             chart_type = "kpi"
@@ -99,6 +114,6 @@ class QueryGenerator:
                 "filters": filters,
                 "group_by": group_by,
                 "chart_type": chart_type,
-                "limit": limit_val if limit_val else 10 # Default 10 para listas
+                "limit": limit_val if limit_val else 10
             }
         }
