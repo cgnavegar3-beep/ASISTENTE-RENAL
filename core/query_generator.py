@@ -14,7 +14,7 @@ class QueryGenerator:
     # ORIGEN
     # -----------------------------
     def _get_target_source(self, texto):
-        meds = ["medicamento", "farmaco", "fármaco", "pastilla", "insulina", "metformina", "tratamiento"]
+        meds = ["medicamento", "farmaco", "fármaco", "pastilla", "insulina", "metformina", "tratamiento", "grupo terapéutico", "terapéutico"]
         return "Medicamentos" if any(w in texto for w in meds) else "Validaciones"
 
     # -----------------------------
@@ -61,7 +61,7 @@ class QueryGenerator:
                 return self.sinonimos[palabra]
 
         if any(w in texto for w in ["grafico", "histograma", "sectores", "barras"]):
-            for palabra in ["sexo", "centro", "residencia", "edad"]:
+            for palabra in ["sexo", "centro", "residencia", "edad", "medicamento", "grupo"]:
                 if palabra in texto:
                     return self.sinonimos.get(palabra)
 
@@ -75,34 +75,30 @@ class QueryGenerator:
         return int(match.group(1)) if match else None
 
     # -----------------------------
-    # FILTROS (🔥 FIX DEFINITIVO)
+    # FILTROS (🔥 VERSIÓN CATEGORÍAS CLÍNICAS)
     # -----------------------------
     def _extract_filters(self, texto, source):
         extracted = []
-        texto_original = texto
+        texto_original = texto.lower()
 
         # ---------------- NORMALIZAR OPERADORES ----------------
-        texto = re.sub(r"menor\s+que|menor\s+a|menor\s+de|debajo\s+de|menor", "<", texto)
+        texto = re.sub(r"menor\s+que|menor\s+a|menor\s+de|debajo\s+de|menor", "<", texto_original)
         texto = re.sub(r"mayor\s+que|mayor\s+a|mayor\s+de|encima\s+de|mayor", ">", texto)
         texto = re.sub(r"igual\s+a|igual", "=", texto)
 
-        # ---------------- FILTROS NUMÉRICOS ----------------
+        # ---------------- FILTROS NUMÉRICOS (EDAD, FG...) ----------------
         sinonimos_ordenados = sorted(self.sinonimos.items(), key=lambda x: len(x[0]), reverse=True)
-
         for palabra, col_real in sinonimos_ordenados:
             pattern = rf"{palabra}\s*(<|>|=|<=|>=)\s*(\d+(?:\.\d+)?)"
             match = re.search(pattern, texto)
-
             if match:
                 op = match.group(1)
                 val = match.group(2)
-
                 extracted.append({
                     "col": col_real,
                     "op": "==" if op == "=" else op,
                     "val": float(val)
                 })
-
                 texto = texto.replace(match.group(0), "")
 
         # 🔥 EXTRA: detectar "< 60" sin variable explícita
@@ -110,59 +106,60 @@ class QueryGenerator:
         if match_extra and not extracted:
             op = match_extra.group(1)
             val = match_extra.group(2)
-
             if "fg" in texto_original or "filtrado" in texto_original:
-                extracted.append({
-                    "col": "FG_CG",
-                    "op": op,
-                    "val": float(val)
-                })
+                extracted.append({"col": "FG_CG", "op": op, "val": float(val)})
 
-        # ---------------- SEXO ----------------
-        if "hombre" in texto_original:
-            extracted.append({"col": "SEXO", "op": "contiene", "val": "hombre"})
+        # ---------------- CATEGORÍAS DE TEXTO (SEXO) ----------------
+        if "hombre" in texto_original or "varon" in texto_original:
+            extracted.append({"col": "SEXO", "op": "==", "val": "HOMBRE"})
         if "mujer" in texto_original:
-            extracted.append({"col": "SEXO", "op": "contiene", "val": "mujer"})
+            extracted.append({"col": "SEXO", "op": "==", "val": "MUJER"})
 
-        # ---------------- MEDICAMENTOS (MEJORADO) ----------------
-        if source == "Medicamentos" and "top" not in texto_original:
-            palabras = texto_original.split()
-            # Stopwords para no capturar comandos como si fueran nombres de medicina
-            stopwords = ["pacientes", "cuantos", "numero", "media", "edad", "medicamento", "medicamentos", "con", "del", "un", "el"]
+        # ---------------- LÓGICA DE MEDICAMENTOS Y RIESGOS ----------------
+        if source == "Medicamentos":
+            # 1. Búsqueda de Fármaco Específico (ej: Metformina)
+            if "top" not in texto_original:
+                palabras = texto_original.split()
+                stopwords = ["pacientes", "cuantos", "numero", "media", "edad", "medicamento", "medicamentos", "con", "del", "un", "el", "hay", "tienen"]
+                for p in palabras:
+                    if len(p) > 3 and p not in stopwords and p not in self.sinonimos:
+                        extracted.append({"col": "MEDICAMENTO", "op": "contiene", "val": p.upper()})
+                        break
 
-            for p in palabras:
-                # Si la palabra es larga, no es una instrucción y no es una columna, es el nombre del fármaco
-                if len(p) > 3 and p not in stopwords and p not in self.sinonimos:
-                    extracted.append({
-                        "col": "MEDICAMENTO",
-                        "op": "contiene",
-                        "val": p.upper()
-                    })
-                    break
+            # 2. Niveles de Riesgo (Leve, Moderado, Grave, Critico)
+            niveles = {"leve": "LEVE", "moderado": "MODERADO", "grave": "GRAVE", "critico": "CRITICO"}
+            for palabra_riesgo, valor_real in niveles.items():
+                if palabra_riesgo in texto_original:
+                    # Se aplica a la columna de riesgo detectada o por defecto C_G
+                    col_riesgo = "RIESGO_C_G"
+                    if "mdrd" in texto_original: col_riesgo = "RIESGO_MDRD"
+                    if "ckd" in texto_original: col_riesgo = "RIESGO_CKD"
+                    extracted.append({"col": col_riesgo, "op": "==", "val": valor_real})
 
-        # ---------------- CENTRO ----------------
-        if "centro" in texto_original:
-            partes = texto_original.split("centro")
-            if len(partes) > 1:
-                valor = partes[1].strip().split(" ")[0]
-                if valor and len(valor) > 2:
-                    extracted.append({
-                        "col": "CENTRO",
-                        "op": "contiene",
-                        "val": valor.upper()
-                    })
+            # 3. Categorías de Acción (Precaución, Ajuste, Contraindicado)
+            acciones = {
+                "precaucion": "PRECAUCION",
+                "contraindicado": "CONTRAINDICADO",
+                "toxicidad": "RIESGO DE TOXICIDAD",
+                "ajuste": "REQUIERE AJUSTE"
+            }
+            for clave, valor_accion in acciones.items():
+                if clave in texto_original:
+                    extracted.append({"col": "CAT_RIESGO_FG_CG", "op": "contiene", "val": valor_accion})
 
-        # ---------------- RESIDENCIA ----------------
-        if "residencia" in texto_original:
-            partes = texto_original.split("residencia")
-            if len(partes) > 1:
-                valor = partes[1].strip().split(" ")[0]
-                if valor and len(valor) > 2:
-                    extracted.append({
-                        "col": "RESIDENCIA",
-                        "op": "contiene",
-                        "val": valor.upper()
-                    })
+            # 4. Aceptación / Adecuación (Sí/No)
+            if "adecuado" in texto_original or "adecuacion" in texto_original:
+                if " no " in texto_original: extracted.append({"col": "ADECUACION", "op": "==", "val": "NO"})
+                elif " si " in texto_original: extracted.append({"col": "ADECUACION", "op": "==", "val": "SI"})
+
+        # ---------------- CENTRO Y RESIDENCIA ----------------
+        for cat in ["centro", "residencia"]:
+            if cat in texto_original:
+                partes = texto_original.split(cat)
+                if len(partes) > 1:
+                    valor = partes[1].strip().split(" ")[0]
+                    if valor and len(valor) > 2:
+                        extracted.append({"col": cat.upper(), "op": "contiene", "val": valor.upper()})
 
         return extracted
 
@@ -183,7 +180,6 @@ class QueryGenerator:
         if limit and variable != "ID_REGISTRO":
             group_by = variable
             operation = "conteo"
-            # Limpieza: Si es un TOP, eliminamos filtros que busquen el nombre de la propia categoría
             filters = [f for f in filters if str(f['val']).lower() not in ["medicamento", "medicamentos"]]
 
         chart_type = self._parse_output_type(texto, has_grouping=(group_by is not None))
