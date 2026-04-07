@@ -3,14 +3,17 @@ import numpy as np
 
 class ExecutionEngine:
     def __init__(self):
-        # No requiere inicializar con DFs si el orquestador se los pasa en cada llamada
+        """
+        El motor se encarga de filtrar y procesar los cálculos sobre los DataFrames.
+        """
         pass
 
     def ejecutar_analisis(self, df_filtrado, request):
         """
-        Recibe el DF ya filtrado y el diccionario de petición (request).
+        PUNTO CLAVE: Recibe el DataFrame (ya filtrado por aplicar_filtros) 
+        y el diccionario 'request' del JSON.
         """
-        # Extraemos variables del request (Bloque B y D)
+        # Extraer parámetros del bloque_b y bloque_d del JSON
         metric = request.get("metric", "conteo")
         variable = request.get("target_col", "ID_REGISTRO")
         group_by = request.get("group_by")
@@ -19,50 +22,56 @@ class ExecutionEngine:
         if df_filtrado is None or df_filtrado.empty:
             return "No se encontraron registros con esos criterios."
 
-        # --- NORMALIZACIÓN DE COLUMNAS NUMÉRICAS (FG, EDAD) ---
-        # Si la variable es FG (Filtrado Glomerular) o Edad, aseguramos que sea número
-        columnas_numericas = [variable]
-        if group_by: columnas_numericas.append(group_by)
+        # --- NORMALIZACIÓN DE DATOS CLÍNICOS (FG, EDAD, CREATININA) ---
+        # Aseguramos que si la variable es numérica, Pandas la trate como tal
+        cols_a_revisar = [variable]
+        if group_by: cols_a_revisar.append(group_by)
         
-        for col in columnas_numericas:
-            if col in df_filtrado.columns and any(x in col.upper() for x in ["FG", "EDAD", "CREATININA"]):
-                df_filtrado[col] = pd.to_numeric(df_filtrado[col], errors='coerce')
+        for col in cols_a_revisar:
+            if col in df_filtrado.columns:
+                # Si la columna contiene siglas de Filtrado Glomerular o Edad, forzamos numérico
+                if any(x in col.upper() for x in ["FG", "EDAD", "CREATININA", "FILTRADO"]):
+                    df_filtrado[col] = pd.to_numeric(df_filtrado[col], errors='coerce')
 
-        # --- 1. CASO DE AGRUPACIÓN (TOP N / RANKINGS) ---
+        # --- 1. LÓGICA DE AGRUPACIÓN (TOP N / RANKINGS) ---
         if group_by:
-            # Agrupamos por la columna (ej. MEDICAMENTO), contamos y renombramos
+            # Agrupamos por la columna (ej. MEDICAMENTO), contamos registros
             resultado = df_filtrado.groupby(group_by).size().reset_index(name='CONTEO')
             
-            # Ordenamos de mayor a menor frecuencia
+            # Ordenamos de mayor a menor frecuencia (Descendente)
             resultado = resultado.sort_values(by='CONTEO', ascending=False)
             
-            # Aplicamos el límite del Top N (Bloque D)
+            # Aplicamos el límite (Top 5, Top 10, etc.)
             if limit:
                 resultado = resultado.head(int(limit))
             
-            return resultado # Devuelve el DataFrame para la tabla/gráfico
+            # Devolvemos el DataFrame completo para que el orquestador lo pinte como tabla
+            return resultado
 
-        # --- 2. CASO DE OPERACIONES ESCALARES ---
+        # --- 2. LÓGICA DE OPERACIONES ESTADÍSTICAS ---
         if metric == "media":
-            # Calculamos la media de la columna seleccionada
-            val_media = pd.to_numeric(df_filtrado[variable], errors='coerce').mean()
+            # Calculamos la media ignorando valores no numéricos (NaN)
+            val_col = pd.to_numeric(df_filtrado[variable], errors='coerce')
+            val_media = val_col.mean()
             return round(val_media, 2) if not np.isnan(val_media) else 0
         
         elif metric == "porcentaje":
-            # Aquí el orquestador debería proveer el total, 
-            # pero como fallback usamos el tamaño del DF antes de este filtro si es posible.
-            # Por ahora, conteo simple si no hay contexto de total.
-            return f"{(len(df_filtrado))} registros" 
+            # El porcentaje se suele calcular sobre el conteo de filas
+            # Nota: El orquestador debería manejar el total de la población si es necesario
+            conteo_actual = len(df_filtrado)
+            return f"{conteo_actual} registros (Porcentaje requiere total de población)"
             
         else:
-            # Conteo por defecto (IDs únicos o filas)
+            # Operación por defecto: CONTEO
+            # Si la variable es ID_REGISTRO o similar, contamos valores únicos
             if variable in df_filtrado.columns:
-                return df_filtrado[variable].nunique()
-            return len(df_filtrado)
+                return int(df_filtrado[variable].nunique())
+            return int(len(df_filtrado))
 
     def aplicar_filtros(self, df, filtros):
         """
-        Mantiene el blindaje de filtros para texto y números (FG, Centro, etc.)
+        Aplica los filtros del bloque_a. 
+        Blindado para Filtrado Glomerular (FG) y búsquedas parciales de texto.
         """
         if not filtros:
             return df
@@ -77,24 +86,29 @@ class ExecutionEngine:
             if col not in df.columns:
                 continue
 
-            # Lógica para Filtrado Glomerular y Edad
-            if any(x in col.upper() for x in ["FG", "EDAD", "FILTRADO"]):
-                df[col] = pd.to_numeric(df[col], errors='coerce')
-                val_num = float(val)
-                if op == ">": mask &= df[col] > val_num
-                elif op == "<": mask &= df[col] < val_num
-                elif op == ">=": mask &= df[col] >= val_num
-                elif op == "<=": mask &= df[col] <= val_num
-                elif op == "==": mask &= df[col] == val_num
+            # --- CASO NUMÉRICO (FG, EDAD, etc.) ---
+            if any(x in col.upper() for x in ["FG", "EDAD", "FILTRADO", "CREATININA"]):
+                # Convertimos la columna y el valor a número para comparar
+                series_num = pd.to_numeric(df[col], errors='coerce')
+                try:
+                    val_num = float(val)
+                    if op == ">": mask &= series_num > val_num
+                    elif op == "<": mask &= series_num < val_num
+                    elif op == ">=": mask &= series_num >= val_num
+                    elif os == "<=": mask &= series_num <= val_num
+                    elif op == "==": mask &= series_num == val_num
+                except:
+                    continue
             
-            # Lógica para Texto (Medicamentos, Centros)
+            # --- CASO TEXTO (MEDICAMENTO, CENTRO, SEXO) ---
             else:
-                series = df[col].astype(str).str.upper().str.strip()
-                val_str = str(val).upper().strip()
+                series_txt = df[col].astype(str).str.upper().str.strip()
+                val_txt = str(val).upper().strip()
                 
                 if op == "contiene":
-                    mask &= series.str.contains(val_str, na=False, regex=False)
+                    # Búsqueda parcial (ej. 'ENALAPRIL' dentro de 'ENALAPRIL 5MG')
+                    mask &= series_txt.str.contains(val_txt, na=False, regex=False)
                 elif op == "==":
-                    mask &= series == val_str
+                    mask &= series_txt == val_txt
         
         return df[mask]
