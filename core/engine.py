@@ -2,68 +2,71 @@ import pandas as pd
 import numpy as np
 
 class ExecutionEngine:
-    def __init__(self, df_validaciones=None, df_medicamentos=None):
-        self.dfs = {
-            "Validaciones": df_validaciones,
-            "Medicamentos": df_medicamentos
-        }
+    def __init__(self):
+        # No requiere inicializar con DFs si el orquestador se los pasa en cada llamada
+        pass
 
-    def ejecutar_analisis(self, request):
-        # 1. Extraer metadatos del request
-        origen = request.get("origen", "Validaciones")
-        bloque_a = request.get("bloque_a", []) # Filtros
-        bloque_b = request.get("bloque_b", {}) # Operación
-        bloque_d = request.get("bloque_d", {}) # Límites
-        
-        df = self.dfs.get(origen)
-        if df is None or df.empty:
-            return "No se encontraron registros: Fuente de datos no cargada."
+    def ejecutar_analisis(self, df_filtrado, request):
+        """
+        Recibe el DF ya filtrado y el diccionario de petición (request).
+        """
+        # Extraemos variables del request (Bloque B y D)
+        metric = request.get("metric", "conteo")
+        variable = request.get("target_col", "ID_REGISTRO")
+        group_by = request.get("group_by")
+        limit = request.get("limit")
 
-        # 2. APLICAR FILTROS (Bloque A)
-        df_filtrado = self.aplicar_filtros(df.copy(), bloque_a)
-
-        if df_filtrado.empty:
+        if df_filtrado is None or df_filtrado.empty:
             return "No se encontraron registros con esos criterios."
 
-        # 3. IDENTIFICAR MÉTRICA Y VARIABLE (Bloque B)
-        metric = bloque_b.get("operacion", "conteo")
-        variable = bloque_b.get("variable", "ID_REGISTRO")
-        group_by = bloque_b.get("agrupar")
-        limit = bloque_d.get("limit")
+        # --- NORMALIZACIÓN DE COLUMNAS NUMÉRICAS (FG, EDAD) ---
+        # Si la variable es FG (Filtrado Glomerular) o Edad, aseguramos que sea número
+        columnas_numericas = [variable]
+        if group_by: columnas_numericas.append(group_by)
+        
+        for col in columnas_numericas:
+            if col in df_filtrado.columns and any(x in col.upper() for x in ["FG", "EDAD", "CREATININA"]):
+                df_filtrado[col] = pd.to_numeric(df_filtrado[col], errors='coerce')
 
-        # --- LÓGICA DE FILTRADO GLOMERULAR (FG) ---
-        # Si la variable es FG, nos aseguramos de que sea numérica
-        if "FG" in variable:
-            df_filtrado[variable] = pd.to_numeric(df_filtrado[variable], errors='coerce')
-
-        # --- CASO A: SI HAY AGRUPACIÓN (TOP N / RANKINGS) ---
+        # --- 1. CASO DE AGRUPACIÓN (TOP N / RANKINGS) ---
         if group_by:
-            # Agrupamos, contamos y ordenamos de mayor a menor
-            res = df_filtrado.groupby(group_by).size().reset_index(name='CONTEO')
-            res = res.sort_values(by='CONTEO', ascending=False)
+            # Agrupamos por la columna (ej. MEDICAMENTO), contamos y renombramos
+            resultado = df_filtrado.groupby(group_by).size().reset_index(name='CONTEO')
             
+            # Ordenamos de mayor a menor frecuencia
+            resultado = resultado.sort_values(by='CONTEO', ascending=False)
+            
+            # Aplicamos el límite del Top N (Bloque D)
             if limit:
-                res = res.head(int(limit))
-            return res # Retorna el DataFrame para la tabla o gráfico
+                resultado = resultado.head(int(limit))
+            
+            return resultado # Devuelve el DataFrame para la tabla/gráfico
 
-        # --- CASO B: OPERACIONES ESCALARES (MEDIA, %, CONTEO) ---
+        # --- 2. CASO DE OPERACIONES ESCALARES ---
         if metric == "media":
-            # Convertir a numérico por seguridad antes de la media
+            # Calculamos la media de la columna seleccionada
             val_media = pd.to_numeric(df_filtrado[variable], errors='coerce').mean()
             return round(val_media, 2) if not np.isnan(val_media) else 0
         
         elif metric == "porcentaje":
-            # % = (Filtrados / Total de la tabla) * 100
-            total_tabla = len(df)
-            proporcion = (len(df_filtrado) / total_tabla) * 100
-            return f"{round(proporcion, 2)}%"
+            # Aquí el orquestador debería proveer el total, 
+            # pero como fallback usamos el tamaño del DF antes de este filtro si es posible.
+            # Por ahora, conteo simple si no hay contexto de total.
+            return f"{(len(df_filtrado))} registros" 
             
         else:
-            # Conteo de pacientes únicos por ID si es posible, si no, filas
-            return df_filtrado[variable].nunique() if variable in df_filtrado.columns else len(df_filtrado)
+            # Conteo por defecto (IDs únicos o filas)
+            if variable in df_filtrado.columns:
+                return df_filtrado[variable].nunique()
+            return len(df_filtrado)
 
     def aplicar_filtros(self, df, filtros):
-        """Aplica los filtros del bloque_a de forma secuencial."""
+        """
+        Mantiene el blindaje de filtros para texto y números (FG, Centro, etc.)
+        """
+        if not filtros:
+            return df
+            
         mask = pd.Series([True] * len(df), index=df.index)
         
         for f in filtros:
@@ -74,16 +77,17 @@ class ExecutionEngine:
             if col not in df.columns:
                 continue
 
-            # Tratamiento especial para Filtrado Glomerular y Edad (Numéricos)
-            if any(x in col for x in ["FG", "EDAD", "CREATININA"]):
+            # Lógica para Filtrado Glomerular y Edad
+            if any(x in col.upper() for x in ["FG", "EDAD", "FILTRADO"]):
                 df[col] = pd.to_numeric(df[col], errors='coerce')
-                if op == ">": mask &= df[col] > float(val)
-                elif op == "<": mask &= df[col] < float(val)
-                elif op == ">=": mask &= df[col] >= float(val)
-                elif op == "<=": mask &= df[col] <= float(val)
-                elif op == "==": mask &= df[col] == float(val)
+                val_num = float(val)
+                if op == ">": mask &= df[col] > val_num
+                elif op == "<": mask &= df[col] < val_num
+                elif op == ">=": mask &= df[col] >= val_num
+                elif op == "<=": mask &= df[col] <= val_num
+                elif op == "==": mask &= df[col] == val_num
             
-            # Tratamiento para Texto (Medicamentos, Centros, Sexo)
+            # Lógica para Texto (Medicamentos, Centros)
             else:
                 series = df[col].astype(str).str.upper().str.strip()
                 val_str = str(val).upper().strip()
