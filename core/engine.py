@@ -1,19 +1,21 @@
 import pandas as pd
 import numpy as np
+import plotly.express as px  # Librería estándar para los gráficos
 
 class ExecutionEngine:
     def __init__(self):
         """
-        El motor se encarga de filtrar y procesar los cálculos sobre los DataFrames.
+        Motor de ejecución blindado para procesamiento clínico.
         """
         pass
 
     def ejecutar_analisis(self, df_filtrado, request):
         """
-        PUNTO CLAVE: Recibe el DataFrame (ya filtrado por aplicar_filtros) 
-        y el diccionario 'request' del JSON.
+        Recibe el DataFrame filtrado y el diccionario de petición.
+        Soporta: Conteos, Medias, Porcentajes y Agrupaciones (Top N).
         """
-        # Extraer parámetros del bloque_b y bloque_d del JSON
+        # Extraer parámetros de los bloques del request
+        # Nota: El orquestador mete 'metric' y 'target_col' dentro de 'request'
         metric = request.get("metric", "conteo")
         variable = request.get("target_col", "ID_REGISTRO")
         group_by = request.get("group_by")
@@ -22,56 +24,90 @@ class ExecutionEngine:
         if df_filtrado is None or df_filtrado.empty:
             return "No se encontraron registros con esos criterios."
 
-        # --- NORMALIZACIÓN DE DATOS CLÍNICOS (FG, EDAD, CREATININA) ---
-        # Aseguramos que si la variable es numérica, Pandas la trate como tal
-        cols_a_revisar = [variable]
-        if group_by: cols_a_revisar.append(group_by)
+        # --- 1. NORMALIZACIÓN DE VARIABLES NUMÉRICAS (EDAD, FG) ---
+        columnas_a_revisar = [variable]
+        if group_by: columnas_a_revisar.append(group_by)
         
-        for col in cols_a_revisar:
+        for col in columnas_a_revisar:
             if col in df_filtrado.columns:
-                # Si la columna contiene siglas de Filtrado Glomerular o Edad, forzamos numérico
-                if any(x in col.upper() for x in ["FG", "EDAD", "CREATININA", "FILTRADO"]):
+                # Blindaje para Filtrado Glomerular y Edad
+                if any(x in col.upper() for x in ["FG", "EDAD", "FILTRADO", "CREATININA"]):
                     df_filtrado[col] = pd.to_numeric(df_filtrado[col], errors='coerce')
 
-        # --- 1. LÓGICA DE AGRUPACIÓN (TOP N / RANKINGS) ---
+        # --- 2. CASO: AGRUPACIÓN / TOP N (Gráficos y Listados) ---
         if group_by:
-            # Agrupamos por la columna (ej. MEDICAMENTO), contamos registros
+            # Agrupamos por la dimensión (Centro, Medicamento, Sexo...)
             resultado = df_filtrado.groupby(group_by).size().reset_index(name='CONTEO')
             
-            # Ordenamos de mayor a menor frecuencia (Descendente)
+            # Orden descendente para que el Top sea real
             resultado = resultado.sort_values(by='CONTEO', ascending=False)
             
-            # Aplicamos el límite (Top 5, Top 10, etc.)
+            # Aplicar límite del bloque_d
             if limit:
                 resultado = resultado.head(int(limit))
             
-            # Devolvemos el DataFrame completo para que el orquestador lo pinte como tabla
-            return resultado
+            return resultado # Retorna DataFrame
 
-        # --- 2. LÓGICA DE OPERACIONES ESTADÍSTICAS ---
+        # --- 3. CASO: OPERACIONES ESCALARES (KPIs) ---
         if metric == "media":
-            # Calculamos la media ignorando valores no numéricos (NaN)
-            val_col = pd.to_numeric(df_filtrado[variable], errors='coerce')
-            val_media = val_col.mean()
+            series_num = pd.to_numeric(df_filtrado[variable], errors='coerce')
+            val_media = series_num.mean()
             return round(val_media, 2) if not np.isnan(val_media) else 0
         
         elif metric == "porcentaje":
-            # El porcentaje se suele calcular sobre el conteo de filas
-            # Nota: El orquestador debería manejar el total de la población si es necesario
-            conteo_actual = len(df_filtrado)
-            return f"{conteo_actual} registros (Porcentaje requiere total de población)"
+            # El porcentaje se devuelve como string formateado
+            conteo = len(df_filtrado)
+            # Nota: Para un % real sobre total, se requiere el DF original en el contexto
+            return f"Conteo: {conteo} pacientes"
             
         else:
-            # Operación por defecto: CONTEO
-            # Si la variable es ID_REGISTRO o similar, contamos valores únicos
+            # Conteo por defecto
             if variable in df_filtrado.columns:
                 return int(df_filtrado[variable].nunique())
             return int(len(df_filtrado))
 
+    def generar_grafico(self, df_final, query_json):
+        """
+        Genera la figura visual para el Orquestador.
+        """
+        if not isinstance(df_final, pd.DataFrame) or df_final.empty:
+            return None
+
+        tipo_grafico = query_json.get("bloque_c", {}).get("tipo", "bar")
+        group_by = query_json.get("bloque_b", {}).get("agrupar")
+        
+        if not group_by:
+            return None
+
+        try:
+            if tipo_grafico == "bar":
+                fig = px.bar(
+                    df_final, 
+                    x=group_by, 
+                    y='CONTEO',
+                    title=f"Distribución por {group_by}",
+                    labels={group_by: group_by, 'CONTEO': 'Nº de Pacientes'},
+                    template="plotly_white",
+                    color_discrete_sequence=['#00CC96']
+                )
+                return fig
+            
+            elif tipo_grafico == "pie":
+                fig = px.pie(
+                    df_final, 
+                    values='CONTEO', 
+                    names=group_by,
+                    title=f"Proporción por {group_by}"
+                )
+                return fig
+            
+            return None
+        except Exception:
+            return None
+
     def aplicar_filtros(self, df, filtros):
         """
-        Aplica los filtros del bloque_a. 
-        Blindado para Filtrado Glomerular (FG) y búsquedas parciales de texto.
+        Aplica filtros secuenciales (Bloque A).
         """
         if not filtros:
             return df
@@ -86,29 +122,23 @@ class ExecutionEngine:
             if col not in df.columns:
                 continue
 
-            # --- CASO NUMÉRICO (FG, EDAD, etc.) ---
-            if any(x in col.upper() for x in ["FG", "EDAD", "FILTRADO", "CREATININA"]):
-                # Convertimos la columna y el valor a número para comparar
-                series_num = pd.to_numeric(df[col], errors='coerce')
-                try:
-                    val_num = float(val)
-                    if op == ">": mask &= series_num > val_num
-                    elif op == "<": mask &= series_num < val_num
-                    elif op == ">=": mask &= series_num >= val_num
-                    elif os == "<=": mask &= series_num <= val_num
-                    elif op == "==": mask &= series_num == val_num
-                except:
-                    continue
+            # Filtros numéricos (FG, Edad)
+            if any(x in col.upper() for x in ["FG", "EDAD", "FILTRADO"]):
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+                val_num = float(val)
+                if op == ">": mask &= df[col] > val_num
+                elif op == "<": mask &= df[col] < val_num
+                elif op == ">=": mask &= df[col] >= val_num
+                elif op == "<=": mask &= df[col] <= val_num
+                elif op == "==": mask &= df[col] == val_num
             
-            # --- CASO TEXTO (MEDICAMENTO, CENTRO, SEXO) ---
+            # Filtros de texto
             else:
-                series_txt = df[col].astype(str).str.upper().str.strip()
-                val_txt = str(val).upper().strip()
-                
+                series = df[col].astype(str).str.upper().str.strip()
+                val_str = str(val).upper().strip()
                 if op == "contiene":
-                    # Búsqueda parcial (ej. 'ENALAPRIL' dentro de 'ENALAPRIL 5MG')
-                    mask &= series_txt.str.contains(val_txt, na=False, regex=False)
+                    mask &= series.str.contains(val_str, na=False, regex=False)
                 elif op == "==":
-                    mask &= series_txt == val_txt
+                    mask &= series == val_str
         
         return df[mask]
