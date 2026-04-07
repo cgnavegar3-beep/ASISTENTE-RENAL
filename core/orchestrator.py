@@ -50,8 +50,13 @@ class ClinicoOrchestrator:
             "bloque_d": {
                 "limit": req.get("limit") or 10
             },
-            # Mantenemos 'request' original para que el engine tenga acceso a claves directas
-            "request": req 
+            # Fusionamos bloques en el request para que el engine lo lea directo
+            "request": {
+                "metric": req.get("metric") or "conteo",
+                "target_col": req.get("target_col") or "ID_REGISTRO",
+                "group_by": group_by if group_by != "NULL" else None,
+                "limit": req.get("limit") or 10
+            }
         }
 
     def procesar_pregunta(self, pregunta, df):
@@ -62,32 +67,43 @@ class ClinicoOrchestrator:
             return None, "⚠️ Error: DataFrame no disponible o vacío.", None
 
         try:
-            # 1. PARSEO NLP (Traduce texto a JSON inicial)
+            # 1. PARSEO NLP
             ast_raw = self.parser.parse_query(pregunta)
 
-            # 2. POLÍTICAS CLÍNICAS (Aplica reglas de negocio automáticas)
+            # 2. POLÍTICAS CLÍNICAS
             ast_policed = apply_clinical_policies(ast_raw)
 
-            # 3. NORMALIZACIÓN (Prepara el JSON para el motor de ejecución)
+            # 3. NORMALIZACIÓN
             query_json = self._ast_to_engine_schema(ast_policed)
 
-            # 4. FILTRADO (Aplica filtros del bloque_a)
+            # 4. FILTRADO (Bloque A)
             df_filtrado = self.engine.aplicar_filtros(
-                df,
+                df.copy(), # Usamos copia para no alterar el original
                 query_json["bloque_a"]
             )
 
-            # 5. EJECUCIÓN ANALÍTICA (Cálculos de métricas o agrupaciones)
-            res_num, frase, df_final = self.engine.ejecutar_analisis(
+            # 5. EJECUCIÓN ANALÍTICA (FIX: Recibimos un solo objeto resultado)
+            # Esto evita el error "cannot unpack non-iterable int object"
+            resultado_analisis = self.engine.ejecutar_analisis(
                 df_filtrado,
-                query_json
+                query_json["request"]
             )
 
-            # 6. GENERACIÓN DE GRÁFICO (Solo si hay datos y el tipo no es KPI)
+            # 6. GESTIÓN DE RESULTADOS (Diferenciar entre número y tabla)
             figura = None
-            if df_final is not None and not (isinstance(df_final, pd.DataFrame) and df_final.empty):
+            df_final = None
+            
+            if isinstance(resultado_analisis, pd.DataFrame):
+                # Caso Top N / Ranking
+                df_final = resultado_analisis
+                frase = f"Resultados por {query_json['bloque_b']['agrupar']}:"
+                # Generación de gráfico si se solicita
                 if query_json["bloque_c"]["tipo"] != "kpi":
                     figura = self.engine.generar_grafico(df_final, query_json)
+            else:
+                # Caso Conteo / Media / Porcentaje (Escalar)
+                frase = f"Resultado: {resultado_analisis}"
+                df_final = None
 
             # 7. RETORNO CONSISTENTE
             return query_json, frase, figura
