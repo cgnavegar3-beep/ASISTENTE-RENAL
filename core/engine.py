@@ -36,8 +36,9 @@ class ExecutionEngine:
             temp_df = df_filtrado.dropna(subset=[group_by]).copy()
             
             if group_by == "EDAD":
-                bins = [0, 20, 40, 60, 80, 150]
-                labels = ["0-20", "20-40", "40-60", "60-80", ">80"]
+                # MODIFICACIÓN: Tramos de 10 en 10 años
+                bins = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150]
+                labels = ["0-10", "10-20", "20-30", "30-40", "40-50", "50-60", "60-70", "70-80", "80-90", "90-100", ">100"]
                 temp_df["RANGO"] = pd.cut(temp_df["EDAD"], bins=bins, labels=labels, right=False)
             
             elif group_by == "FG_CG":
@@ -49,12 +50,18 @@ class ExecutionEngine:
             resultado = resultado.rename(columns={"RANGO": group_by})
             return resultado
 
-        # --- 3. CASO: AGRUPACIÓN / TOP N CATEGÓRICO ---
+        # --- 3. CASO: AGRUPACIÓN / TOP N CATEGÓRICO (Medicamentos, Centros, etc.) ---
         if group_by:
+            # Aseguramos que el conteo sea sobre el DataFrame filtrado
             resultado = df_filtrado.groupby(group_by).size().reset_index(name='CONTEO')
+            
+            # Orden descendente para que el Top sea real
             resultado = resultado.sort_values(by='CONTEO', ascending=False)
+            
+            # Aplicar límite (importante para medicamentos)
             if limit:
                 resultado = resultado.head(int(limit))
+            
             return resultado
 
         # --- 4. CASO: OPERACIONES ESCALARES (KPIs) ---
@@ -107,7 +114,8 @@ class ExecutionEngine:
                     df_final, 
                     values='CONTEO', 
                     names=group_by,
-                    title=f"Proporción por {group_by}"
+                    title=f"Proporción por {group_by}",
+                    color_discrete_sequence=px.colors.qualitative.Pastel
                 )
                 return fig
             
