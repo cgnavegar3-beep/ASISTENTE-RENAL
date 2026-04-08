@@ -781,7 +781,7 @@ with tabs[4]:
 
         # EVOLUCIÓN: ORQUESTADOR DE CONSULTAS IA AL FINAL
         with st.container(border=True):
-            st.markdown("#### 🤖 Orquestador IA (Consultas Rápidas)")
+            st.markdown("#### 🤖 Consultas Rápidas")
             query_text = st.text_input("Haz una pregunta sobre los datos:", placeholder="Ej: ¿Cuáles son los 5 fármacos más ajustados en Marín?")
             if query_text:
                 with st.spinner("IA analizando datos..."):
