@@ -9,7 +9,7 @@ class QueryGenerator:
         self.sinonimos = SINONIMOS_COLUMNAS
 
     def _get_target_source(self, texto):
-        med_keywords = ["medicamento", "farmaco", "fármaco", "toman", "tienen", "toma", "tiene", "prescrito", "enalapril", "metformina"]
+        med_keywords = ["medicamento", "farmaco", "fármaco", "toman", "tienen", "toma", "tiene", "prescrito", "enalapril", "metformina", "alopurinol"]
         if any(w in texto for w in med_keywords):
             return "Medicamentos"
         return "Validaciones"
@@ -53,19 +53,42 @@ class QueryGenerator:
                 filters.append({"col": col_real, "op": op, "val": float(m.group(2))})
                 t_clean = t_clean.replace(m.group(0), " ")
 
-        # 2. Filtro de CENTRO
+        # 2. FILTROS CATEGÓRICOS (Sexo, Residencia, Riesgos, Adecuación)
+        mapeo_categorias = {
+            "hombre": ("SEXO", "HOMBRE"),
+            "hombres": ("SEXO", "HOMBRE"),
+            "mujer": ("SEXO", "MUJER"),
+            "mujeres": ("SEXO", "MUJER"),
+            "residencia": ("RESIDENCIA", "SI"),
+            "no residencia": ("RESIDENCIA", "NO"),
+            "leve": ("RIESGO", "LEVE"),
+            "moderado": ("RIESGO", "MODERADO"),
+            "grave": ("RIESGO", "GRAVE"),
+            "critico": ("RIESGO", "CRITICO"),
+            "contraindicado": ("CAT_RIESGO", "CONTRAINDICADO"),
+            "nula": ("ACEPTACION_MAP", "NULA"),
+            "parcial": ("ACEPTACION_MAP", "PARCIAL"),
+            "total": ("ACEPTACION_MAP", "TOTAL")
+        }
+        
+        for palabra, (col, valor) in mapeo_categorias.items():
+            if re.search(rf"\b{palabra}\b", t_clean):
+                filters.append({"col": col, "op": "==", "val": valor})
+                t_clean = t_clean.replace(palabra, " ")
+
+        # 3. Filtro de CENTRO
         centro_match = re.search(r"centro\s+([a-zA-Z0-9áéíóú]+)", t_clean)
         if centro_match:
             val_centro = centro_match.group(1).strip().upper()
             filters.append({"col": "CENTRO", "op": "contiene", "val": val_centro})
             t_clean = t_clean.replace(centro_match.group(0), " ")
 
-        # 3. Filtro de MEDICAMENTO
+        # 4. Filtro de MEDICAMENTO
         if source == "Medicamentos" and not any(w in t_clean for w in ["top", "ranking", "mas frecuentes"]):
-            stopwords = ["cuantos", "pacientes", "toman", "tienen", "del", "en", "el", "la", "centro", "media", "edad", "sexo", "que", "hay", "con"]
+            stopwords = ["cuantos", "pacientes", "toman", "tienen", "del", "en", "el", "la", "centro", "media", "edad", "sexo", "que", "hay", "con", "medicamentos", "medicamento"]
             palabras = t_clean.split()
             for p in palabras:
-                if len(p) > 3 and p not in stopwords and p not in self.sinonimos:
+                if len(p) > 3 and p not in stopwords and p not in self.sinonimos and p not in mapeo_categorias:
                     if not any(f["val"] == p.upper() for f in filters):
                         filters.append({"col": "MEDICAMENTO", "op": "contiene", "val": p.upper()})
         
@@ -89,7 +112,6 @@ class QueryGenerator:
     # PARSER PRINCIPAL
     # ---------------------------------------------------------
     def parse_query(self, pregunta_usuario):
-        # Primero normalizamos el texto y los operadores
         texto_base = limpiar_texto(pregunta_usuario.lower())
         texto = self._normalizar_operadores(texto_base)
         
@@ -105,10 +127,12 @@ class QueryGenerator:
         # 2. DETERMINAR VARIABLE Y LÓGICA DE AGRUPACIÓN
         variable = "ID_REGISTRO"
         
-        if limit_val and (source == "Medicamentos" or "medicamento" in texto):
-            group_by = "MEDICAMENTO"
+        # Ajuste para conteo general de medicamentos
+        if source == "Medicamentos":
             variable = "MEDICAMENTO"
-            operation = "conteo"
+            if limit_val or "medicamento" in texto or "medicamentos" in texto:
+                if limit_val: group_by = "MEDICAMENTO"
+                operation = "conteo"
         
         elif operation == "media":
             if "edad" in texto: variable = "EDAD"
