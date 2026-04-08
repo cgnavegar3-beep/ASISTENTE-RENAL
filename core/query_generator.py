@@ -104,8 +104,10 @@ class QueryGenerator:
 
         # Búsqueda implícita reforzada para gráficos y distribuciones
         if any(w in texto for w in ["grafico", "gráfico", "visualizar", "barras", "reparto", "distribucion", "histograma", "sectores"]):
-            for palabra in ["edad", "sexo", "centro", "residencia", "medicamento", "riesgo", "fg", "filtrado"]:
+            # REFUERZO: Detección directa de medicamento/s
+            for palabra in ["edad", "sexo", "centro", "residencia", "medicamento", "medicamentos", "riesgo", "fg", "filtrado"]:
                 if palabra in texto:
+                    if "medicamento" in palabra: return "MEDICAMENTO"
                     if "fg" in palabra or "filtrado" in palabra: return "FG_CG"
                     return self.sinonimos.get(palabra) if palabra in self.sinonimos else palabra.upper()
         return None
@@ -133,7 +135,9 @@ class QueryGenerator:
         if source == "Medicamentos":
             variable = "MEDICAMENTO"
             if limit_val or "medicamento" in texto or "medicamentos" in texto:
-                if limit_val: group_by = "MEDICAMENTO"
+                # Si no hay un group_by detectado pero hay intención de visual/top, forzamos MEDICAMENTO
+                if limit_val or any(w in texto for w in ["grafico", "gráfico", "distribucion"]):
+                    group_by = "MEDICAMENTO"
                 operation = "conteo"
         
         elif operation == "media":
@@ -146,8 +150,8 @@ class QueryGenerator:
             # Por defecto barras para Top N e Histogramas
             chart_type = "bar"
             
-            # Forzar sectores (pie) para variables binarias/categóricas o si se pide explícitamente
-            if group_by in ["SEXO", "RESIDENCIA", "ADECUACION", "ACEPTACION_MAP"] or any(w in texto for w in ["sectores", "quesito", "pie"]):
+            # Forzar sectores (pie) si se pide explícitamente o para variables binarias/categóricas
+            if any(w in texto for w in ["sectores", "quesito", "pie", "proporcion", "reparto"]) or group_by in ["SEXO", "RESIDENCIA", "ADECUACION", "ACEPTACION_MAP"]:
                 chart_type = "pie"
 
         return {
