@@ -96,15 +96,17 @@ class QueryGenerator:
 
     def _extract_group_by(self, texto):
         """Detecta sobre qué columna agrupar si se pide un gráfico o distribución."""
-        match = re.search(r"(?:por|segun|por\s+el|por\s+la|distribucion\s+de)\s+([a-zA-Záéíóú]+)", texto)
+        match = re.search(r"(?:por|segun|por\s+el|por\s+la|distribucion\s+de|reparto\s+de|histograma\s+de)\s+([a-zA-Záéíóú]+)", texto)
         if match:
             palabra = match.group(1)
             if palabra in self.sinonimos:
                 return self.sinonimos[palabra]
 
-        if any(w in texto for w in ["grafico", "gráfico", "visualizar", "barras", "reparto", "distribucion"]):
-            for palabra in ["edad", "sexo", "centro", "residencia", "medicamento", "riesgo"]:
+        # Búsqueda implícita reforzada para gráficos y distribuciones
+        if any(w in texto for w in ["grafico", "gráfico", "visualizar", "barras", "reparto", "distribucion", "histograma", "sectores"]):
+            for palabra in ["edad", "sexo", "centro", "residencia", "medicamento", "riesgo", "fg", "filtrado"]:
                 if palabra in texto:
+                    if "fg" in palabra or "filtrado" in palabra: return "FG_CG"
                     return self.sinonimos.get(palabra) if palabra in self.sinonimos else palabra.upper()
         return None
 
@@ -127,7 +129,7 @@ class QueryGenerator:
         # 2. DETERMINAR VARIABLE Y LÓGICA DE AGRUPACIÓN
         variable = "ID_REGISTRO"
         
-        # Ajuste para conteo general de medicamentos
+        # Ajuste para conteo general de medicamentos y Top N
         if source == "Medicamentos":
             variable = "MEDICAMENTO"
             if limit_val or "medicamento" in texto or "medicamentos" in texto:
@@ -138,11 +140,15 @@ class QueryGenerator:
             if "edad" in texto: variable = "EDAD"
             elif any(w in texto for w in ["fg", "filtrado", "glomerular"]): variable = "FG_CG"
 
-        # 3. DETERMINAR TIPO DE GRÁFICO
-        if group_by:
-            chart_type = "bar" if any(w in texto for w in ["grafico", "barras", "visualizar"]) else "table"
-        else:
-            chart_type = "kpi"
+        # 3. DETERMINAR TIPO DE GRÁFICO (REFORZADO)
+        chart_type = "kpi"
+        if group_by or limit_val:
+            # Por defecto barras para Top N e Histogramas
+            chart_type = "bar"
+            
+            # Forzar sectores (pie) para variables binarias/categóricas o si se pide explícitamente
+            if group_by in ["SEXO", "RESIDENCIA", "ADECUACION", "ACEPTACION_MAP"] or any(w in texto for w in ["sectores", "quesito", "pie"]):
+                chart_type = "pie"
 
         return {
             "metadata": {
@@ -155,6 +161,6 @@ class QueryGenerator:
                 "filters": filters,
                 "group_by": group_by,
                 "chart_type": chart_type,
-                "limit": limit_val if limit_val else 10
+                "limit": limit_val if limit_val else (10 if group_by else None)
             }
         }
