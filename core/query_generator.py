@@ -19,6 +19,26 @@ class QueryGenerator:
         if any(w in texto for w in ["%", "porcentaje", "proporcion"]): return "porcentaje"
         return "conteo"
 
+    def _normalizar_operadores(self, texto):
+        """Traduce palabras clave de comparación a símbolos matemáticos para las Regex."""
+        mapeo = {
+            r"\bmenor\s+que\b": "<",
+            r"\bmenor\s+a\b": "<",
+            r"\binferior\s+a\b": "<",
+            r"\bdebajo\s+de\b": "<",
+            r"\bmenor\b": "<",
+            r"\bmayor\s+que\b": ">",
+            r"\bmayor\s+a\b": ">",
+            r"\bsuperior\s+a\b": ">",
+            r"\bencima\s+de\b": ">",
+            r"\bmayor\b": ">",
+            r"\bigual\s+a\b": "=",
+            r"\bigual\b": "="
+        }
+        for patron, simbolo in mapeo.items():
+            texto = re.sub(patron, simbolo, texto)
+        return texto
+
     # --- EXTRACCIÓN DE FILTROS REFORZADA ---
     def _extract_all_filters(self, texto, source):
         filters = []
@@ -53,14 +73,12 @@ class QueryGenerator:
 
     def _extract_group_by(self, texto):
         """Detecta sobre qué columna agrupar si se pide un gráfico o distribución."""
-        # Búsqueda por conectores
         match = re.search(r"(?:por|segun|por\s+el|por\s+la|distribucion\s+de)\s+([a-zA-Záéíóú]+)", texto)
         if match:
             palabra = match.group(1)
             if palabra in self.sinonimos:
                 return self.sinonimos[palabra]
 
-        # Búsqueda implícita si el usuario pide gráfico/visualización
         if any(w in texto for w in ["grafico", "gráfico", "visualizar", "barras", "reparto", "distribucion"]):
             for palabra in ["edad", "sexo", "centro", "residencia", "medicamento", "riesgo"]:
                 if palabra in texto:
@@ -71,7 +89,9 @@ class QueryGenerator:
     # PARSER PRINCIPAL
     # ---------------------------------------------------------
     def parse_query(self, pregunta_usuario):
-        texto = limpiar_texto(pregunta_usuario.lower())
+        # Primero normalizamos el texto y los operadores
+        texto_base = limpiar_texto(pregunta_usuario.lower())
+        texto = self._normalizar_operadores(texto_base)
         
         source = self._get_target_source(texto)
         operation = self._extract_operation(texto)
@@ -85,19 +105,16 @@ class QueryGenerator:
         # 2. DETERMINAR VARIABLE Y LÓGICA DE AGRUPACIÓN
         variable = "ID_REGISTRO"
         
-        # Caso Top N Medicamentos
         if limit_val and (source == "Medicamentos" or "medicamento" in texto):
             group_by = "MEDICAMENTO"
             variable = "MEDICAMENTO"
             operation = "conteo"
         
-        # Caso Media (Edad o Filtrado Glomerular)
         elif operation == "media":
             if "edad" in texto: variable = "EDAD"
             elif any(w in texto for w in ["fg", "filtrado", "glomerular"]): variable = "FG_CG"
 
         # 3. DETERMINAR TIPO DE GRÁFICO
-        # Si hay group_by, forzamos salida visual (barras o tabla)
         if group_by:
             chart_type = "bar" if any(w in texto for w in ["grafico", "barras", "visualizar"]) else "table"
         else:
