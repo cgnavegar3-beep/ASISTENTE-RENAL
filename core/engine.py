@@ -12,10 +12,8 @@ class ExecutionEngine:
     def ejecutar_analisis(self, df_filtrado, request):
         """
         Recibe el DataFrame filtrado y el diccionario de petición.
-        Soporta: Conteos, Medias, Porcentajes y Agrupaciones (Top N).
+        Soporta: Conteos, Medias, Porcentajes y Agrupaciones (Top N / Histogramas).
         """
-        # Extraer parámetros de los bloques del request
-        # Nota: El orquestador mete 'metric' y 'target_col' dentro de 'request'
         metric = request.get("metric", "conteo")
         variable = request.get("target_col", "ID_REGISTRO")
         group_by = request.get("group_by")
@@ -24,51 +22,59 @@ class ExecutionEngine:
         if df_filtrado is None or df_filtrado.empty:
             return "No se encontraron registros con esos criterios."
 
-        # --- 1. NORMALIZACIÓN DE VARIABLES NUMÉRICAS (EDAD, FG) ---
+        # --- 1. NORMALIZACIÓN DE VARIABLES NUMÉRICAS ---
         columnas_a_revisar = [variable]
         if group_by: columnas_a_revisar.append(group_by)
         
         for col in columnas_a_revisar:
             if col in df_filtrado.columns:
-                # Blindaje para Filtrado Glomerular y Edad
                 if any(x in col.upper() for x in ["FG", "EDAD", "FILTRADO", "CREATININA"]):
                     df_filtrado[col] = pd.to_numeric(df_filtrado[col], errors='coerce')
 
-        # --- 2. CASO: AGRUPACIÓN / TOP N (Gráficos y Listados) ---
+        # --- 2. CASO: HISTOGRAMAS CLÍNICOS (EDAD / FG) ---
+        if group_by in ["EDAD", "FG_CG"]:
+            temp_df = df_filtrado.dropna(subset=[group_by]).copy()
+            
+            if group_by == "EDAD":
+                bins = [0, 20, 40, 60, 80, 150]
+                labels = ["0-20", "20-40", "40-60", "60-80", ">80"]
+                temp_df["RANGO"] = pd.cut(temp_df["EDAD"], bins=bins, labels=labels, right=False)
+            
+            elif group_by == "FG_CG":
+                bins = [0, 15, 30, 45, 60, 300]
+                labels = ["0-15 (Fallo)", "15-30 (G4)", "30-45 (G3b)", "45-60 (G3a)", ">60 (Normal)"]
+                temp_df["RANGO"] = pd.cut(temp_df["FG_CG"], bins=bins, labels=labels, right=False)
+
+            resultado = temp_df.groupby("RANGO", observed=True).size().reset_index(name='CONTEO')
+            resultado = resultado.rename(columns={"RANGO": group_by})
+            return resultado
+
+        # --- 3. CASO: AGRUPACIÓN / TOP N CATEGÓRICO ---
         if group_by:
-            # Agrupamos por la dimensión (Centro, Medicamento, Sexo...)
             resultado = df_filtrado.groupby(group_by).size().reset_index(name='CONTEO')
-            
-            # Orden descendente para que el Top sea real
             resultado = resultado.sort_values(by='CONTEO', ascending=False)
-            
-            # Aplicar límite del bloque_d
             if limit:
                 resultado = resultado.head(int(limit))
-            
-            return resultado # Retorna DataFrame
+            return resultado
 
-        # --- 3. CASO: OPERACIONES ESCALARES (KPIs) ---
+        # --- 4. CASO: OPERACIONES ESCALARES (KPIs) ---
         if metric == "media":
             series_num = pd.to_numeric(df_filtrado[variable], errors='coerce')
             val_media = series_num.mean()
             return round(val_media, 2) if not np.isnan(val_media) else 0
         
         elif metric == "porcentaje":
-            # El porcentaje se devuelve como string formateado
             conteo = len(df_filtrado)
-            # Nota: Para un % real sobre total, se requiere el DF original en el contexto
             return f"Conteo: {conteo} pacientes"
             
         else:
-            # Conteo por defecto
             if variable in df_filtrado.columns:
                 return int(df_filtrado[variable].nunique())
             return int(len(df_filtrado))
 
     def generar_grafico(self, df_final, query_json):
         """
-        Genera la figura visual para el Orquestador.
+        Genera la figura visual para el Orquestador con ordenamiento lógico.
         """
         if not isinstance(df_final, pd.DataFrame) or df_final.empty:
             return None
@@ -90,6 +96,10 @@ class ExecutionEngine:
                     template="plotly_white",
                     color_discrete_sequence=['#00CC96']
                 )
+                # Si es un histograma clínico, respetamos el orden de los rangos (no por conteo)
+                if group_by in ["EDAD", "FG_CG"]:
+                    fig.update_xaxes(categoryorder='array', categoryarray=df_final[group_by].tolist())
+                
                 return fig
             
             elif tipo_grafico == "pie":
