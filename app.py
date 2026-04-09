@@ -782,7 +782,7 @@ with tabs[4]:
         # EVOLUCIÓN: ORQUESTADOR DE CONSULTAS IA AL FINAL
         with st.container(border=True):
             st.markdown("#### 🤖 Consultas Rápidas")
-            query_text = st.text_input("Haz una pregunta sobre los datos:", placeholder="Ej: Top 5 medicamentos, histograma FG,¿Cuántos pacientes del centro x tienen metformina?")
+            query_text = st.text_input("Haz una pregunta sobre los datos:", placeholder="Ej: Top 5 medicamentos, cuantos pacientes edad < a... y FG < a..., gráfico pacientes por centro, histograma FG,¿Cuántos pacientes del centro x tienen metformina?")
             if query_text:
                 with st.spinner("IA analizando datos..."):
                     query_json, frase, figura = st.session_state.orq.procesar_pregunta(
