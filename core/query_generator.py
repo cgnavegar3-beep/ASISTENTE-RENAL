@@ -9,22 +9,27 @@ class QueryGenerator:
         self.sinonimos = SINONIMOS_COLUMNAS
 
     def _get_target_source(self, texto):
-        med_keywords = ["medicamento", "farmaco", "fármaco", "toman", "tienen", "toma", "tiene", "prescrito", "enalapril", "metformina"]
-        terminos_clinicos = ["precaucion", "ajuste", "toxicidad", "contraindicado", "contraindicados", "leve", "moderado", "grave", "critico"]
-        if any(w in texto for w in med_keywords) or any(w in texto for w in terminos_clinicos):
+        med_keywords = ["medicamento", "farmaco", "fármaco", "toman", "tienen", "toma", "tiene", "prescrito", "enalapril", "metformina", "alopurinol"]
+        if any(w in texto for w in med_keywords):
             return "Medicamentos"
         return "Validaciones"
 
-    def _extract_operation(self, texto):
-        if any(w in texto for w in ["media", "promedio", "avg"]): return "media"
-        if any(w in texto for w in ["%", "porcentaje", "proporcion"]): return "porcentaje"
-        return "conteo"
+    def _normalizar_operadores(self, texto):
+        mapeo = {
+            r"\bmenor\s+que\b": "<", r"\bmenor\s+a\b": "<", r"\binferior\s+a\b": "<",
+            r"\bmayor\s+que\b": ">", r"\bmayor\s+a\b": ">", r"\bsuperior\s+a\b": ">",
+            r"\bigual\s+a\b": "=", r"\bigual\b": "="
+        }
+        for patron, simbolo in mapeo.items():
+            texto = re.sub(patron, simbolo, texto)
+        return texto
 
     def _extract_all_filters(self, texto, source):
         filters = []
         t_clean = " " + texto.lower() + " "
-
-        # 1. EQUIVALENCIAS CLÍNICAS (riesgo_CG)
+        
+        # 1. LÓGICA DE EQUIVALENCIAS (Tu petición específica)
+        # Mapeamos la palabra del usuario al valor que debe buscar en FG_CG
         equivalencias = {
             "precaucion": "LEVE",
             "ajuste de dosis": "MODERADO",
@@ -39,80 +44,58 @@ class QueryGenerator:
             "crítico": "CRITICO"
         }
 
+        # Verificamos si en la frase aparece alguna de estas palabras
         for palabra, valor_filtro in equivalencias.items():
             if palabra in t_clean:
-                filters.append({"col": "riesgo_CG", "op": "==", "val": str(valor_filtro)})
-                t_clean = t_clean.replace(palabra, " ")
+                # IMPORTANTE: Filtramos en la columna FG_CG como pediste
+                filters.append({"col": "FG_CG", "op": "==", "val": valor_filtro})
 
-        # 2. FILTROS NUMÉRICOS
+        # 2. Filtros Numéricos (Edad, etc.)
         for palabra, col_real in self.sinonimos.items():
             pattern = rf"{palabra}\s*(<|>|<=|>=|=)\s*(\d+(?:\.\d+)?)"
             matches = re.finditer(pattern, t_clean)
             for m in matches:
                 op = m.group(1) if m.group(1) != "=" else "=="
-                try:
-                    valor_num = float(m.group(2))
-                    filters.append({"col": col_real, "op": op, "val": valor_num})
-                    t_clean = t_clean.replace(m.group(0), " ")
-                except ValueError:
-                    continue
+                filters.append({"col": col_real, "op": op, "val": float(m.group(2))})
+                t_clean = t_clean.replace(m.group(0), " ")
 
-        # 3. FILTRO DE CENTRO
+        # 3. Filtro de CENTRO
         centro_match = re.search(r"centro\s+([a-zA-Z0-9áéíóú]+)", t_clean)
         if centro_match:
             val_centro = centro_match.group(1).strip().upper()
             filters.append({"col": "CENTRO", "op": "contiene", "val": val_centro})
-            t_clean = t_clean.replace(centro_match.group(0), " ")
 
-        # 4. FILTRO DE MEDICAMENTO
-        if source == "Medicamentos" and not any(w in t_clean for w in ["top", "ranking", "total"]):
-            stopwords = ["cuantos", "pacientes", "toman", "tienen", "del", "en", "el", "la", "centro", "media", "edad", "sexo", "que", "hay", "con", "riesgo", "dosis", "total", "numero", "nº"]
+        # 4. Filtro de MEDICAMENTO (Evitar que "toxicidad" o "ajuste" se confundan con nombres)
+        if source == "Medicamentos":
+            stopwords = ["cuantos", "pacientes", "toman", "tienen", "centro", "edad", "riesgo", "hay", "con", "medicamento"]
             palabras = t_clean.split()
             for p in palabras:
-                if len(p) > 3 and p not in stopwords and p not in self.sinonimos and p not in equivalencias:
+                if len(p) > 3 and p not in stopwords and p not in equivalencias and p not in self.sinonimos:
                     if not any(f["val"] == p.upper() for f in filters):
                         filters.append({"col": "MEDICAMENTO", "op": "contiene", "val": p.upper()})
         
         return filters
 
     def parse_query(self, pregunta_usuario):
-        texto = limpiar_texto(pregunta_usuario.lower())
+        texto = self._normalizar_operadores(limpiar_texto(pregunta_usuario.lower()))
         source = self._get_target_source(texto)
-        operation = self._extract_operation(texto)
+        
+        # Si la pregunta incluye términos de riesgo, forzar fuente Medicamentos
+        terminos_riesgo = ["riesgo", "leve", "moderado", "grave", "critico", "precaucion", "ajuste", "toxicidad", "contraindicado"]
+        if any(w in texto for w in terminos_riesgo):
+            source = "Medicamentos"
+
         filters = self._extract_all_filters(texto, source)
         
-        limit_match = re.search(r"(?:top|ranking)\s*(\d+)", texto)
-        limit_val = int(limit_match.group(1)) if limit_match else None
-        
-        # --- LÓGICA DE VARIABLE POR DEFECTO ---
-        # Si la pregunta es general ("total pacientes"), usamos ID_REGISTRO para contar filas únicas
-        variable = "ID_REGISTRO"
-        group_by = None
-        
-        if source == "Medicamentos":
-            # Si hay filtros aplicados de riesgo o medicamentos, contamos medicamentos
-            if filters or "medicamento" in texto:
-                variable = "MEDICAMENTO"
-            
-            if limit_val or (group_by is None and "medicamento" in texto and "total" not in texto):
-                group_by = "MEDICAMENTO"
-                operation = "conteo"
-        
-        elif operation == "media":
-            if "edad" in texto: variable = "EDAD"
-            elif any(w in texto for w in ["fg", "filtrado", "glomerular"]): variable = "FG_CG"
-
-        # Si el usuario pide el "total", nos aseguramos de que no intente agrupar
-        if "total" in texto or "cuantos" in texto:
-            group_by = None
-
+        # Para que el conteo funcione, target_col debe ser una columna que SIEMPRE tenga datos.
+        # Al filtrar por FG_CG == "LEVE", contaremos cuántas filas (medicamentos) cumplen eso.
         return {
-            "metadata": {"source": source, "intent": "kpi" if not group_by else "visual"},
+            "metadata": {"source": source, "intent": "kpi"},
             "request": {
-                "metric": operation,
-                "target_col": variable,
+                "metric": "conteo",
+                "target_col": "MEDICAMENTO" if source == "Medicamentos" else "ID_REGISTRO",
                 "filters": filters,
-                "group_by": group_by,
-                "limit": limit_val if limit_val else (10 if group_by else None)
+                "group_by": None,
+                "limit": 10
             }
         }
