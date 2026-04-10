@@ -6,37 +6,42 @@ class ExecutionEngine:
     def __init__(self):
         """
         Motor de ejecución blindado para procesamiento clínico.
+        Reforzado para interpretación de Riesgo Clínico.
         """
         pass
 
     def ejecutar_analisis(self, df_filtrado, request):
         """
         Recibe el DataFrame filtrado y el diccionario de petición.
-        Soporta: Conteos, Medias, Porcentajes y Agrupaciones (Top N / Histogramas).
+        Soporta: Conteos, Medias, Porcentajes y Agrupaciones.
         """
         metric = request.get("metric", "conteo")
         variable = request.get("target_col", "ID_REGISTRO")
         group_by = request.get("group_by")
         limit = request.get("limit")
+        label_map = request.get("label_map") # Capturamos el mapeo clínico
 
         if df_filtrado is None or df_filtrado.empty:
             return "No se encontraron registros con esos criterios."
 
-        # --- 1. NORMALIZACIÓN DE VARIABLES NUMÉRICAS ---
+        # --- 1. NORMALIZACIÓN DE VARIABLES ---
         columnas_a_revisar = [variable]
         if group_by: columnas_a_revisar.append(group_by)
         
         for col in columnas_a_revisar:
             if col in df_filtrado.columns:
+                # Normalización numérica
                 if any(x in col.upper() for x in ["FG", "EDAD", "FILTRADO", "CREATININA"]):
                     df_filtrado[col] = pd.to_numeric(df_filtrado[col], errors='coerce')
+                # Normalización de Riesgo (Objetivo 1 y 4)
+                if col == "RIESGO_CG" and label_map:
+                    df_filtrado[col] = df_filtrado[col].map(label_map).fillna(df_filtrado[col])
 
         # --- 2. CASO: HISTOGRAMAS CLÍNICOS (EDAD / FG) ---
         if group_by in ["EDAD", "FG_CG"]:
             temp_df = df_filtrado.dropna(subset=[group_by]).copy()
             
             if group_by == "EDAD":
-                # MODIFICACIÓN: Tramos de 10 en 10 años
                 bins = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150]
                 labels = ["0-10", "10-20", "20-30", "30-40", "40-50", "50-60", "60-70", "70-80", "80-90", "90-100", ">100"]
                 temp_df["RANGO"] = pd.cut(temp_df["EDAD"], bins=bins, labels=labels, right=False)
@@ -50,15 +55,18 @@ class ExecutionEngine:
             resultado = resultado.rename(columns={"RANGO": group_by})
             return resultado
 
-        # --- 3. CASO: AGRUPACIÓN / TOP N CATEGÓRICO (Medicamentos, Centros, etc.) ---
+        # --- 3. CASO: AGRUPACIÓN / TOP N CATEGÓRICO ---
         if group_by:
-            # Aseguramos que el conteo sea sobre el DataFrame filtrado
             resultado = df_filtrado.groupby(group_by).size().reset_index(name='CONTEO')
             
-            # Orden descendente para que el Top sea real
-            resultado = resultado.sort_values(by='CONTEO', ascending=False)
+            # Ordenamiento especial para RIESGO (Objetivo 5)
+            if group_by == "RIESGO_CG" and label_map:
+                orden_clinico = list(label_map.values())
+                resultado[group_by] = pd.Categorical(resultado[group_by], categories=orden_clinico, ordered=True)
+                resultado = resultado.sort_values(by=group_by)
+            else:
+                resultado = resultado.sort_values(by='CONTEO', ascending=False)
             
-            # Aplicar límite (importante para medicamentos)
             if limit:
                 resultado = resultado.head(int(limit))
             
@@ -81,30 +89,44 @@ class ExecutionEngine:
 
     def generar_grafico(self, df_final, query_json):
         """
-        Genera la figura visual para el Orquestador con ordenamiento lógico.
+        Genera la figura visual con soporte para etiquetas clínicas (Objetivo 5).
         """
         if not isinstance(df_final, pd.DataFrame) or df_final.empty:
             return None
 
-        tipo_grafico = query_json.get("bloque_c", {}).get("tipo", "bar")
-        group_by = query_json.get("bloque_b", {}).get("agrupar")
+        # Acceso seguro a la estructura del orquestador
+        bloque_request = query_json.get("request", {})
+        tipo_grafico = bloque_request.get("chart_type", "bar")
+        group_by = bloque_request.get("group_by")
+        label_map = bloque_request.get("label_map")
         
         if not group_by:
             return None
 
         try:
+            title = f"Distribución por {group_by}"
+            if group_by == "RIESGO_CG":
+                title = "Distribución de Riesgo Clínico"
+
             if tipo_grafico == "bar":
                 fig = px.bar(
                     df_final, 
                     x=group_by, 
                     y='CONTEO',
-                    title=f"Distribución por {group_by}",
-                    labels={group_by: group_by, 'CONTEO': 'Nº de Pacientes'},
+                    title=title,
+                    labels={group_by: "Categoría Clínica", 'CONTEO': 'Nº de Pacientes'},
                     template="plotly_white",
-                    color_discrete_sequence=['#00CC96']
+                    color=group_by if group_by == "RIESGO_CG" else None,
+                    color_discrete_map={
+                        label_map["LEVE"]: "#00CC96",
+                        label_map["MODERADO"]: "#FFA15A",
+                        label_map["GRAVE"]: "#EF553B",
+                        label_map["CRITICO"]: "#B6E880"
+                    } if group_by == "RIESGO_CG" and label_map else None
                 )
-                # Si es un histograma clínico, respetamos el orden de los rangos (no por conteo)
-                if group_by in ["EDAD", "FG_CG"]:
+                
+                # Respetar orden de ejes para Riesgos e Histogramas
+                if group_by == "RIESGO_CG" or group_by in ["EDAD", "FG_CG"]:
                     fig.update_xaxes(categoryorder='array', categoryarray=df_final[group_by].tolist())
                 
                 return fig
@@ -114,7 +136,7 @@ class ExecutionEngine:
                     df_final, 
                     values='CONTEO', 
                     names=group_by,
-                    title=f"Proporción por {group_by}",
+                    title=title,
                     color_discrete_sequence=px.colors.qualitative.Pastel
                 )
                 return fig
@@ -125,7 +147,7 @@ class ExecutionEngine:
 
     def aplicar_filtros(self, df, filtros):
         """
-        Aplica filtros secuenciales (Bloque A).
+        Aplica filtros secuenciales blindado.
         """
         if not filtros:
             return df
@@ -140,7 +162,7 @@ class ExecutionEngine:
             if col not in df.columns:
                 continue
 
-            # Filtros numéricos (FG, Edad)
+            # Filtros numéricos
             if any(x in col.upper() for x in ["FG", "EDAD", "FILTRADO"]):
                 df[col] = pd.to_numeric(df[col], errors='coerce')
                 val_num = float(val)
@@ -150,7 +172,7 @@ class ExecutionEngine:
                 elif op == "<=": mask &= df[col] <= val_num
                 elif op == "==": mask &= df[col] == val_num
             
-            # Filtros de texto
+            # Filtros de texto (Unificados por QueryGenerator)
             else:
                 series = df[col].astype(str).str.upper().str.strip()
                 val_str = str(val).upper().strip()
