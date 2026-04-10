@@ -9,7 +9,8 @@ class QueryGenerator:
         self.sinonimos = SINONIMOS_COLUMNAS
 
     def _get_target_source(self, texto):
-        med_keywords = ["medicamento", "farmaco", "fármaco", "toman", "tienen", "toma", "tiene", "prescrito", "enalapril", "metformina", "alopurinol"]
+        # Incorporamos términos de riesgo para forzar fuente Medicamentos
+        med_keywords = ["medicamento", "farmaco", "fármaco", "toman", "tienen", "toma", "tiene", "prescrito", "enalapril", "metformina", "alopurinol", "riesgo", "adecuacion", "ajuste", "toxicidad", "contraindicado"]
         if any(w in texto for w in med_keywords):
             return "Medicamentos"
         return "Validaciones"
@@ -32,12 +33,10 @@ class QueryGenerator:
             texto = re.sub(patron, simbolo, texto)
         return texto
 
-    # --- EXTRACCIÓN DE FILTROS REFORZADA ---
     def _extract_all_filters(self, texto, source):
         filters = []
         t_clean = " " + texto.lower() + " "
         
-        # Palabras de control que NUNCA deben ser valores de filtro
         control_words = ["grafico", "gráfico", "sectores", "barras", "distribucion", "top", "ranking", "reparto", "por", "histograma"]
 
         # 1. Filtros Numéricos (FG < 60, etc.)
@@ -49,14 +48,16 @@ class QueryGenerator:
                 filters.append({"col": col_real, "op": op, "val": float(m.group(2))})
                 t_clean = t_clean.replace(m.group(0), " ")
 
-        # 2. FILTROS CATEGÓRICOS
+        # 2. FILTROS CATEGÓRICOS (Normalización Semántica de Riesgos)
         mapeo_categorias = {
             "hombre": ("SEXO", "HOMBRE"), "hombres": ("SEXO", "HOMBRE"),
             "mujer": ("SEXO", "MUJER"), "mujeres": ("SEXO", "MUJER"),
             "residencia": ("RESIDENCIA", "SI"), "no residencia": ("RESIDENCIA", "NO"),
-            "leve": ("RIESGO", "LEVE"), "moderado": ("RIESGO", "MODERADO"),
-            "grave": ("RIESGO", "GRAVE"), "critico": ("RIESGO", "CRITICO"),
-            "contraindicado": ("CAT_RIESGO", "CONTRAINDICADO"),
+            # Mapeo de términos clínicos a RIESGO_CG (Regla 2 y 3)
+            "precaucion": ("RIESGO_CG", "LEVE"), "monitorizacion": ("RIESGO_CG", "LEVE"), "leve": ("RIESGO_CG", "LEVE"),
+            "ajuste de dosis": ("RIESGO_CG", "MODERADO"), "ajuste": ("RIESGO_CG", "MODERADO"), "moderado": ("RIESGO_CG", "MODERADO"),
+            "toxicidad": ("RIESGO_CG", "GRAVE"), "grave": ("RIESGO_CG", "GRAVE"),
+            "contraindicado": ("RIESGO_CG", "CRITICO"), "critico": ("RIESGO_CG", "CRITICO"),
             "nula": ("ACEPTACION_MAP", "NULA"), "parcial": ("ACEPTACION_MAP", "PARCIAL"),
             "total": ("ACEPTACION_MAP", "TOTAL")
         }
@@ -73,9 +74,9 @@ class QueryGenerator:
             filters.append({"col": "CENTRO", "op": "contiene", "val": val_centro})
             t_clean = t_clean.replace(centro_match.group(0), " ")
 
-        # 4. Filtro de MEDICAMENTO (Blindado contra "grafico")
+        # 4. Filtro de MEDICAMENTO
         if source == "Medicamentos" and not any(w in t_clean for w in ["top", "ranking", "mas frecuentes", "distribucion", "reparto"]):
-            stopwords = ["cuantos", "pacientes", "toman", "tienen", "del", "en", "el", "la", "centro", "media", "edad", "sexo", "que", "hay", "con", "medicamentos", "medicamento"]
+            stopwords = ["cuantos", "pacientes", "toman", "tienen", "del", "en", "el", "la", "centro", "media", "edad", "sexo", "que", "hay", "con", "medicamentos", "medicamento", "riesgo"]
             palabras = t_clean.split()
             for p in palabras:
                 if len(p) > 3 and p not in stopwords and p not in control_words and p not in self.sinonimos and p not in mapeo_categorias:
@@ -85,21 +86,19 @@ class QueryGenerator:
         return filters
 
     def _extract_group_by(self, texto):
-        """Detecta sobre qué columna agrupar para gráficos."""
-        # Búsqueda explícita
+        """Detecta sobre qué columna agrupar forzando RIESGO_CG."""
         match = re.search(r"(?:por|segun|por\s+el|por\s+la|distribucion\s+de|reparto\s+de|histograma\s+de|grafico\s+de)\s+([a-zA-Záéíóú]+)", texto)
         if match:
             palabra = match.group(1)
             if palabra in self.sinonimos: return self.sinonimos[palabra]
             if "medicamento" in palabra: return "MEDICAMENTO"
-            if "riesgo" in palabra: return "RIESGO"
+            if "riesgo" in palabra: return "RIESGO_CG"
 
-        # Búsqueda implícita reforzada
         if any(w in texto for w in ["grafico", "gráfico", "visualizar", "barras", "reparto", "distribucion", "histograma", "sectores"]):
             for palabra in ["edad", "sexo", "centro", "residencia", "medicamento", "medicamentos", "riesgo", "fg", "filtrado"]:
                 if palabra in texto:
                     if "medicamento" in palabra: return "MEDICAMENTO"
-                    if "riesgo" in palabra: return "RIESGO"
+                    if "riesgo" in palabra: return "RIESGO_CG"
                     if "fg" in palabra or "filtrado" in palabra: return "FG_CG"
                     return self.sinonimos.get(palabra) if palabra in self.sinonimos else palabra.upper()
         return None
@@ -118,7 +117,6 @@ class QueryGenerator:
         
         variable = "ID_REGISTRO"
         
-        # Blindaje: Si la columna es group_by, no debe estar como filtro de valor
         filters = [f for f in filters if f["col"] != group_by]
         
         if source == "Medicamentos":
@@ -131,13 +129,21 @@ class QueryGenerator:
             if "edad" in texto: variable = "EDAD"
             elif any(w in texto for w in ["fg", "filtrado", "glomerular"]): variable = "FG_CG"
 
-        # Determinación de gráfico
         chart_type = "kpi"
         if group_by or limit_val:
             chart_type = "bar"
-            # Forzar sectores si se pide o para variables de pocas categorías
-            if any(w in texto for w in ["sectores", "quesito", "pie", "proporcion", "reparto"]) or group_by in ["SEXO", "RESIDENCIA", "RIESGO", "ADECUACION"]:
+            if any(w in texto for w in ["sectores", "quesito", "pie", "proporcion", "reparto"]) or group_by in ["SEXO", "RESIDENCIA", "RIESGO_CG", "ADECUACION"]:
                 chart_type = "pie"
+
+        # --- ETIQUETAS CLÍNICAS (Regla 5) ---
+        label_map = None
+        if group_by == "RIESGO_CG":
+            label_map = {
+                "LEVE": "Precaución / monitorización",
+                "MODERADO": "Requiere ajuste de dosis",
+                "GRAVE": "Toxicidad",
+                "CRITICO": "Contraindicado"
+            }
 
         return {
             "metadata": {
@@ -150,6 +156,7 @@ class QueryGenerator:
                 "filters": filters,
                 "group_by": group_by,
                 "chart_type": chart_type,
+                "label_map": label_map, # Inyectamos el mapeo para el engine de ejecución
                 "limit": limit_val if limit_val else (10 if group_by else None)
             }
         }
