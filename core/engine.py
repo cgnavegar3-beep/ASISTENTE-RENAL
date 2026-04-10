@@ -14,7 +14,10 @@ class ExecutionEngine:
         """
         Recibe el DataFrame filtrado y el diccionario de petición.
         """
-        # Aseguramos una copia para no afectar el dataframe original en memoria
+        if df_filtrado is None or df_filtrado.empty:
+            return "No se encontraron registros con esos criterios."
+
+        # TRABAJAMOS SOBRE COPIA PARA ASEGURAR PERSISTENCIA
         df_proc = df_filtrado.copy()
         
         metric = request.get("metric", "conteo")
@@ -22,9 +25,6 @@ class ExecutionEngine:
         group_by = request.get("group_by")
         limit = request.get("limit")
         label_map = request.get("label_map")
-
-        if df_proc is None or df_proc.empty:
-            return "No se encontraron registros con esos criterios."
 
         # --- 1. NORMALIZACIÓN DE VARIABLES ---
         columnas_a_revisar = [variable]
@@ -35,12 +35,13 @@ class ExecutionEngine:
                 if any(x in col.upper() for x in ["FG", "EDAD", "FILTRADO", "CREATININA"]):
                     df_proc[col] = pd.to_numeric(df_proc[col], errors='coerce')
                 
-                # REPARACIÓN BLINDADA: Forzamos el mapeo de etiquetas largas
+                # REPARACIÓN: Blindaje del mapeo de etiquetas
                 if col == "RIESGO_CG" and label_map:
-                    # Normalización absoluta antes del mapeo
+                    # Limpiamos datos y aseguramos que las llaves del mapa coincidan
                     df_proc[col] = df_proc[col].astype(str).str.strip().str.upper()
-                    # Mapeo directo y persistente
-                    df_proc[col] = df_proc[col].replace(label_map)
+                    l_map_clean = {str(k).upper(): v for k, v in label_map.items()}
+                    # Usamos replace para asegurar la sustitución de etiquetas cortas por largas
+                    df_proc[col] = df_proc[col].replace(l_map_clean)
 
         # --- 2. CASO: HISTOGRAMAS CLÍNICOS (EDAD / FG) ---
         if group_by in ["EDAD", "FG_CG"]:
@@ -65,7 +66,7 @@ class ExecutionEngine:
             resultado = df_proc.groupby(group_by).size().reset_index(name='CONTEO')
             
             if group_by == "RIESGO_CG" and label_map:
-                # El orden clínico debe basarse en los nuevos valores (etiquetas largas)
+                # Orden basado en los VALORES (etiquetas largas) del label_map
                 orden_clinico = [v for v in label_map.values() if v in resultado[group_by].values]
                 resultado[group_by] = pd.Categorical(resultado[group_by], categories=orden_clinico, ordered=True)
                 resultado = resultado.sort_values(by=group_by)
@@ -110,7 +111,7 @@ class ExecutionEngine:
                     labels={group_by: "Nivel de Riesgo", 'CONTEO': 'Nº de Pacientes'},
                     template="plotly_white",
                     color=group_by if group_by == "RIESGO_CG" else None,
-                    # REPARACIÓN: Mapeo directo de colores a las etiquetas resultantes
+                    # REPARACIÓN: Colores vinculados a los valores del mapa (etiquetas largas)
                     color_discrete_map={
                         label_map["LEVE"]: "#00CC96",
                         label_map["MODERADO"]: "#FFA15A",
@@ -134,8 +135,7 @@ class ExecutionEngine:
 
     def aplicar_filtros(self, df, filtros):
         if not filtros: return df
-        # Copia para evitar SettingWithCopyWarning
-        df_f = df.copy()
+        df_f = df.copy() # Blindamos contra SettingWithCopy
         mask = pd.Series([True] * len(df_f), index=df_f.index)
         for f in filtros:
             col, op, val = f.get("col"), f.get("op"), f.get("val")
