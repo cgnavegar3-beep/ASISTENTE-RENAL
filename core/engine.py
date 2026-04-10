@@ -19,7 +19,7 @@ class ExecutionEngine:
         variable = request.get("target_col", "ID_REGISTRO")
         group_by = request.get("group_by")
         limit = request.get("limit")
-        label_map = request.get("label_map") # Capturamos el mapeo clínico
+        label_map = request.get("label_map") # Capturamos el mapeo clínico enviado por el Generator
 
         if df_filtrado is None or df_filtrado.empty:
             return "No se encontraron registros con esos criterios."
@@ -33,7 +33,9 @@ class ExecutionEngine:
                 # Normalización numérica
                 if any(x in col.upper() for x in ["FG", "EDAD", "FILTRADO", "CREATININA"]):
                     df_filtrado[col] = pd.to_numeric(df_filtrado[col], errors='coerce')
-                # Normalización de Riesgo (Objetivo 1 y 4)
+                
+                # APLICACIÓN DE ETIQUETAS CLÍNICAS (Objetivo 3)
+                # Si es la columna de riesgo, traducimos los códigos técnicos a etiquetas legibles
                 if col == "RIESGO_CG" and label_map:
                     df_filtrado[col] = df_filtrado[col].map(label_map).fillna(df_filtrado[col])
 
@@ -59,9 +61,10 @@ class ExecutionEngine:
         if group_by:
             resultado = df_filtrado.groupby(group_by).size().reset_index(name='CONTEO')
             
-            # Ordenamiento especial para RIESGO (Objetivo 5)
+            # Ordenamiento especial para RIESGO (Preservamos Objetivo 5)
             if group_by == "RIESGO_CG" and label_map:
-                orden_clinico = list(label_map.values())
+                # Usamos los valores del label_map para mantener el orden lógico LEVE -> CRITICO
+                orden_clinico = [v for v in label_map.values() if v in resultado[group_by].values]
                 resultado[group_by] = pd.Categorical(resultado[group_by], categories=orden_clinico, ordered=True)
                 resultado = resultado.sort_values(by=group_by)
             else:
@@ -89,12 +92,11 @@ class ExecutionEngine:
 
     def generar_grafico(self, df_final, query_json):
         """
-        Genera la figura visual con soporte para etiquetas clínicas (Objetivo 5).
+        Genera la figura visual con soporte para etiquetas clínicas.
         """
         if not isinstance(df_final, pd.DataFrame) or df_final.empty:
             return None
 
-        # Acceso seguro a la estructura del orquestador
         bloque_request = query_json.get("request", {})
         tipo_grafico = bloque_request.get("chart_type", "bar")
         group_by = bloque_request.get("group_by")
@@ -106,7 +108,7 @@ class ExecutionEngine:
         try:
             title = f"Distribución por {group_by}"
             if group_by == "RIESGO_CG":
-                title = "Distribución de Riesgo Clínico"
+                title = "Análisis de Riesgo Clínico"
 
             if tipo_grafico == "bar":
                 fig = px.bar(
@@ -114,18 +116,19 @@ class ExecutionEngine:
                     x=group_by, 
                     y='CONTEO',
                     title=title,
-                    labels={group_by: "Categoría Clínica", 'CONTEO': 'Nº de Pacientes'},
+                    labels={group_by: "Nivel de Riesgo", 'CONTEO': 'Nº de Pacientes'},
                     template="plotly_white",
                     color=group_by if group_by == "RIESGO_CG" else None,
+                    # Mapeo de colores vinculado a las etiquetas dinámicas
                     color_discrete_map={
                         label_map["LEVE"]: "#00CC96",
                         label_map["MODERADO"]: "#FFA15A",
                         label_map["GRAVE"]: "#EF553B",
                         label_map["CRITICO"]: "#B6E880"
-                    } if group_by == "RIESGO_CG" and label_map else None
+                    } if (group_by == "RIESGO_CG" and label_map) else None
                 )
                 
-                # Respetar orden de ejes para Riesgos e Histogramas
+                # Si es riesgo o histograma, forzamos que el eje X respete el orden de los datos
                 if group_by == "RIESGO_CG" or group_by in ["EDAD", "FG_CG"]:
                     fig.update_xaxes(categoryorder='array', categoryarray=df_final[group_by].tolist())
                 
@@ -162,7 +165,6 @@ class ExecutionEngine:
             if col not in df.columns:
                 continue
 
-            # Filtros numéricos
             if any(x in col.upper() for x in ["FG", "EDAD", "FILTRADO"]):
                 df[col] = pd.to_numeric(df[col], errors='coerce')
                 val_num = float(val)
@@ -171,8 +173,6 @@ class ExecutionEngine:
                 elif op == ">=": mask &= df[col] >= val_num
                 elif op == "<=": mask &= df[col] <= val_num
                 elif op == "==": mask &= df[col] == val_num
-            
-            # Filtros de texto (Unificados por QueryGenerator)
             else:
                 series = df[col].astype(str).str.upper().str.strip()
                 val_str = str(val).upper().strip()
