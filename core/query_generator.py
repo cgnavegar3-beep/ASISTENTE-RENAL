@@ -41,11 +41,10 @@ class QueryGenerator:
 
         for palabra, valor_filtro in equivalencias.items():
             if palabra in t_clean:
-                # Forzamos que sea un string para evitar intentos de conversion a float
                 filters.append({"col": "riesgo_CG", "op": "==", "val": str(valor_filtro)})
                 t_clean = t_clean.replace(palabra, " ")
 
-        # 2. FILTROS NUMÉRICOS (Aquí sí se permiten floats)
+        # 2. FILTROS NUMÉRICOS
         for palabra, col_real in self.sinonimos.items():
             pattern = rf"{palabra}\s*(<|>|<=|>=|=)\s*(\d+(?:\.\d+)?)"
             matches = re.finditer(pattern, t_clean)
@@ -62,7 +61,7 @@ class QueryGenerator:
             filters.append({"col": "CENTRO", "op": "contiene", "val": centro_match.group(1).strip().upper()})
 
         if source == "Medicamentos":
-            stopwords = ["cuantos", "pacientes", "toman", "tienen", "del", "en", "el", "la", "centro", "media", "edad", "sexo", "que", "hay", "con", "riesgo"]
+            stopwords = ["cuantos", "pacientes", "toman", "tienen", "del", "en", "el", "la", "centro", "media", "edad", "sexo", "que", "hay", "con", "riesgo", "grafico", "histograma"]
             for p in t_clean.split():
                 if len(p) > 3 and p not in stopwords and p not in self.sinonimos and p not in equivalencias:
                     if not any(f["val"] == p.upper() for f in filters):
@@ -75,11 +74,30 @@ class QueryGenerator:
         source = self._get_target_source(texto)
         filters = self._extract_all_filters(texto, source)
         
-        # Detectamos si hay un filtro de riesgo activo
-        es_riesgo = any(f["col"] == "riesgo_CG" for f in filters)
+        # --- LÓGICA DE GRÁFICOS E HISTOGRAMAS ---
+        group_by = None
+        chart_type = "kpi"
+        intent = "kpi"
+
+        # Detectar si se pide una visualización
+        if any(w in texto for w in ["grafico", "gráfico", "histograma", "sectores", "quesito", "distribucion", "reparto", "barras"]):
+            intent = "visual"
+            chart_type = "bar" # Por defecto barras
+            
+            if any(w in texto for w in ["sectores", "quesito", "pie", "proporcion"]):
+                chart_type = "pie"
+            elif "histograma" in texto:
+                chart_type = "histogram"
+
+            # Determinar por qué columna agrupar
+            if "centro" in texto: group_by = "CENTRO"
+            elif "sexo" in texto: group_by = "SEXO"
+            elif "riesgo" in texto or "nivel" in texto: group_by = "riesgo_CG"
+            elif "medicamento" in texto: group_by = "MEDICAMENTO"
+
+        # --- PROTECCIÓN CONTRA ERROR FLOAT (Métrica y Target) ---
+        es_riesgo = any(f["col"] == "riesgo_CG" for f in filters) or group_by == "riesgo_CG"
         
-        # REGLA DE ORO: Si filtramos por texto (riesgo), el target_col DEBE ser el ID o MEDICAMENTO
-        # No podemos pedirle al sistema que haga operaciones sobre la columna 'riesgo_CG' directamente
         if es_riesgo:
             operation = "conteo"
             target = "MEDICAMENTO" if source == "Medicamentos" else "ID_REGISTRO"
@@ -91,11 +109,13 @@ class QueryGenerator:
                 elif "fg" in texto: target = "FG_CG"
 
         return {
-            "metadata": {"source": source, "intent": "kpi"},
+            "metadata": {"source": source, "intent": intent},
             "request": {
                 "metric": operation,
                 "target_col": target,
                 "filters": filters,
-                "group_by": None
+                "group_by": group_by,
+                "chart_type": chart_type,
+                "limit": 10 if group_by else None
             }
         }
