@@ -9,8 +9,8 @@ class QueryGenerator:
         self.sinonimos = SINONIMOS_COLUMNAS
 
     def _get_target_source(self, texto):
-        med_keywords = ["medicamento", "farmaco", "fármaco", "toman", "tienen", "toma", "tiene", "prescrito", "enalapril", "metformina"]
-        terminos_clinicos = ["precaucion", "ajuste", "toxicidad", "contraindicado", "contraindicados", "leve", "moderado", "grave", "critico"]
+        med_keywords = ["medicamento", "farmaco", "fármaco", "toman", "tienen", "toma", "tiene", "prescrito", "enalapril", "metformina", "alopurinol"]
+        terminos_clinicos = ["precaucion", "ajuste", "toxicidad", "contraindicado", "contraindicados", "leve", "moderado", "grave", "critico", "riesgo", "adecuacion"]
         if any(w in texto for w in med_keywords) or any(w in texto for w in terminos_clinicos):
             return "Medicamentos"
         return "Validaciones"
@@ -20,9 +20,7 @@ class QueryGenerator:
         if any(w in texto for w in ["%", "porcentaje", "proporcion"]): return "porcentaje"
         return "conteo"
 
-    # --- ÚNICA MEJORA AÑADIDA: TRADUCTOR DE TEXTO A SÍMBOLO ---
     def _pre_procesar_operadores(self, texto):
-        # Sustituimos palabras por símbolos para que el regex de filtros los detecte
         texto = re.sub(r"\b(mayor que|mayor a|superior a|mas de)\b", ">", texto)
         texto = re.sub(r"\b(menor que|menor a|inferior a|menos de)\b", "<", texto)
         texto = re.sub(r"\b(igual a)\b", "=", texto)
@@ -30,23 +28,46 @@ class QueryGenerator:
 
     def _extract_all_filters(self, texto, source):
         filters = []
-        # Aplicamos la traducción antes de limpiar
         texto_con_simbolos = self._pre_procesar_operadores(texto)
         t_clean = " " + texto_con_simbolos.lower() + " "
 
-        # 1. MAPEO DE RIESGOS (Columna riesgo_CG - Blindado)
-        equivalencias = {
-            "precaucion": "LEVE", "ajuste de dosis": "MODERADO", "ajuste": "MODERADO",
-            "toxicidad": "GRAVE", "contraindicado": "CRITICO", "contraindicados": "CRITICO",
-            "leve": "LEVE", "moderado": "MODERADO", "grave": "GRAVE", "critico": "CRITICO", "crítico": "CRITICO"
+        # --- MEJORA: MAPEO SEMÁNTICO Y CATEGÓRICO ---
+        
+        # 1. Traducciones y Riesgos (Prioridad CAT_RIESGO_CG por defecto)
+        col_riesgo = "CAT_RIESGO_CG"
+        if "mdrd" in t_clean: col_riesgo = "CAT_RIESGO_MDRD"
+        elif "ckd" in t_clean: col_riesgo = "CAT_RIESGO_CKD"
+
+        mapeo_riesgo = {
+            "precaucion": "LEVE", "monitorizacion": "LEVE", "leve": "LEVE",
+            "ajuste": "MODERADO", "moderado": "MODERADO",
+            "toxicidad": "GRAVE", "grave": "GRAVE",
+            "contraindicado": "CRITICO", "critico": "CRITICO", "crítico": "CRITICO"
         }
 
-        for palabra, valor_filtro in equivalencias.items():
+        for palabra, valor in mapeo_riesgo.items():
             if palabra in t_clean:
-                filters.append({"col": "riesgo_CG", "op": "==", "val": str(valor_filtro)})
+                filters.append({"col": col_riesgo, "op": "==", "val": valor})
                 t_clean = t_clean.replace(palabra, " ")
 
-        # 2. FILTROS NUMÉRICOS (Ahora detectará los símbolos inyectados)
+        # 2. Sexo (Hombres/Mujeres)
+        if re.search(r"\b(hombre|hombres|masculino)\b", t_clean):
+            filters.append({"col": "sexo", "op": "==", "val": "HOMBRE"})
+        elif re.search(r"\b(mujer|mujeres|femenino)\b", t_clean):
+            filters.append({"col": "sexo", "op": "==", "val": "MUJER"})
+
+        # 3. Filtros de Centro y Residencia
+        centro_match = re.search(r"centro\s+([a-zA-Z0-9áéíóú]+)", t_clean)
+        if centro_match:
+            filters.append({"col": "centro", "op": "contiene", "val": centro_match.group(1).strip().upper()})
+            t_clean = t_clean.replace(centro_match.group(0), " ")
+
+        residencia_match = re.search(r"residencia\s+([a-zA-Z0-9áéíóú]+)", t_clean)
+        if residencia_match:
+            filters.append({"col": "residencia", "op": "contiene", "val": residencia_match.group(1).strip().upper()})
+            t_clean = t_clean.replace(residencia_match.group(0), " ")
+
+        # 4. Filtros Numéricos
         for palabra, col_real in self.sinonimos.items():
             pattern = rf"{palabra}\s*(<|>|<=|>=|=)\s*(\d+(?:\.\d+)?)"
             matches = re.finditer(pattern, t_clean)
@@ -57,17 +78,17 @@ class QueryGenerator:
                     t_clean = t_clean.replace(m.group(0), " ")
                 except: continue
 
-        # 3. FILTRO DE CENTRO Y MEDICAMENTO
-        centro_match = re.search(r"centro\s+([a-zA-Z0-9áéíóú]+)", t_clean)
-        if centro_match:
-            filters.append({"col": "CENTRO", "op": "contiene", "val": centro_match.group(1).strip().upper()})
-
+        # 5. Mapeo Genérico de Columnas Categóricas (Medicamentos/Grupos)
         if source == "Medicamentos":
-            stopwords = ["cuantos", "pacientes", "toman", "tienen", "del", "en", "el", "la", "centro", "media", "edad", "sexo", "que", "hay", "con", "riesgo", "grafico", "histograma"]
-            for p in t_clean.split():
-                if len(p) > 3 and p not in stopwords and p not in self.sinonimos and p not in equivalencias:
+            stopwords = ["cuantos", "pacientes", "toman", "tienen", "del", "en", "el", "la", "centro", "media", "edad", "sexo", "que", "hay", "con", "riesgo", "grafico", "histograma", "numero", "porcentaje"]
+            palabras = t_clean.split()
+            for p in palabras:
+                if len(p) > 3 and p not in stopwords and p not in mapeo_riesgo:
+                    # Si no es un filtro previo, lo buscamos como Medicamento o Grupo
                     if not any(f["val"] == p.upper() for f in filters):
-                        filters.append({"col": "MEDICAMENTO", "op": "contiene", "val": p.upper()})
+                        col_target = "MEDICAMENTO"
+                        if "grupo" in t_clean: col_target = "GRUPO_TERAPEUTICO"
+                        filters.append({"col": col_target, "op": "contiene", "val": p.upper()})
         
         return filters
 
@@ -75,6 +96,7 @@ class QueryGenerator:
         texto = limpiar_texto(pregunta_usuario.lower())
         source = self._get_target_source(texto)
         filters = self._extract_all_filters(texto, source)
+        operation = self._extract_operation(texto)
         
         # LÓGICA DE GRÁFICOS
         group_by = None
@@ -84,20 +106,21 @@ class QueryGenerator:
             if any(w in texto for w in ["sectores", "quesito", "pie"]): chart_type = "pie"
             elif "histograma" in texto: chart_type = "histogram"
             
-            if "centro" in texto: group_by = "CENTRO"
-            elif "sexo" in texto: group_by = "SEXO"
-            elif "riesgo" in texto or "nivel" in texto: group_by = "riesgo_CG"
-            else: group_by = "riesgo_CG"
+            if "centro" in texto: group_by = "centro"
+            elif "sexo" in texto: group_by = "sexo"
+            elif "riesgo" in texto: group_by = "CAT_RIESGO_CG"
+            elif "medicamento" in texto: group_by = "MEDICAMENTO"
+            else: group_by = "CAT_RIESGO_CG"
 
-        # PROTECCIÓN CONTRA ERROR FLOAT (Se mantiene el blindaje)
-        es_riesgo = any(f["col"] == "riesgo_CG" for f in filters) or group_by == "riesgo_CG"
+        # DEFINICIÓN DE TARGET Y BLINDAJE
+        # Cualquier columna categórica o riesgo fuerza el target a ID_REGISTRO o MEDICAMENTO para contar
+        categorias = ["centro", "residencia", "sexo", "MEDICAMENTO", "CAT_RIESGO_CG", "CAT_RIESGO_MDRD", "CAT_RIESGO_CKD", "GRUPO_TERAPEUTICO"]
+        es_categorica = any(f["col"] in categorias for f in filters) or group_by in categorias
         
-        if es_riesgo:
-            operation = "conteo"
+        if es_categorica or operation == "conteo" or operation == "porcentaje":
             target = "MEDICAMENTO" if source == "Medicamentos" else "ID_REGISTRO"
         else:
-            operation = self._extract_operation(texto)
-            target = "MEDICAMENTO" if source == "Medicamentos" else "ID_REGISTRO"
+            target = "ID_REGISTRO"
             if operation == "media":
                 if "edad" in texto: target = "EDAD"
                 elif "fg" in texto: target = "FG_CG"
