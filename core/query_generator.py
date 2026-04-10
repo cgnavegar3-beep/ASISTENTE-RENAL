@@ -20,9 +20,21 @@ class QueryGenerator:
         if any(w in texto for w in ["%", "porcentaje", "proporcion"]): return "porcentaje"
         return "conteo"
 
+    # --- NUEVA FUNCIÓN PARA TRADUCIR TEXTO A SÍMBOLOS ---
+    def _normalizar_operadores_texto(self, texto):
+        # Traduce "mayor que 60" a "> 60", etc.
+        texto = re.sub(r"\b(mayor|superior|mas\s+de|encima\s+de)\s*(que|a)?", ">", texto)
+        texto = re.sub(r"\b(menor|inferior|menos\s+de|debajo\s+de)\s*(que|a)?", "<", texto)
+        texto = re.sub(r"\b(igual)\s*(a)?", "=", texto)
+        return texto
+
     def _extract_all_filters(self, texto, source):
         filters = []
-        t_clean = " " + texto.lower() + " "
+        # Normalizamos palabras de comparación antes de extraer
+        texto_norm = self._normalizar_operadores_texto(texto)
+        t_clean = " " + texto_norm.lower() + " "
+
+        # 1. MAPEO DE RIESGOS (Columna riesgo_CG)
         equivalencias = {
             "precaucion": "LEVE", "ajuste de dosis": "MODERADO", "ajuste": "MODERADO",
             "toxicidad": "GRAVE", "contraindicado": "CRITICO", "contraindicados": "CRITICO",
@@ -34,6 +46,7 @@ class QueryGenerator:
                 filters.append({"col": "riesgo_CG", "op": "==", "val": str(valor_filtro)})
                 t_clean = t_clean.replace(palabra, " ")
 
+        # 2. FILTROS NUMÉRICOS (Ahora detecta > y < generados por la normalización)
         for palabra, col_real in self.sinonimos.items():
             pattern = rf"{palabra}\s*(<|>|<=|>=|=)\s*(\d+(?:\.\d+)?)"
             matches = re.finditer(pattern, t_clean)
@@ -44,9 +57,17 @@ class QueryGenerator:
                     t_clean = t_clean.replace(m.group(0), " ")
                 except: continue
 
+        # 3. FILTRO DE CENTRO Y MEDICAMENTO
         centro_match = re.search(r"centro\s+([a-zA-Z0-9áéíóú]+)", t_clean)
         if centro_match:
             filters.append({"col": "CENTRO", "op": "contiene", "val": centro_match.group(1).strip().upper()})
+
+        if source == "Medicamentos":
+            stopwords = ["cuantos", "pacientes", "toman", "tienen", "del", "en", "el", "la", "centro", "media", "edad", "sexo", "que", "hay", "con", "riesgo"]
+            for p in t_clean.split():
+                if len(p) > 3 and p not in stopwords and p not in self.sinonimos and p not in equivalencias:
+                    if not any(f["val"] == p.upper() for f in filters):
+                        filters.append({"col": "MEDICAMENTO", "op": "contiene", "val": p.upper()})
         
         return filters
 
@@ -55,27 +76,20 @@ class QueryGenerator:
         source = self._get_target_source(texto)
         filters = self._extract_all_filters(texto, source)
         
-        # --- LÓGICA DE GRÁFICOS (FORZADO) ---
+        # LÓGICA DE GRÁFICOS
         group_by = None
         chart_type = "kpi"
-        
-        # Si hay palabras visuales, activamos el modo gráfico
-        visual_keywords = ["grafico", "gráfico", "histograma", "sectores", "quesito", "distribucion", "reparto", "barras", "comparar", "por"]
-        if any(w in texto for w in visual_keywords):
-            chart_type = "bar" # Default
+        if any(w in texto for w in ["grafico", "gráfico", "histograma", "sectores", "quesito", "distribucion", "por"]):
+            chart_type = "bar"
             if any(w in texto for w in ["sectores", "quesito", "pie"]): chart_type = "pie"
             if "histograma" in texto: chart_type = "histogram"
             
-            # Buscamos por qué agrupar
             if "centro" in texto: group_by = "CENTRO"
             elif "sexo" in texto: group_by = "SEXO"
-            elif "riesgo" in texto or "nivel" in texto or any(w in texto for w in ["leve", "moderado", "grave", "critico"]): 
-                group_by = "riesgo_CG"
-            else:
-                # Si pide gráfico pero no dice de qué, agrupamos por riesgo_CG por defecto
-                group_by = "riesgo_CG"
+            elif "riesgo" in texto or "nivel" in texto: group_by = "riesgo_CG"
+            else: group_by = "riesgo_CG"
 
-        # --- PROTECCIÓN CONTRA ERROR FLOAT ---
+        # PROTECCIÓN CONTRA ERROR FLOAT
         es_riesgo = any(f["col"] == "riesgo_CG" for f in filters) or group_by == "riesgo_CG"
         
         if es_riesgo:
@@ -89,16 +103,13 @@ class QueryGenerator:
                 elif "fg" in texto: target = "FG_CG"
 
         return {
-            "metadata": {
-                "source": source, 
-                "intent": "visual" if group_by else "kpi"
-            },
+            "metadata": {"source": source, "intent": "visual" if group_by else "kpi"},
             "request": {
                 "metric": operation,
                 "target_col": target,
                 "filters": filters,
                 "group_by": group_by,
-                "chart_type": chart_type, # Asegúrate que tu frontend lea esta clave
+                "chart_type": chart_type,
                 "limit": 10 if group_by else None
             }
         }
