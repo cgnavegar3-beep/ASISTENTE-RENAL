@@ -20,25 +20,25 @@ class QueryGenerator:
         if any(w in texto for w in ["%", "porcentaje", "proporcion"]): return "porcentaje"
         return "conteo"
 
-    # --- NUEVA FUNCIÓN PARA TRADUCIR TEXTO A SÍMBOLOS ---
-    def _normalizar_operadores_texto(self, texto):
-        # Traduce "mayor que 60" a "> 60", etc.
-        texto = re.sub(r"\b(mayor|superior|mas\s+de|encima\s+de)\s*(que|a)?", ">", texto)
-        texto = re.sub(r"\b(menor|inferior|menos\s+de|debajo\s+de)\s*(que|a)?", "<", texto)
-        texto = re.sub(r"\b(igual)\s*(a)?", "=", texto)
+    # --- ÚNICA MEJORA AÑADIDA: TRADUCTOR DE TEXTO A SÍMBOLO ---
+    def _pre_procesar_operadores(self, texto):
+        # Sustituimos palabras por símbolos para que el regex de filtros los detecte
+        texto = re.sub(r"\b(mayor que|mayor a|superior a|mas de)\b", ">", texto)
+        texto = re.sub(r"\b(menor que|menor a|inferior a|menos de)\b", "<", texto)
+        texto = re.sub(r"\b(igual a)\b", "=", texto)
         return texto
 
     def _extract_all_filters(self, texto, source):
         filters = []
-        # Normalizamos palabras de comparación antes de extraer
-        texto_norm = self._normalizar_operadores_texto(texto)
-        t_clean = " " + texto_norm.lower() + " "
+        # Aplicamos la traducción antes de limpiar
+        texto_con_simbolos = self._pre_procesar_operadores(texto)
+        t_clean = " " + texto_con_simbolos.lower() + " "
 
-        # 1. MAPEO DE RIESGOS (Columna riesgo_CG)
+        # 1. MAPEO DE RIESGOS (Columna riesgo_CG - Blindado)
         equivalencias = {
             "precaucion": "LEVE", "ajuste de dosis": "MODERADO", "ajuste": "MODERADO",
             "toxicidad": "GRAVE", "contraindicado": "CRITICO", "contraindicados": "CRITICO",
-            "leve": "LEVE", "moderado": "MODERADO", "grave": "GRAVE", "critico": "CRITICO"
+            "leve": "LEVE", "moderado": "MODERADO", "grave": "GRAVE", "critico": "CRITICO", "crítico": "CRITICO"
         }
 
         for palabra, valor_filtro in equivalencias.items():
@@ -46,7 +46,7 @@ class QueryGenerator:
                 filters.append({"col": "riesgo_CG", "op": "==", "val": str(valor_filtro)})
                 t_clean = t_clean.replace(palabra, " ")
 
-        # 2. FILTROS NUMÉRICOS (Ahora detecta > y < generados por la normalización)
+        # 2. FILTROS NUMÉRICOS (Ahora detectará los símbolos inyectados)
         for palabra, col_real in self.sinonimos.items():
             pattern = rf"{palabra}\s*(<|>|<=|>=|=)\s*(\d+(?:\.\d+)?)"
             matches = re.finditer(pattern, t_clean)
@@ -63,7 +63,7 @@ class QueryGenerator:
             filters.append({"col": "CENTRO", "op": "contiene", "val": centro_match.group(1).strip().upper()})
 
         if source == "Medicamentos":
-            stopwords = ["cuantos", "pacientes", "toman", "tienen", "del", "en", "el", "la", "centro", "media", "edad", "sexo", "que", "hay", "con", "riesgo"]
+            stopwords = ["cuantos", "pacientes", "toman", "tienen", "del", "en", "el", "la", "centro", "media", "edad", "sexo", "que", "hay", "con", "riesgo", "grafico", "histograma"]
             for p in t_clean.split():
                 if len(p) > 3 and p not in stopwords and p not in self.sinonimos and p not in equivalencias:
                     if not any(f["val"] == p.upper() for f in filters):
@@ -79,22 +79,22 @@ class QueryGenerator:
         # LÓGICA DE GRÁFICOS
         group_by = None
         chart_type = "kpi"
-        if any(w in texto for w in ["grafico", "gráfico", "histograma", "sectores", "quesito", "distribucion", "por"]):
+        if any(w in texto for w in ["grafico", "gráfico", "histograma", "sectores", "quesito", "distribucion", "reparto"]):
             chart_type = "bar"
             if any(w in texto for w in ["sectores", "quesito", "pie"]): chart_type = "pie"
-            if "histograma" in texto: chart_type = "histogram"
+            elif "histograma" in texto: chart_type = "histogram"
             
             if "centro" in texto: group_by = "CENTRO"
             elif "sexo" in texto: group_by = "SEXO"
             elif "riesgo" in texto or "nivel" in texto: group_by = "riesgo_CG"
             else: group_by = "riesgo_CG"
 
-        # PROTECCIÓN CONTRA ERROR FLOAT
+        # PROTECCIÓN CONTRA ERROR FLOAT (Se mantiene el blindaje)
         es_riesgo = any(f["col"] == "riesgo_CG" for f in filters) or group_by == "riesgo_CG"
         
         if es_riesgo:
             operation = "conteo"
-            target = "MEDICAMENTO"
+            target = "MEDICAMENTO" if source == "Medicamentos" else "ID_REGISTRO"
         else:
             operation = self._extract_operation(texto)
             target = "MEDICAMENTO" if source == "Medicamentos" else "ID_REGISTRO"
