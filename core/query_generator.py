@@ -31,43 +31,38 @@ class QueryGenerator:
         texto_con_simbolos = self._pre_procesar_operadores(texto)
         t_clean = " " + texto_con_simbolos.lower() + " "
 
-        # --- MEJORA: MAPEO SEMÁNTICO Y CATEGÓRICO ---
-        
-        # 1. Traducciones y Riesgos (Prioridad CAT_RIESGO_CG por defecto)
-        col_riesgo = "CAT_RIESGO_CG"
-        if "mdrd" in t_clean: col_riesgo = "CAT_RIESGO_MDRD"
-        elif "ckd" in t_clean: col_riesgo = "CAT_RIESGO_CKD"
+        # 1. MAPEO DE RIESGOS (CG por defecto, MDRD/CKD si se mencionan)
+        # Priorizamos el nombre de la columna exacta que pediste
+        col_riesgo = "RIESGO_CG" 
+        if "mdrd" in t_clean: col_riesgo = "RIESGO_MDRD"
+        elif "ckd" in t_clean: col_riesgo = "RIESGO_CKD"
 
-        mapeo_riesgo = {
+        equivalencias = {
             "precaucion": "LEVE", "monitorizacion": "LEVE", "leve": "LEVE",
             "ajuste": "MODERADO", "moderado": "MODERADO",
             "toxicidad": "GRAVE", "grave": "GRAVE",
             "contraindicado": "CRITICO", "critico": "CRITICO", "crítico": "CRITICO"
         }
 
-        for palabra, valor in mapeo_riesgo.items():
+        for palabra, valor in equivalencias.items():
             if palabra in t_clean:
                 filters.append({"col": col_riesgo, "op": "==", "val": valor})
                 t_clean = t_clean.replace(palabra, " ")
 
-        # 2. Sexo (Hombres/Mujeres)
+        # 2. CATEGORÍAS GENERALES (Sexo, Centro, Residencia)
         if re.search(r"\b(hombre|hombres|masculino)\b", t_clean):
             filters.append({"col": "sexo", "op": "==", "val": "HOMBRE"})
         elif re.search(r"\b(mujer|mujeres|femenino)\b", t_clean):
             filters.append({"col": "sexo", "op": "==", "val": "MUJER"})
 
-        # 3. Filtros de Centro y Residencia
-        centro_match = re.search(r"centro\s+([a-zA-Z0-9áéíóú]+)", t_clean)
-        if centro_match:
-            filters.append({"col": "centro", "op": "contiene", "val": centro_match.group(1).strip().upper()})
-            t_clean = t_clean.replace(centro_match.group(0), " ")
+        # Búsqueda de Centro y Residencia
+        for col in ["centro", "residencia"]:
+            match = re.search(rf"{col}\s+([a-zA-Z0-9áéíóú]+)", t_clean)
+            if match:
+                filters.append({"col": col, "op": "contiene", "val": match.group(1).strip().upper()})
+                t_clean = t_clean.replace(match.group(0), " ")
 
-        residencia_match = re.search(r"residencia\s+([a-zA-Z0-9áéíóú]+)", t_clean)
-        if residencia_match:
-            filters.append({"col": "residencia", "op": "contiene", "val": residencia_match.group(1).strip().upper()})
-            t_clean = t_clean.replace(residencia_match.group(0), " ")
-
-        # 4. Filtros Numéricos
+        # 3. FILTROS NUMÉRICOS (EDAD, FG...)
         for palabra, col_real in self.sinonimos.items():
             pattern = rf"{palabra}\s*(<|>|<=|>=|=)\s*(\d+(?:\.\d+)?)"
             matches = re.finditer(pattern, t_clean)
@@ -78,17 +73,16 @@ class QueryGenerator:
                     t_clean = t_clean.replace(m.group(0), " ")
                 except: continue
 
-        # 5. Mapeo Genérico de Columnas Categóricas (Medicamentos/Grupos)
+        # 4. MEDICAMENTOS Y GRUPOS TERAPÉUTICOS
         if source == "Medicamentos":
-            stopwords = ["cuantos", "pacientes", "toman", "tienen", "del", "en", "el", "la", "centro", "media", "edad", "sexo", "que", "hay", "con", "riesgo", "grafico", "histograma", "numero", "porcentaje"]
-            palabras = t_clean.split()
+            # Lista de palabras a ignorar para no confundirlas con medicamentos
+            ignorar = ["cuantos", "pacientes", "toman", "tienen", "centro", "riesgo", "grafico", "total", "numero"]
+            palabras = [p for p in t_clean.split() if len(p) > 3 and p not in ignorar and p not in equivalencias]
+            
             for p in palabras:
-                if len(p) > 3 and p not in stopwords and p not in mapeo_riesgo:
-                    # Si no es un filtro previo, lo buscamos como Medicamento o Grupo
-                    if not any(f["val"] == p.upper() for f in filters):
-                        col_target = "MEDICAMENTO"
-                        if "grupo" in t_clean: col_target = "GRUPO_TERAPEUTICO"
-                        filters.append({"col": col_target, "op": "contiene", "val": p.upper()})
+                col_med = "GRUPO_TERAPEUTICO" if "grupo" in t_clean else "MEDICAMENTO"
+                if not any(f["val"] == p.upper() for f in filters):
+                    filters.append({"col": col_med, "op": "contiene", "val": p.upper()})
         
         return filters
 
@@ -101,29 +95,29 @@ class QueryGenerator:
         # LÓGICA DE GRÁFICOS
         group_by = None
         chart_type = "kpi"
-        if any(w in texto for w in ["grafico", "gráfico", "histograma", "sectores", "quesito", "distribucion", "reparto"]):
+        if any(w in texto for w in ["grafico", "gráfico", "histograma", "sectores", "quesito", "distribucion"]):
             chart_type = "bar"
             if any(w in texto for w in ["sectores", "quesito", "pie"]): chart_type = "pie"
             elif "histograma" in texto: chart_type = "histogram"
             
             if "centro" in texto: group_by = "centro"
             elif "sexo" in texto: group_by = "sexo"
-            elif "riesgo" in texto: group_by = "CAT_RIESGO_CG"
+            elif "riesgo" in texto: group_by = "RIESGO_CG"
             elif "medicamento" in texto: group_by = "MEDICAMENTO"
-            else: group_by = "CAT_RIESGO_CG"
+            else: group_by = "RIESGO_CG"
 
-        # DEFINICIÓN DE TARGET Y BLINDAJE
-        # Cualquier columna categórica o riesgo fuerza el target a ID_REGISTRO o MEDICAMENTO para contar
-        categorias = ["centro", "residencia", "sexo", "MEDICAMENTO", "CAT_RIESGO_CG", "CAT_RIESGO_MDRD", "CAT_RIESGO_CKD", "GRUPO_TERAPEUTICO"]
-        es_categorica = any(f["col"] in categorias for f in filters) or group_by in categorias
+        # --- EL CAMBIO CLAVE PARA SOLUCIONAR EL CONTEO ---
+        # Si la columna es de texto (categórica), el target DEBE ser una columna que siempre tenga datos (ID)
+        cols_texto = ["centro", "residencia", "sexo", "MEDICAMENTO", "RIESGO_CG", "RIESGO_MDRD", "RIESGO_CKD", "GRUPO_TERAPEUTICO", "ADECUACION_FINAL"]
         
-        if es_categorica or operation == "conteo" or operation == "porcentaje":
+        es_consulta_texto = any(f["col"] in cols_texto for f in filters) or group_by in cols_texto
+        
+        if es_consulta_texto or operation == "conteo" or operation == "porcentaje":
+            # Si estamos en medicamentos, contamos medicamentos. Si no, IDs de pacientes.
             target = "MEDICAMENTO" if source == "Medicamentos" else "ID_REGISTRO"
         else:
-            target = "ID_REGISTRO"
-            if operation == "media":
-                if "edad" in texto: target = "EDAD"
-                elif "fg" in texto: target = "FG_CG"
+            # Fallback para medias numéricas
+            target = "EDAD" if "edad" in texto else ("FG_CG" if "fg" in texto else "ID_REGISTRO")
 
         return {
             "metadata": {"source": source, "intent": "visual" if group_by else "kpi"},
