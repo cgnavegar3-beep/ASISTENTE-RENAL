@@ -74,20 +74,21 @@ class QueryGenerator:
             filters.append({"col": "CENTRO", "op": "contiene", "val": val_centro})
             t_clean = t_clean.replace(centro_match.group(0), " ")
 
-        # 4. Filtro de MEDICAMENTO (Refuerzo de Stopwords)
+        # 4. Filtro de MEDICAMENTO (Refuerzo de Stopwords y Blindaje)
         if source == "Medicamentos" and not any(w in t_clean for w in ["top", "ranking", "distribucion"]):
             stopwords = ["cuantos", "pacientes", "toman", "tienen", "del", "en", "el", "la", "centro", "media", "edad", "sexo", "que", "hay", "con", "medicamentos", "medicamento", "riesgo", "necesitan", "precisan", "requieren", "estan", "están"]
             palabras = t_clean.split()
             for p in palabras:
                 p_clean = p.strip(",.() ")
                 if len(p_clean) > 3 and p_clean not in stopwords and p_clean not in control_words and p_clean not in self.sinonimos:
-                    if not any(f["col"] == "RIESGO_CG" for f in filters): # Si no es riesgo, es medicamento
+                    # Si el término ya fue capturado como nivel de riesgo, no lo tratamos como medicamento
+                    if not any(f["col"] == "RIESGO_CG" and f["val"] in p_clean.upper() for f in filters):
                         filters.append({"col": "MEDICAMENTO", "op": "contiene", "val": p_clean.upper()})
         
         return filters
 
     def _extract_group_by(self, texto):
-        # Prioridad a Riesgo
+        # Prioridad absoluta a Riesgo
         if "riesgo" in texto: return "RIESGO_CG"
         
         match = re.search(r"(?:por|segun|distribucion\s+de|reparto\s+de|histograma\s+de)\s+([a-zA-Záéíóú]+)", texto)
@@ -116,6 +117,7 @@ class QueryGenerator:
         limit_val = int(limit_match.group(1)) if limit_match else None
         
         variable = "ID_REGISTRO"
+        # Limpieza de filtros que coinciden con la agrupación
         filters = [f for f in filters if f["col"] != group_by]
         
         if source == "Medicamentos":
@@ -137,6 +139,7 @@ class QueryGenerator:
         # --- ETIQUETAS CLÍNICAS: SINCRONIZACIÓN TOTAL CON ENGINE ---
         label_map = None
         if group_by == "RIESGO_CG":
+            # Estas etiquetas deben coincidir exactamente con el color_discrete_map del Engine
             label_map = {
                 "LEVE": "LEVE (Precaución)",
                 "MODERADO": "MODERADO (Ajuste de dosis)",
