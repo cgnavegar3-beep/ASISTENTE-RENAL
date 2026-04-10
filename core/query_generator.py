@@ -9,7 +9,8 @@ class QueryGenerator:
         self.sinonimos = SINONIMOS_COLUMNAS
 
     def _get_target_source(self, texto):
-        if any(w in texto for w in ["medicamento", "farmaco", "fármaco", "alopurinol", "toman", "riesgo", "toxicidad"]):
+        # Simplificamos la detección de fuente
+        if any(w in texto for w in ["medicamento", "farmaco", "fármaco", "alopurinol", "toman", "riesgo"]):
             return "Medicamentos"
         return "Validaciones"
 
@@ -20,33 +21,34 @@ class QueryGenerator:
 
     def _extract_all_filters(self, texto, source):
         filters = []
-        # Trabajamos sobre el texto original en minúsculas para no romper regex
         t_clean = " " + texto.lower() + " "
 
-        # 1. TRADUCCIÓN DE OPERADORES (Directo en el flujo)
-        # Buscamos "mayor que 80" o "> 80" indistintamente
+        # 1. FILTROS NUMÉRICOS CON SOPORTE PARA "MAYOR/MENOR"
         for palabra, col_real in self.sinonimos.items():
-            # Regex que soporta símbolos (> , <) y palabras (mayor, menor)
-            pattern = rf"{palabra}\s*(?:mayor|superior|más|mas|>)\s*(?:que|a)?\s*(\d+(?:\.\d+)?)"
-            for m in re.finditer(pattern, t_clean):
+            # Caso Mayor: busca "edad mayor 80", "edad > 80", "edad mas de 80"
+            patron_mayor = rf"{palabra}\s*(?:mayor|superior|mas|más|>)\s*(?:que|a)?\s*(\d+(?:\.\d+)?)"
+            for m in re.finditer(patron_mayor, t_clean):
                 filters.append({"col": col_real, "op": ">", "val": float(m.group(1))})
             
-            pattern_inf = rf"{palabra}\s*(?:menor|inferior|menos|<)\s*(?:que|a)?\s*(\d+(?:\.\d+)?)"
-            for m in re.finditer(pattern_inf, t_clean):
+            # Caso Menor: busca "edad menor 40", "edad < 40", "edad menos de 40"
+            patron_menor = rf"{palabra}\s*(?:menor|inferior|menos|<)\s*(?:que|a)?\s*(\d+(?:\.\d+)?)"
+            for m in re.finditer(patron_menor, t_clean):
                 filters.append({"col": col_real, "op": "<", "val": float(m.group(1))})
 
-            # Filtro igual estándar (= o símbolo)
-            pattern_eq = rf"{palabra}\s*(?:=|==|es de)\s*(\d+(?:\.\d+)?)"
-            for m in re.finditer(pattern_eq, t_clean):
+            # Caso Igual
+            patron_igual = rf"{palabra}\s*(?:=|==|es de)\s*(\d+(?:\.\d+)?)"
+            for m in re.finditer(patron_igual, t_clean):
                 filters.append({"col": col_real, "op": "==", "val": float(m.group(1))})
 
-        # 2. SEXO (Detección simple sin romper nada)
-        if "hombre" in t_clean: filters.append({"col": "sexo", "op": "==", "val": "HOMBRE"})
-        if "mujer" in t_clean: filters.append({"col": "sexo", "op": "==", "val": "MUJER"})
+        # 2. SEXO
+        if "hombre" in t_clean or "varon" in t_clean: 
+            filters.append({"col": "sexo", "op": "==", "val": "HOMBRE"})
+        elif "mujer" in t_clean: 
+            filters.append({"col": "sexo", "op": "==", "val": "MUJER"})
 
-        # 3. RIESGOS (Mapeo directo a la columna que pide el sistema)
-        riesgos = {"leve": "LEVE", "moderado": "MODERADO", "grave": "GRAVE", "critico": "CRITICO", "crítico": "CRITICO"}
-        for k, v in riesgos.items():
+        # 3. RIESGOS (Mapeo a columna RIESGO_CG)
+        riesgos_map = {"leve": "LEVE", "moderado": "MODERADO", "grave": "GRAVE", "critico": "CRITICO"}
+        for k, v in riesgos_map.items():
             if k in t_clean:
                 filters.append({"col": "RIESGO_CG", "op": "==", "val": v})
 
@@ -55,11 +57,11 @@ class QueryGenerator:
         if centro_match:
             filters.append({"col": "centro", "op": "contiene", "val": centro_match.group(1).upper()})
 
-        # 5. MEDICAMENTOS (Si no ha pillado nada antes, es un medicamento)
+        # 5. MEDICAMENTOS (Detección por descarte)
         if source == "Medicamentos":
-            ignorar = ["cuantos", "pacientes", "toman", "hay", "grafico", "por", "centro", "sexo", "riesgo"]
+            ignorar = ["cuantos", "pacientes", "toman", "hay", "grafico", "por", "sexo", "riesgo"]
             for p in t_clean.split():
-                if len(p) > 3 and p not in ignorar and p not in riesgos:
+                if len(p) > 3 and p not in ignorar and p not in riesgos_map:
                     if not any(f["val"] == p.upper() for f in filters):
                         filters.append({"col": "MEDICAMENTO", "op": "contiene", "val": p.upper()})
 
@@ -71,11 +73,34 @@ class QueryGenerator:
         filters = self._extract_all_filters(texto, source)
         operation = self._extract_operation(texto)
         
-        # --- LÓGICA DE GRÁFICOS RESTAURADA ---
+        # --- LÓGICA DE GRÁFICOS ---
         group_by = None
         chart_type = "kpi"
-        if "grafico" in texto or "gráfico" in texto or "distribucion" in texto:
+        if any(w in texto for w in ["grafico", "gráfico", "distribucion"]):
             chart_type = "bar"
+            # Mapeo manual para evitar que use palabras raras del usuario como columna
             if "centro" in texto: group_by = "centro"
-            elif "sexo" in texto: group_by = "sex
-                
+            elif "sexo" in texto: group_by = "sexo"
+            elif "edad" in texto: group_by = "EDAD"
+            else: group_by = "centro"
+
+        # --- BLINDAJE DE TARGET ---
+        # El target col debe ser texto (ID o MEDICAMENTO) para que el motor cuente registros
+        target = "MEDICAMENTO" if source == "Medicamentos" else "ID_REGISTRO"
+        
+        # Solo cambiamos a columna numérica si se pide explícitamente una MEDIA
+        if operation == "media":
+            if "edad" in texto: target = "EDAD"
+            elif "fg" in texto: target = "FG_CG"
+
+        return {
+            "metadata": {"source": source, "intent": "visual" if group_by else "kpi"},
+            "request": {
+                "metric": operation,
+                "target_col": target,
+                "filters": filters,
+                "group_by": group_by,
+                "chart_type": chart_type,
+                "limit": 10 if group_by else None
+            }
+        }
