@@ -121,10 +121,10 @@ class ExecutionEngine:
                     color=group_by if group_by == "RIESGO_CG" else None,
                     # Mapeo de colores vinculado a las etiquetas dinámicas
                     color_discrete_map={
-                        label_map["LEVE"]: "#00CC96",
-                        label_map["MODERADO"]: "#FFA15A",
-                        label_map["GRAVE"]: "#EF553B",
-                        label_map["CRITICO"]: "#B6E880"
+                        label_map["LEVE (precaución)"]: "#00CC96",
+                        label_map["MODERADO (Ajuste de dosis)"]: "#FFA15A",
+                        label_map["GRAVE(riesgo toxicidad)"]: "#EF553B",
+                        label_map["CRITICO(contraindicado)"]: "#B6E880"
                     } if (group_by == "RIESGO_CG" and label_map) else None
                 )
                 
