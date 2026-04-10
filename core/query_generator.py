@@ -14,7 +14,7 @@ class QueryGenerator:
             "medicamento", "farmaco", "fármaco", "toman", "tienen", "toma", "tiene", 
             "prescrito", "enalapril", "metformina", "alopurinol", "riesgo", 
             "adecuacion", "ajuste", "toxicidad", "contraindicado", "hay", 
-            "necesitan", "precisan", "requieren", "estan", "están"
+            "necesitan", "precisan", "producen", "requieren", "estan", "están"
         ]
         if any(w in texto for w in med_keywords):
             return "Medicamentos"
