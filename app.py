@@ -350,6 +350,24 @@ def inject_styles():
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
     .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
     .fg-special-border { border: 1.5px solid #9d00ff !important; border-radius: 5px; }
+    
+    /* ESTILOS EVOLUCIONADOS CONSULTA DINÁMICA */
+    .card-analisis {
+        background-color: #ffffff;
+        border: 1px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .card-ia {
+        background-color: #f8f9fa;
+        border: 1.5px solid #dee2e6;
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 10px;
+    }
+    
     @keyframes blinker { 50% { opacity: 0; } }
     .blink-text, .blink-text-grabar { animation: blinker 1s linear infinite; color: #c53030; font-weight: bold; padding: 10px; border: 1px solid #c53030; border-radius: 5px; background: #fff5f5; text-align: center; margin-bottom: 15px; }
     </style>
@@ -619,7 +637,6 @@ with tabs[3]:
 with tabs[4]:
     st.markdown("### 🔍 Consulta Dinámica Renal")
     
-    # EVOLUCIÓN: POOL DE DATOS Y FILTROS SIEMPRE VISIBLES
     tipo_origen = st.radio(
         "Seleccionar origen de datos:",
         ["Validaciones (General)", "Medicamentos (Detalle)"],
@@ -633,28 +650,41 @@ with tabs[4]:
     )
 
     if not df_pool.empty:
-        with st.container(border=True):
-            st.markdown("#### 🔍 Bloque A – Configurar Cohorte: <span style='font-size: 0.8em; color: gray;'>Condiciones o filtros de lo que quiero medir.</span>", unsafe_allow_html=True)
-            col_a1, col_a2 = st.columns([1, 1])
-            if col_a1.button("➕ Añadir Filtro"):
-                st.session_state.filtros_dinamicos.append({"id": str(uuid.uuid4()), "col": df_pool.columns[0], "op": "== (IGUAL)", "val": ""})
-            if col_a2.button("🗑️ Limpiar Filtros"):
-                limpiar_filtros_dinamicos()
-                st.rerun()
-            for i, filtro in enumerate(st.session_state.filtros_dinamicos):
-                fid = filtro["id"]
-                f_c1, f_c2, f_c3 = st.columns([1, 0.7, 1.3])
-                filtro["col"] = f_c1.selectbox(f"Columna {i+1}", df_pool.columns, key=f"f_col_{fid}", index=list(df_pool.columns).index(filtro["col"]))
-                filtro["op"] = f_c2.selectbox(f"Operador {i+1}", ["== (IGUAL)", "!= (DISTINTO DE)", "> (MAYOR QUE)", "< (MENOR QUE)", "≥ (MAYOR O IGUAL)", "≤ (MENOR O IGUAL)", "contiene"], key=f"f_op_{fid}")
-                if "contiene" in filtro["op"]:
-                    filtro["val"] = f_c3.text_input(f"Valor {i+1}", key=f"f_val_{fid}", value=filtro["val"])
-                elif pd.api.types.is_numeric_dtype(df_pool[filtro["col"]]) or filtro["col"] in ["EDAD", "FG_CG", "Nº_TOTAL_MEDS_PAC", "PESO", "CREATININA", "NIVEL_ADE_CG", "Nº_TOT_AFEC_CG"]:
-                    try: f_val_num = float(filtro["val"]) if filtro["val"] != "" else 0.0
-                    except: f_val_num = 0.0
-                    filtro["val"] = f_c3.number_input(f"Valor {i+1}", key=f"f_val_num_{fid}", value=f_val_num)
-                else:
-                    opciones_unicas = sorted([str(x) for x in df_pool[filtro["col"]].unique() if x])
-                    filtro["val"] = f_c3.multiselect(f"Valores {i+1}", opciones_unicas, key=f"f_val_multi_{fid}", default=filtro["val"] if isinstance(filtro["val"], list) else [])
+        # --- NUEVA ESTRUCTURA CARD-ANALYSIS ---
+        st.markdown('<div class="card-analisis">', unsafe_allow_html=True)
+        
+        # 1. BLOQUE B (AHORA POSICIÓN 1): VARIABLE A ANALIZAR
+        st.markdown("#### 🎯 Bloque 1 - Variable a analizar: <span style='font-size: 0.8em; color: gray;'>¿Qué quiero medir?</span>", unsafe_allow_html=True)
+        b_col1, b_col2, b_col3 = st.columns(3)
+        var_analisis = b_col1.selectbox("Variable", ["-- seleccionar --"] + list(df_pool.columns), key="query_var")
+        operacion = b_col2.selectbox("Operación", ["-- seleccionar --", "Conteo (Total)", "Conteo Único (Pacientes)", "Suma", "Promedio", "Mínimo", "Máximo"])
+        agrupar_por = b_col3.selectbox("Agrupar por (Opcional)", ["-- Agrupar resultados por categorías (opcional) --"] + list(df_pool.columns))
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # 2. BLOQUE A (AHORA POSICIÓN 2): CONFIGURAR COHORTE
+        st.markdown("#### 🔍 Bloque 2 - Filtros o condiciones: <span style='font-size: 0.8em; color: gray;'>Condiciones de la población a medir.</span>", unsafe_allow_html=True)
+        col_a1, col_a2 = st.columns([1, 1])
+        if col_a1.button("➕ Añadir Filtro"):
+            st.session_state.filtros_dinamicos.append({"id": str(uuid.uuid4()), "col": df_pool.columns[0], "op": "== (IGUAL)", "val": ""})
+        if col_a2.button("🗑️ Limpiar Filtros"):
+            limpiar_filtros_dinamicos()
+            st.rerun()
+            
+        for i, filtro in enumerate(st.session_state.filtros_dinamicos):
+            fid = filtro["id"]
+            f_c1, f_c2, f_c3 = st.columns([1, 0.7, 1.3])
+            filtro["col"] = f_c1.selectbox(f"Columna {i+1}", df_pool.columns, key=f"f_col_{fid}", index=list(df_pool.columns).index(filtro["col"]))
+            filtro["op"] = f_c2.selectbox(f"Operador {i+1}", ["== (IGUAL)", "!= (DISTINTO DE)", "> (MAYOR QUE)", "< (MENOR QUE)", "≥ (MAYOR O IGUAL)", "≤ (MENOR O IGUAL)", "contiene"], key=f"f_op_{fid}")
+            if "contiene" in filtro["op"]:
+                filtro["val"] = f_c3.text_input(f"Valor {i+1}", key=f"f_val_{fid}", value=filtro["val"])
+            elif pd.api.types.is_numeric_dtype(df_pool[filtro["col"]]) or filtro["col"] in ["EDAD", "FG_CG", "Nº_TOTAL_MEDS_PAC", "PESO", "CREATININA", "NIVEL_ADE_CG", "Nº_TOT_AFEC_CG"]:
+                try: f_val_num = float(filtro["val"]) if filtro["val"] != "" else 0.0
+                except: f_val_num = 0.0
+                filtro["val"] = f_c3.number_input(f"Valor {i+1}", key=f_val_num_f"{fid}", value=f_val_num)
+            else:
+                opciones_unicas = sorted([str(x) for x in df_pool[filtro["col"]].unique() if x])
+                filtro["val"] = f_c3.multiselect(f"Valores {i+1}", opciones_unicas, key=f"f_val_multi_{fid}", default=filtro["val"] if isinstance(filtro["val"], list) else [])
 
         mask = pd.Series(True, index=df_pool.index)
         for f in st.session_state.filtros_dinamicos:
@@ -688,11 +718,6 @@ with tabs[4]:
         
         df_filtered_query = df_pool[mask]
 
-        st.markdown("#### 🎯 Bloque B- Variable a analizar: <span style='font-size: 0.8em; color: gray;'>¿Qué quiero medir?</span>", unsafe_allow_html=True)
-        b_col1, b_col2, b_col3 = st.columns(3)
-        var_analisis = b_col1.selectbox("Variable", ["-- seleccionar --"] + list(df_pool.columns), key="query_var")
-        operacion = b_col2.selectbox("Operación", ["-- seleccionar --", "Conteo (Total)", "Conteo Único (Pacientes)", "Suma", "Promedio", "Mínimo", "Máximo"])
-        agrupar_por = b_col3.selectbox("Agrupar por (Opcional)", ["-- Agrupar resultados por categorías (opcional) --"] + list(df_pool.columns))
         if var_analisis == "-- seleccionar --" or operacion == "-- seleccionar --":
             st.info("Configura la variable y operación para ver resultados.")
         else:
@@ -712,17 +737,16 @@ with tabs[4]:
                     elif operacion == "Suma": df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').sum()).reset_index()
                     elif operacion == "Promedio": df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').mean()).reset_index()
                     df_res.columns = [agrupar_por, f"{operacion}_{var_analisis}"]
-                    st.markdown("#### 📊 Bloque C-Visualización", unsafe_allow_html=True)
+                    
+                    st.markdown("#### 📊 Bloque 3 - Visualización", unsafe_allow_html=True)
                     formato_salida = st.radio("Formato:", ["KPI", "LISTAR", "TABLA", "BARRAS H", "BARRAS V", "SECTORES", "HISTOGRAMA"], horizontal=True)
                     if formato_salida == "KPI":
                         st.metric("Registros en Cohorte", len(df_filtered_query))
                     elif formato_salida == "LISTAR":
                         valores_unicos = sorted(df_filtered_query[var_analisis].dropna().unique().astype(str))
                         if valores_unicos:
-                            for val in valores_unicos:
-                                st.write(f"* {val}")
-                        else:
-                            st.write("No hay valores para listar.")
+                            for val in valores_unicos: st.write(f"* {val}")
+                        else: st.write("No hay valores para listar.")
                     elif formato_salida == "TABLA":
                         st.dataframe(df_res, use_container_width=True)
                     elif formato_salida == "BARRAS H":
@@ -758,14 +782,14 @@ with tabs[4]:
                             df_h[var_analisis] = pd.to_numeric(df_h[var_analisis], errors='coerce')
                             if not df_h[var_analisis].dropna().empty:
                                 fig = px.histogram(df_h, x=var_analisis, color_discrete_sequence=['#9d00ff'], marginal="box")
-                                fig.update_layout(bargap=0.1)
-                                st.plotly_chart(fig, use_container_width=True)
-                            else:
-                                st.warning("La variable no contiene datos numéricos válidos para un histograma.")
-                except: st.warning("Error en el cálculo. Verifica que la variable sea numérica para Sumas/Promedios.")
+                                fig.update_layout(bargap=0.1); st.plotly_chart(fig, use_container_width=True)
+                            else: st.warning("La variable no contiene datos numéricos válidos para un histograma.")
+                except: st.warning("Error en el cálculo. Verifica que la variable sea numérica.")
         
-        # --- BLOQUE D: RANKING ESTRATÉGICO ---
-        st.markdown("#### 🏆 Bloque D - Ranking Estratégico: <span style='font-size: 0.8em; color: gray;'>Comparativas de prevalencia.</span>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # 3. BLOQUE D: RANKING ESTRATÉGICO
+        st.markdown("#### 🏆 Bloque 4 - Ranking/Top: <span style='font-size: 0.8em; color: gray;'>Comparativas de prevalencia.</span>", unsafe_allow_html=True)
         rk_c1, rk_c2, rk_c3 = st.columns(3)
         rk_dim = rk_c1.selectbox("Elemento a Rankear", ["-- seleccionar --", "MEDICAMENTO", "CENTRO", "RESIDENCIA", "SEXO"], key="rk_dim")
         rk_met = rk_c2.selectbox("Métrica de Orden", ["-- seleccionar --", "Conteo (Total)", "Conteo Único (Pacientes)", "Nº_TOT_AFEC_CG", "Nº_AJUSTE_DOS_CG", "Nº_CONTRAIND_CG"], key="rk_met")
@@ -774,26 +798,26 @@ with tabs[4]:
         if rk_dim != "-- seleccionar --" and rk_met != "-- seleccionar --":
             r_key = hashlib.md5(f"{rk_dim}_{rk_met}_{rk_top}".encode()).hexdigest()[:8]
             ejecutar_ranking_v29(df_filtered_query, rk_dim, rk_met, rk_top, r_key)
+            
+        st.markdown('</div>', unsafe_allow_html=True) # Cierre card-analisis
+
+        st.divider()
+
+        # 4. ORQUESTADOR IA (SECCIÓN SEPARADA)
+        st.markdown('<div class="card-ia">', unsafe_allow_html=True)
+        st.markdown("#### 🤖 Consultas Rápidas con IA")
+        query_text = st.text_input("Haz una pregunta sobre los datos:", placeholder="Ej: Top 5 medicamentos, ¿Cuántos pacientes edad < a... y FG < a... hay?, gráfico pacientes por centro, histograma FG,¿Cuántos pacientes del centro X tienen metformina?")
+        if query_text:
+            with st.spinner("IA analizando datos..."):
+                query_json, frase, figura = st.session_state.orq.procesar_pregunta(query_text, df_pool)
+                st.write(frase)
+                if figura is not None: st.plotly_chart(figura, use_container_width=True)
+                if query_json is not None: st.json(query_json)
+        st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown("---")
         with st.expander("📄 Ver Datos Crutos de la Cohorte"):
             st.dataframe(df_filtered_query, use_container_width=True)
-
-        # EVOLUCIÓN: ORQUESTADOR DE CONSULTAS IA AL FINAL
-        with st.container(border=True):
-            st.markdown("#### 🤖 Consultas Rápidas")
-            query_text = st.text_input("Haz una pregunta sobre los datos:", placeholder="Ej: Top 5 medicamentos, ¿Cuántos pacientes edad < a... y FG < a... hay?, gráfico pacientes por centro, histograma FG,¿Cuántos pacientes del centro X tienen metformina?")
-            if query_text:
-                with st.spinner("IA analizando datos..."):
-                    query_json, frase, figura = st.session_state.orq.procesar_pregunta(
-                        query_text,
-                        df_pool
-                    )
-                    st.write(frase)
-                    if figura is not None:
-                        st.plotly_chart(figura, use_container_width=True)
-                    if query_json is not None:
-                        st.json(query_json)
 
     else:
         st.info("No hay datos sincronizados para realizar consultas dinámicas.")
