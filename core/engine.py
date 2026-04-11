@@ -1,16 +1,23 @@
 import pandas as pd
 import numpy as np
-import plotly.express as px
+import plotly.express as px # Librería estándar para los gráficos
 
 class ExecutionEngine:
     def __init__(self):
-        """Motor de ejecución blindado para procesamiento clínico."""
+        """
+        Motor de ejecución blindado para procesamiento clínico.
+        Reforzado para interpretación de Riesgo Clínico.
+        """
         pass
 
     def ejecutar_analisis(self, df_filtrado, request):
+        """
+        Recibe el DataFrame filtrado y el diccionario de petición.
+        """
         if df_filtrado is None or df_filtrado.empty:
             return "No se encontraron registros con esos criterios."
 
+        # TRABAJAMOS SOBRE COPIA PARA ASEGURAR PERSISTENCIA
         df_proc = df_filtrado.copy()
         
         metric = request.get("metric", "conteo")
@@ -28,19 +35,23 @@ class ExecutionEngine:
                 if any(x in col.upper() for x in ["FG", "EDAD", "FILTRADO", "CREATININA"]):
                     df_proc[col] = pd.to_numeric(df_proc[col], errors='coerce')
                 
-                # REPARACIÓN: Blindaje del mapeo de etiquetas (Evolución de etiquetas largas)
+                # REPARACIÓN: Blindaje del mapeo de etiquetas
                 if col == "RIESGO_CG" and label_map:
+                    # Limpiamos datos y aseguramos que las llaves del mapa coincidan
                     df_proc[col] = df_proc[col].astype(str).str.strip().str.upper()
                     l_map_clean = {str(k).upper(): v for k, v in label_map.items()}
+                    # Usamos replace para asegurar la sustitución de etiquetas cortas por largas
                     df_proc[col] = df_proc[col].replace(l_map_clean)
 
-        # --- 2. CASO: HISTOGRAMAS CLÍNICOS ---
+        # --- 2. CASO: HISTOGRAMAS CLÍNICOS (EDAD / FG) ---
         if group_by in ["EDAD", "FG_CG"]:
             temp_df = df_proc.dropna(subset=[group_by]).copy()
+            
             if group_by == "EDAD":
                 bins = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150]
                 labels = ["0-10", "10-20", "20-30", "30-40", "40-50", "50-60", "60-70", "70-80", "80-90", "90-100", ">100"]
                 temp_df["RANGO"] = pd.cut(temp_df["EDAD"], bins=bins, labels=labels, right=False)
+            
             elif group_by == "FG_CG":
                 bins = [0, 15, 30, 45, 60, 300]
                 labels = ["0-15 (Fallo)", "15-30 (G4)", "30-45 (G3b)", "45-60 (G3a)", ">60 (Normal)"]
@@ -50,11 +61,12 @@ class ExecutionEngine:
             resultado = resultado.rename(columns={"RANGO": group_by})
             return resultado
 
-        # --- 3. CASO: AGRUPACIÓN / TOP N ---
+        # --- 3. CASO: AGRUPACIÓN / TOP N CATEGÓRICO ---
         if group_by:
             resultado = df_proc.groupby(group_by).size().reset_index(name='CONTEO')
+            
             if group_by == "RIESGO_CG" and label_map:
-                # Orden basado en el flujo clínico definido en label_map
+                # Orden basado en los VALORES (etiquetas largas) del label_map
                 orden_clinico = [v for v in label_map.values() if v in resultado[group_by].values]
                 resultado[group_by] = pd.Categorical(resultado[group_by], categories=orden_clinico, ordered=True)
                 resultado = resultado.sort_values(by=group_by)
@@ -63,9 +75,10 @@ class ExecutionEngine:
             
             if limit:
                 resultado = resultado.head(int(limit))
+            
             return resultado
 
-        # --- 4. CASO: KPIs ---
+        # --- 4. CASO: OPERACIONES ESCALARES (KPIs) ---
         if metric == "media":
             series_num = pd.to_numeric(df_proc[variable], errors='coerce')
             val_media = series_num.mean()
@@ -80,6 +93,7 @@ class ExecutionEngine:
             return None
 
         bloque_request = query_json.get("request", {})
+        # Buscamos el tipo en bloque_c (donde tus logs indican que viaja) o en request
         tipo_grafico = query_json.get("bloque_c", {}).get("tipo") or bloque_request.get("chart_type", "bar")
         group_by = bloque_request.get("group_by")
         label_map = bloque_request.get("label_map")
@@ -89,38 +103,51 @@ class ExecutionEngine:
         try:
             title = "Análisis de Riesgo Clínico" if group_by == "RIESGO_CG" else f"Distribución por {group_by}"
 
+            # Lógica para Gráfico de Sectores (PIE)
             if tipo_grafico == "pie":
-                return px.pie(df_final, values='CONTEO', names=group_by, title=title,
-                              color_discrete_sequence=px.colors.qualitative.Safe)
+                return px.pie(
+                    df_final, 
+                    values='CONTEO', 
+                    names=group_by, 
+                    title=title,
+                    color_discrete_sequence=px.colors.qualitative.Safe
+                )
 
+            # Lógica para Gráfico de Barras
             elif tipo_grafico == "bar":
                 color_map = None
                 if group_by == "RIESGO_CG" and label_map:
-                    # Mapeo de colores vinculado a las nuevas etiquetas largas
+                    # Mapeo robusto de colores a etiquetas largas
                     color_map = {
-                        label_map.get("LEVE", ""): "#00CC96",      # Verde
-                        label_map.get("MODERADO", ""): "#FFA15A",  # Naranja
-                        label_map.get("GRAVE", ""): "#EF553B",     # Rojo
-                        label_map.get("CRITICO", ""): "#B6E880"    # Lima
+                        label_map.get("LEVE", ""): "#00CC96",
+                        label_map.get("MODERADO", ""): "#FFA15A",
+                        label_map.get("GRAVE", ""): "#EF553B",
+                        label_map.get("CRITICO", ""): "#B6E880"
                     }
 
-                fig = px.bar(df_final, x=group_by, y='CONTEO', title=title,
-                             labels={group_by: "Nivel de Riesgo", 'CONTEO': 'Nº de Pacientes'},
-                             template="plotly_white",
-                             color=group_by if color_map else None,
-                             color_discrete_map=color_map)
+                fig = px.bar(
+                    df_final, 
+                    x=group_by, 
+                    y='CONTEO',
+                    title=title,
+                    labels={group_by: "Nivel de Riesgo", 'CONTEO': 'Nº de Pacientes'},
+                    template="plotly_white",
+                    color=group_by if color_map else None,
+                    color_discrete_map=color_map
+                )
                 
                 if group_by == "RIESGO_CG" or group_by in ["EDAD", "FG_CG"]:
                     fig.update_xaxes(categoryorder='array', categoryarray=df_final[group_by].tolist())
                 
                 return fig
+            
             return None
         except Exception:
             return None
 
     def aplicar_filtros(self, df, filtros):
         if not filtros: return df
-        df_f = df.copy()
+        df_f = df.copy() # Blindamos contra SettingWithCopy
         mask = pd.Series([True] * len(df_f), index=df_f.index)
         for f in filtros:
             col, op, val = f.get("col"), f.get("op"), f.get("val")
