@@ -59,17 +59,12 @@ class QueryGenerator:
             "hombre": ("SEXO", "HOMBRE"), "hombres": ("SEXO", "HOMBRE"),
             "mujer": ("SEXO", "MUJER"), "mujeres": ("SEXO", "MUJER"),
             "residencia": ("RESIDENCIA", "SI"), "no residencia": ("RESIDENCIA", "NO"),
-            # Riesgo LEVE
             "precaucion": ("RIESGO_CG", "LEVE"), "precaución": ("RIESGO_CG", "LEVE"), "leve": ("RIESGO_CG", "LEVE"),
-            # Riesgo MODERADO
             "ajuste de dosis": ("RIESGO_CG", "MODERADO"), "ajuste": ("RIESGO_CG", "MODERADO"), "moderado": ("RIESGO_CG", "MODERADO"),
-            # Riesgo GRAVE
             "toxicidad": ("RIESGO_CG", "GRAVE"), "riesgo de toxicidad": ("RIESGO_CG", "GRAVE"), "grave": ("RIESGO_CG", "GRAVE"),
-            # Riesgo CRITICO (Objetivo 1 reforzado)
             "contraindicado": ("RIESGO_CG", "CRITICO"), "contraindicados": ("RIESGO_CG", "CRITICO"),
             "critico": ("RIESGO_CG", "CRITICO"), "crítico": ("RIESGO_CG", "CRITICO"),
             "criticos": ("RIESGO_CG", "CRITICO"), "críticos": ("RIESGO_CG", "CRITICO"),
-            # Otros
             "nula": ("ACEPTACION_MAP", "NULA"), "parcial": ("ACEPTACION_MAP", "PARCIAL"), "total": ("ACEPTACION_MAP", "TOTAL")
         }
         
@@ -98,7 +93,9 @@ class QueryGenerator:
 
     def _extract_group_by(self, texto):
         """Detecta sobre qué columna agrupar."""
-        if "nivel de riesgo" in texto: return "RIESGO_CG"
+        # Cambio solicitado: Detección robusta de riesgo
+        if any(w in texto for w in ["riesgo", "nivel de riesgo"]): 
+            return "RIESGO_CG"
         
         match = re.search(r"(?:por|segun|por\s+el|por\s+la|distribucion\s+de|reparto\s+de|histograma\s+de|grafico\s+de)\s+([a-zA-Záéíóú]+)", texto)
         if match:
@@ -145,6 +142,7 @@ class QueryGenerator:
         chart_type = "kpi"
         if group_by or limit_val:
             chart_type = "bar"
+            # Cambio solicitado: 'porcentaje' activa gráfico tipo pie
             if any(w in texto for w in ["sectores", "quesito", "pie", "proporcion", "reparto", "porcentaje"]) or group_by in ["SEXO", "RESIDENCIA", "RIESGO_CG", "ADECUACION"]:
                 chart_type = "pie"
 
