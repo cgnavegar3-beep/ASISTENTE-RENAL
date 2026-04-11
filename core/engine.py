@@ -7,103 +7,113 @@ class ExecutionEngine:
         pass
 
     def ejecutar_analisis(self, df_filtrado, request):
+
         if df_filtrado is None or df_filtrado.empty:
             return "No se encontraron registros con esos criterios."
 
         df_proc = df_filtrado.copy()
+
         metric = request.get("metric", "conteo")
         variable = request.get("target_col", "ID_REGISTRO")
         group_by = request.get("group_by")
         limit = request.get("limit")
         label_map = request.get("label_map")
 
-        columnas_a_revisar = [variable]
-        if group_by: columnas_a_revisar.append(group_by)
-        
-        for col in columnas_a_revisar:
-            if col in df_proc.columns:
-                if any(x in col.upper() for x in ["FG", "EDAD", "FILTRADO"]):
+        for col in [variable, group_by]:
+            if col and col in df_proc.columns:
+                if any(x in col.upper() for x in ["FG", "EDAD"]):
                     df_proc[col] = pd.to_numeric(df_proc[col], errors='coerce')
-                if col == "RIESGO_CG" and label_map:
-                    df_proc[col] = df_proc[col].astype(str).str.strip().str.upper()
-                    l_map_clean = {str(k).upper(): v for k, v in label_map.items()}
-                    df_proc[col] = df_proc[col].replace(l_map_clean)
 
         if group_by in ["EDAD", "FG_CG"]:
             temp_df = df_proc.dropna(subset=[group_by]).copy()
-            if group_by == "EDAD":
-                bins = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150]
-                labels = ["0-10", "10-20", "20-30", "30-40", "40-50", "50-60", "60-70", "70-80", "80-90", "90-100", ">100"]
-                temp_df["RANGO"] = pd.cut(temp_df["EDAD"], bins=bins, labels=labels, right=False)
-            elif group_by == "FG_CG":
-                bins = [0, 15, 30, 45, 60, 300]
-                labels = ["0-15 (Fallo)", "15-30 (G4)", "30-45 (G3b)", "45-60 (G3a)", ">60 (Normal)"]
-                temp_df["RANGO"] = pd.cut(temp_df["FG_CG"], bins=bins, labels=labels, right=False)
 
-            resultado = temp_df.groupby("RANGO", observed=True).size().reset_index(name='CONTEO')
-            return resultado.rename(columns={"RANGO": group_by})
+            if group_by == "EDAD":
+                bins = [0,10,20,30,40,50,60,70,80,90,100,150]
+                labels = ["0-10","10-20","20-30","30-40","40-50",
+                          "50-60","60-70","70-80","80-90","90-100",">100"]
+                temp_df["RANGO"] = pd.cut(temp_df["EDAD"], bins=bins, labels=labels)
+
+            else:
+                bins = [0,15,30,45,60,300]
+                labels = ["0-15","15-30","30-45","45-60",">60"]
+                temp_df["RANGO"] = pd.cut(temp_df["FG_CG"], bins=bins, labels=labels)
+
+            return temp_df.groupby("RANGO").size().reset_index(name="CONTEO")
 
         if group_by:
-            resultado = df_proc.groupby(group_by).size().reset_index(name='CONTEO')
-            if group_by == "RIESGO_CG" and label_map:
-                orden_clinico = [v for v in label_map.values() if v in resultado[group_by].values]
-                resultado[group_by] = pd.Categorical(resultado[group_by], categories=orden_clinico, ordered=True)
-                resultado = resultado.sort_values(by=group_by)
-            else:
-                resultado = resultado.sort_values(by='CONTEO', ascending=False)
-            
-            if limit: resultado = resultado.head(int(limit))
+            resultado = df_proc.groupby(group_by).size().reset_index(name="CONTEO")
+
+            if limit:
+                resultado = resultado.head(int(limit))
+
             return resultado
 
         if metric == "media":
-            series_num = pd.to_numeric(df_proc[variable], errors='coerce')
-            val_media = series_num.mean()
-            return round(val_media, 2) if not np.isnan(val_media) else 0
-        
-        # Ajuste para que % no rompa el flujo de datos
-        elif metric == "porcentaje":
-            return int(len(df_proc))
-        else:
-            return int(df_proc[variable].nunique()) if variable in df_proc.columns else int(len(df_proc))
+            return round(pd.to_numeric(df_proc[variable], errors='coerce').mean(), 2)
+
+        # 🔥 porcentaje eliminado como KPI (se usa solo visual)
+        return int(df_proc[variable].nunique())
 
     def generar_grafico(self, df_final, query_json):
+
         if not isinstance(df_final, pd.DataFrame) or df_final.empty:
             return None
 
-        bloque_request = query_json.get("request", {})
-        tipo_grafico = bloque_request.get("chart_type", "bar")
-        group_by = bloque_request.get("group_by")
-        
-        if not group_by: return None
+        req = query_json.get("request", {})
+        chart_type = req.get("chart_type", "bar")
+        group_by = req.get("group_by")
+        label_map = req.get("label_map")
 
-        try:
-            title = f"Distribución de {group_by}"
-            if tipo_grafico == "pie":
-                return px.pie(df_final, values='CONTEO', names=group_by, title=title,
-                              color_discrete_sequence=px.colors.qualitative.Safe)
+        if not group_by:
+            return None
 
-            elif tipo_grafico == "bar":
-                return px.bar(df_final, x=group_by, y='CONTEO', title=title, template="plotly_white")
-            return None
-        except Exception:
-            return None
+        title = f"Distribución por {group_by}"
+
+        if chart_type == "pie":
+            return px.pie(
+                df_final,
+                values="CONTEO",
+                names=group_by,
+                title=title
+            )
+
+        return px.bar(
+            df_final,
+            x=group_by,
+            y="CONTEO",
+            title=title
+        )
 
     def aplicar_filtros(self, df, filtros):
-        if not filtros: return df
+
+        if not filtros:
+            return df
+
         df_f = df.copy()
         mask = pd.Series([True] * len(df_f), index=df_f.index)
+
         for f in filtros:
             col, op, val = f.get("col"), f.get("op"), f.get("val")
-            if col not in df_f.columns: continue
+
+            if col not in df_f.columns:
+                continue
+
             if any(x in col.upper() for x in ["FG", "EDAD"]):
                 df_f[col] = pd.to_numeric(df_f[col], errors='coerce')
-                val_num = float(val)
-                if op == ">": mask &= df_f[col] > val_num
-                elif op == "<": mask &= df_f[col] < val_num
-                elif op == "==": mask &= df_f[col] == val_num
+                val = float(val)
+
+                if op == "<":
+                    mask &= df_f[col] < val
+                elif op == ">":
+                    mask &= df_f[col] > val
+                elif op == "==":
+                    mask &= df_f[col] == val
+
             else:
-                series = df_f[col].astype(str).str.upper().str.strip()
-                val_str = str(val).upper().strip()
-                if op == "contiene": mask &= series.str.contains(val_str, na=False, regex=False)
-                elif op == "==": mask &= series == val_str
+                series = df_f[col].astype(str).str.upper()
+                if op == "contiene":
+                    mask &= series.str.contains(str(val).upper(), na=False)
+                elif op == "==":
+                    mask &= series == str(val).upper()
+
         return df_f[mask]
