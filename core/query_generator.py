@@ -98,6 +98,8 @@ class QueryGenerator:
 
     def _extract_group_by(self, texto):
         """Detecta sobre qué columna agrupar."""
+        if "nivel de riesgo" in texto: return "RIESGO_CG"
+        
         match = re.search(r"(?:por|segun|por\s+el|por\s+la|distribucion\s+de|reparto\s+de|histograma\s+de|grafico\s+de)\s+([a-zA-Záéíóú]+)", texto)
         if match:
             palabra = match.group(1)
@@ -143,7 +145,7 @@ class QueryGenerator:
         chart_type = "kpi"
         if group_by or limit_val:
             chart_type = "bar"
-            if any(w in texto for w in ["sectores", "quesito", "pie", "proporcion", "reparto"]) or group_by in ["SEXO", "RESIDENCIA", "RIESGO_CG", "ADECUACION"]:
+            if any(w in texto for w in ["sectores", "quesito", "pie", "proporcion", "reparto", "porcentaje"]) or group_by in ["SEXO", "RESIDENCIA", "RIESGO_CG", "ADECUACION"]:
                 chart_type = "pie"
 
         # --- ETIQUETAS CLÍNICAS (Objetivo 5) ---
