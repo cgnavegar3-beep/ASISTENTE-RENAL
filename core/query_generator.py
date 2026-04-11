@@ -38,6 +38,7 @@ class QueryGenerator:
             texto = re.sub(patron, simbolo, texto)
         return texto
 
+    # --- EXTRACCIÓN DE FILTROS REFORZADA ---
     def _extract_all_filters(self, texto, source):
         filters = []
         t_clean = " " + texto.lower() + " "
@@ -79,8 +80,9 @@ class QueryGenerator:
             filters.append({"col": "CENTRO", "op": "contiene", "val": val_centro})
             t_clean = t_clean.replace(centro_match.group(0), " ")
 
-        # 4. Filtro de MEDICAMENTO
+        # 4. Filtro de MEDICAMENTO (Reforzado con Stopwords de ruido)
         if source == "Medicamentos" and not any(w in t_clean for w in ["top", "ranking", "mas frecuentes", "distribucion", "reparto"]):
+            # STOPWORDS: Evitamos que palabras de control se filtren como medicamentos
             stopwords = ["cuantos", "pacientes", "toman", "tienen", "del", "en", "el", "la", "centro", "media", "edad", "sexo", "que", "hay", "con", "medicamentos", "medicamento", "riesgo", "necesitan", "precisan", "requieren", "estan", "nivel", "categoria", "tipo", "grafico", "gráfico"]
             palabras = t_clean.split()
             for p in palabras:
@@ -91,7 +93,10 @@ class QueryGenerator:
         return filters
 
     def _extract_group_by(self, texto):
+        """Detecta sobre qué columna agrupar eliminando ruido de 'nivel de'."""
+        # Limpieza previa para que "nivel de riesgo" sea detectado como "riesgo"
         t_tmp = re.sub(r"\b(nivel|categoria|clase|tipo)\s+de\b", "", texto)
+        
         match = re.search(r"(?:por|segun|por\s+el|por\s+la|distribucion\s+de|reparto\s+de|histograma\s+de|grafico\s+de)\s+([a-zA-Záéíóú]+)", t_tmp)
         if match:
             palabra = match.group(1)
@@ -121,6 +126,7 @@ class QueryGenerator:
         limit_val = int(limit_match.group(1)) if limit_match else None
         
         variable = "ID_REGISTRO"
+        
         filters = [f for f in filters if f["col"] != group_by]
         
         if source == "Medicamentos":
@@ -139,18 +145,20 @@ class QueryGenerator:
             if any(w in texto for w in ["sectores", "quesito", "pie", "proporcion", "reparto"]) or group_by in ["SEXO", "RESIDENCIA", "RIESGO_CG", "ADECUACION"]:
                 chart_type = "pie"
 
-        # EVOLUCIÓN: Etiquetas en español con descripción clínica
         label_map = None
         if group_by == "RIESGO_CG":
             label_map = {
-                "LEVE": "Leve (Precaución)",
-                "MODERADO": "Moderado (Ajuste de dosis)",
-                "GRAVE": "Grave (Riesgo de toxicidad)",
-                "CRITICO": "Crítico (Contraindicado)"
+                "LEVE": "LEVE (Precaución)",
+                "MODERADO": "MODERADO (Ajuste de dosis)",
+                "GRAVE": "GRAVE (Riesgo de toxicidad)",
+                "CRITICO": "CRITICO (Contraindicado)"
             }
 
         return {
-            "metadata": {"source": source, "intent": "visual" if chart_type != "kpi" else "kpi"},
+            "metadata": {
+                "source": source,
+                "intent": "visual" if chart_type != "kpi" else "kpi"
+            },
             "request": {
                 "metric": operation,
                 "target_col": variable,
