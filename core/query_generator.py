@@ -38,7 +38,6 @@ class QueryGenerator:
             texto = re.sub(patron, simbolo, texto)
         return texto
 
-    # --- EXTRACCIÓN DE FILTROS REFORZADA ---
     def _extract_all_filters(self, texto, source):
         filters = []
         t_clean = " " + texto.lower() + " "
@@ -54,7 +53,7 @@ class QueryGenerator:
                 filters.append({"col": col_real, "op": op, "val": float(m.group(2))})
                 t_clean = t_clean.replace(m.group(0), " ")
 
-        # 2. FILTROS CATEGÓRICOS REFORZADOS (Objetivo 1 y 3)
+        # 2. FILTROS CATEGÓRICOS REFORZADOS
         mapeo_categorias = {
             "hombre": ("SEXO", "HOMBRE"), "hombres": ("SEXO", "HOMBRE"),
             "mujer": ("SEXO", "MUJER"), "mujeres": ("SEXO", "MUJER"),
@@ -92,19 +91,18 @@ class QueryGenerator:
         return filters
 
     def _extract_group_by(self, texto):
-        """Detecta sobre qué columna agrupar."""
-        # Cambio solicitado: Detección robusta de riesgo
-        if any(w in texto for w in ["riesgo", "nivel de riesgo"]): 
-            return "RIESGO_CG"
+        """Detecta sobre qué columna agrupar (reforzado para niveles/sectores)."""
+        # Limpieza de términos de ruido para no bloquear la detección de la columna real
+        t_tmp = re.sub(r"\b(nivel|categoria|clase|tipo)\s+de\b", "", texto)
         
-        match = re.search(r"(?:por|segun|por\s+el|por\s+la|distribucion\s+de|reparto\s+de|histograma\s+de|grafico\s+de)\s+([a-zA-Záéíóú]+)", texto)
+        match = re.search(r"(?:por|segun|por\s+el|por\s+la|distribucion\s+de|reparto\s+de|histograma\s+de|grafico\s+de)\s+([a-zA-Záéíóú]+)", t_tmp)
         if match:
-            palabra = match.group(1)
+            palabra = match.group(1).strip()
             if palabra in self.sinonimos: return self.sinonimos[palabra]
             if "medicamento" in palabra: return "MEDICAMENTO"
             if "riesgo" in palabra: return "RIESGO_CG"
 
-        if any(w in texto for w in ["grafico", "gráfico", "visualizar", "barras", "reparto", "distribucion", "histograma", "sectores"]):
+        if any(w in texto for w in ["grafico", "gráfico", "visualizar", "barras", "reparto", "distribucion", "histograma", "sectores", "quesito"]):
             for palabra in ["edad", "sexo", "centro", "residencia", "medicamento", "medicamentos", "riesgo", "fg", "filtrado"]:
                 if palabra in texto:
                     if "medicamento" in palabra: return "MEDICAMENTO"
@@ -142,11 +140,12 @@ class QueryGenerator:
         chart_type = "kpi"
         if group_by or limit_val:
             chart_type = "bar"
-            # Cambio solicitado: 'porcentaje' activa gráfico tipo pie
-            if any(w in texto for w in ["sectores", "quesito", "pie", "proporcion", "reparto", "porcentaje"]) or group_by in ["SEXO", "RESIDENCIA", "RIESGO_CG", "ADECUACION"]:
+            # Prioridad a 'sectores' y sinónimos para forzar gráfico circular
+            if any(w in texto for w in ["sectores", "quesito", "pie", "proporcion", "reparto"]):
+                chart_type = "pie"
+            elif group_by in ["SEXO", "RESIDENCIA", "RIESGO_CG", "ADECUACION"]:
                 chart_type = "pie"
 
-        # --- ETIQUETAS CLÍNICAS (Objetivo 5) ---
         label_map = None
         if group_by == "RIESGO_CG":
             label_map = {
