@@ -1,4 +1,4 @@
-# --- ACTUALIZACIÓN EVOLUCIONADA 29 MAR 13:20 ---
+# --- ACTUALIZACIÓN EVOLUCIONADA 29 MAR 13:20 (CORREGIDA) ---
 # INTEGRACIÓN DE ORQUESTADOR IA EN CONSULTA DINÁMICA
 
 import streamlit as st
@@ -654,7 +654,7 @@ with tabs[4]:
                     filtro["val"] = f_c3.number_input(f"Valor {i+1}", key=f"f_val_num_{fid}", value=f_val_num)
                 else:
                     opciones_unicas = sorted([str(x) for x in df_pool[filtro["col"]].unique() if x])
-                    filtro["val"] = f_c3.multiselect(f"Valores {i+1}", opciones_unicas, key=f_val_multi_{fid}", default=filtro["val"] if isinstance(filtro["val"], list) else [])
+                    filtro["val"] = f_c3.multiselect(f"Valores {i+1}", opciones_unicas, key=f"f_val_multi_{fid}", default=filtro["val"] if isinstance(filtro["val"], list) else [])
 
         mask = pd.Series(True, index=df_pool.index)
         for f in st.session_state.filtros_dinamicos:
