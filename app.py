@@ -801,7 +801,7 @@ with tabs[4]:
         # CONTENEDOR CHAT / CONSULTAS RÁPIDAS
         with st.container(border=True):
             st.markdown("#### 🤖 Consultas Rápidas")
-            query_text = st.text_input("Haz una pregunta sobre los datos:", placeholder="Ej: Top 5 medicamentos, ¿Cuántos pacientes edad < a... y FG < a... hay?, gráfico pacientes por centro, histograma FG,¿Cuántos pacientes del centro X tienen metformina?")
+            query_text = st.text_input("Haz una pregunta sobre los datos:", placeholder="Ej: Top 5 medicamentos, Histograma FG,  gráfico pacientes por centro, ¿Cuántos pacientes ...?")
             if query_text:
                 with st.spinner("IA analizando datos..."):
                     query_json, frase, figura = st.session_state.orq.procesar_pregunta(
