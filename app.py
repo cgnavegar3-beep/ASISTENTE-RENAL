@@ -58,35 +58,100 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
 # ============================================================
-# ANIMACIÓN DE INAUGURACIÓN (SOLO LA PRIMERA VEZ)
+# ANIMACIÓN DE INAUGURACIÓN (SOLO PRIMERA VEZ)
 # ============================================================
 import time
+import streamlit.components.v1 as components
 
 if "inauguracion" not in st.session_state:
     st.session_state.inauguracion = True
 
-    placeholder = st.empty()
+    components.html(
+        """
+        <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+        #cinta {
+            position: fixed;
+            top: 40%;
+            left: 0;
+            width: 100%;
+            height: 40px;
+            background: red;
+            z-index: 9998;
+        }
+        #tijeras {
+            position: fixed;
+            font-size: 60px;
+            z-index: 9999;
+            pointer-events: none;
+            transition: transform 0.05s linear;
+        }
+        .confeti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            background: hsl(var(--hue), 90%, 60%);
+            top: -10px;
+            animation: caer 2s linear forwards;
+            z-index: 10000;
+        }
+        @keyframes caer {
+            to {
+                transform: translateY(120vh) rotate(720deg);
+            }
+        }
+        </style>
 
-    # 1) Cinta
-    placeholder.markdown("<h1 style='text-align:center;'>🎀</h1>", unsafe_allow_html=True)
-    time.sleep(0.8)
+        <div id="cinta"></div>
+        <div id="tijeras">✂️</div>
 
-    # 2) Tijeras acercándose
-    placeholder.markdown("<h1 style='text-align:center;'>✂️ 🎀</h1>", unsafe_allow_html=True)
-    time.sleep(0.8)
+        <script>
+        const tijeras = document.getElementById("tijeras");
+        const cinta = document.getElementById("cinta");
+        let cortado = false;
 
-    # 3) Corte
-    placeholder.markdown("<h1 style='text-align:center;'>✂️ ✂️</h1>", unsafe_allow_html=True)
-    time.sleep(0.6)
+        document.addEventListener("mousemove", (e) => {
+            tijeras.style.left = e.clientX - 20 + "px";
+            tijeras.style.top = e.clientY - 20 + "px";
 
-    # 4) Confeti
-    placeholder.markdown("<h1 style='text-align:center;'>🎉🎉🎉</h1>", unsafe_allow_html=True)
-    time.sleep(1)
+            const tRect = tijeras.getBoundingClientRect();
+            const cRect = cinta.getBoundingClientRect();
 
-    # 5) Limpiar animación
-    placeholder.empty()
+            if (!cortado &&
+                tRect.left < cRect.right &&
+                tRect.right > cRect.left &&
+                tRect.top < cRect.bottom &&
+                tRect.bottom > cRect.top) {
+
+                cortado = true;
+                cinta.style.display = "none";
+
+                // CONFETI
+                for (let i = 0; i < 200; i++) {
+                    let c = document.createElement("div");
+                    c.classList.add("confeti");
+                    c.style.left = Math.random() * 100 + "vw";
+                    c.style.setProperty("--hue", Math.random() * 360);
+                    document.body.appendChild(c);
+                    setTimeout(() => c.remove(), 2000);
+                }
+
+                // Desaparecer tijeras después
+                setTimeout(() => {
+                    tijeras.style.display = "none";
+                }, 1500);
+            }
+        });
+        </script>
+        """,
+        height=500,
+    )
 # ============================================================
 
+# --- INICIALIZACIÓN ---
 # --- INICIALIZACIÓN ---
 if "active_model" not in st.session_state:
     st.session_state.active_model = "BUSCANDO..."
