@@ -792,23 +792,22 @@ with tabs[4]:
                 r_key = hashlib.md5(f"{rk_dim}_{rk_met}_{rk_top}".encode()).hexdigest()[:8]
                 ejecutar_ranking_v29(df_filtered_query, rk_dim, rk_met, rk_top, r_key)
 
-        # ZONA DE SEPARACIÓN VISUAL
-        st.markdown("<br><hr style='border: 4px double #4A90E2;'><br>", unsafe_allow_html=True)
-        
-        with st.expander("📄 Ver Datos Crutos de la Cohorte"):
-            st.dataframe(df_filtered_query, use_container_width=True)
-
         # CONTENEDOR CHAT / CONSULTAS RÁPIDAS
         with st.container(border=True):
             st.markdown("#### 🤖 Consultas Rápidas")
-            query_text = st.text_input("Haz una pregunta sobre los datos:", placeholder="Ej: Top 5 medicamentos, Histograma FG,  gráfico pacientes por centro, ¿Cuántos pacientes ...?")
+            query_text = st.text_input(
+                "Haz una pregunta sobre los datos:",
+                placeholder="Ej: Top 5 medicamentos, Histograma FG, gráfico pacientes por centro, ¿Cuántos pacientes ...?"
+            )
+
             if query_text:
                 with st.spinner("IA analizando datos..."):
                     query_json, frase, figura = st.session_state.orq.procesar_pregunta(
                         query_text,
                         df_pool
                     )
-                   st.markdown(f"### Resultado: **{frase}**")
+
+                st.markdown(f"### Resultado: **{frase}**")
 
                 if figura is not None:
                     st.plotly_chart(figura, use_container_width=True)
@@ -817,8 +816,14 @@ with tabs[4]:
                     with st.expander("Detalles técnicos (JSON)", expanded=False):
                         st.json(query_json)
 
-        else:
-            st.info("No hay datos sincronizados para realizar consultas dinámicas.")
+    else:
+        st.info("No hay datos sincronizados para realizar consultas dinámicas.")
 
-    st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un soporte de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
-    st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 29 mar 2026 13:20</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un soporte de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>',
+        unsafe_allow_html=True
+    )
+    st.markdown(
+        f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 29 mar 2026 13:20</div>',
+        unsafe_allow_html=True
+    )
