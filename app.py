@@ -798,7 +798,7 @@ with tabs[4]:
         with st.expander("📄 Ver Datos Crutos de la Cohorte"):
             st.dataframe(df_filtered_query, use_container_width=True)
 
-        # CONTENEDOR CHAT / CONSULTAS RÁPIDAS
+         # CONTENEDOR CHAT / CONSULTAS RÁPIDAS
         with st.container(border=True):
             st.markdown("#### 🤖 Consultas Rápidas")
             query_text = st.text_input("Haz una pregunta sobre los datos:", placeholder="Ej: Top 5 medicamentos, Histograma FG,  gráfico pacientes por centro, ¿Cuántos pacientes ...?")
@@ -809,15 +809,15 @@ with tabs[4]:
                         df_pool
                     )
 
-                # SOLO MOSTRAR EL RESULTADO PRINCIPAL
-                st.markdown(f"### Resultado: **{frase}**")
+                # MOSTRAR SOLO EL RESULTADO (SIN 'Resultado:')
+                st.markdown(f"### **{frase}**")
 
                 if figura is not None:
                     st.plotly_chart(figura, use_container_width=True)
 
-                # JSON OCULTO POR DEFECTO, PERO CON LA MISMA PESTAÑA
+                # EXPANDER SIN TEXTO (SOLO EL TRIANGULITO)
                 if query_json is not None:
-                    with st.expander("Detalles técnicos (JSON)", expanded=False):
+                    with st.expander("", expanded=False):
                         st.json(query_json)
 
     else:
