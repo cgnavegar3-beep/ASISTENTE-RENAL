@@ -58,9 +58,8 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
 # ============================================================
-# ANIMACIÓN DE INAUGURACIÓN (SOLO PRIMERA VEZ)
+# ANIMACIÓN DE INAUGURACIÓN PRO (SOLO PRIMERA VEZ)
 # ============================================================
-import time
 import streamlit.components.v1 as components
 
 if "inauguracion" not in st.session_state:
@@ -73,31 +72,46 @@ if "inauguracion" not in st.session_state:
             margin: 0;
             overflow: hidden;
         }
-        #cinta {
+
+        #cinta-left, #cinta-right {
             position: fixed;
             top: 40%;
-            left: 0;
-            width: 100%;
+            width: 50%;
             height: 40px;
-            background: red;
+            background: linear-gradient(90deg, #b30000, #ff0000);
             z-index: 9998;
+            transition: transform 0.8s ease-out, opacity 1s ease-out;
         }
+
+        #cinta-left {
+            left: 0;
+            border-right: 4px solid gold;
+        }
+
+        #cinta-right {
+            right: 0;
+            border-left: 4px solid gold;
+        }
+
         #tijeras {
             position: fixed;
-            font-size: 60px;
-            z-index: 9999;
+            font-size: 70px;
+            z-index: 10000;
             pointer-events: none;
             transition: transform 0.05s linear;
         }
+
         .confeti {
             position: fixed;
-            width: 10px;
-            height: 10px;
+            width: 12px;
+            height: 12px;
             background: hsl(var(--hue), 90%, 60%);
-            top: -10px;
-            animation: caer 2s linear forwards;
-            z-index: 10000;
+            top: -20px;
+            border-radius: 2px;
+            animation: caer 2.5s linear forwards;
+            z-index: 10001;
         }
+
         @keyframes caer {
             to {
                 transform: translateY(120vh) rotate(720deg);
@@ -105,53 +119,68 @@ if "inauguracion" not in st.session_state:
         }
         </style>
 
-        <div id="cinta"></div>
+        <div id="cinta-left"></div>
+        <div id="cinta-right"></div>
         <div id="tijeras">✂️</div>
 
         <script>
         const tijeras = document.getElementById("tijeras");
-        const cinta = document.getElementById("cinta");
+        const left = document.getElementById("cinta-left");
+        const right = document.getElementById("cinta-right");
+
         let cortado = false;
 
         document.addEventListener("mousemove", (e) => {
-            tijeras.style.left = e.clientX - 20 + "px";
-            tijeras.style.top = e.clientY - 20 + "px";
+            tijeras.style.left = (e.clientX - 30) + "px";
+            tijeras.style.top = (e.clientY - 30) + "px";
 
             const tRect = tijeras.getBoundingClientRect();
-            const cRect = cinta.getBoundingClientRect();
+            const lRect = left.getBoundingClientRect();
+            const rRect = right.getBoundingClientRect();
 
             if (!cortado &&
-                tRect.left < cRect.right &&
-                tRect.right > cRect.left &&
-                tRect.top < cRect.bottom &&
-                tRect.bottom > cRect.top) {
+                tRect.top < lRect.bottom &&
+                tRect.bottom > lRect.top &&
+                tRect.left < rRect.right &&
+                tRect.right > lRect.left) {
 
                 cortado = true;
-                cinta.style.display = "none";
 
-                // CONFETI
-                for (let i = 0; i < 200; i++) {
+                // Animación de ruptura
+                left.style.transform = "translateX(-120%) rotate(-10deg)";
+                right.style.transform = "translateX(120%) rotate(10deg)";
+                left.style.opacity = "0";
+                right.style.opacity = "0";
+
+                // Confeti
+                for (let i = 0; i < 250; i++) {
                     let c = document.createElement("div");
                     c.classList.add("confeti");
                     c.style.left = Math.random() * 100 + "vw";
                     c.style.setProperty("--hue", Math.random() * 360);
                     document.body.appendChild(c);
-                    setTimeout(() => c.remove(), 2000);
+                    setTimeout(() => c.remove(), 2500);
                 }
 
-                // Desaparecer tijeras después
+                // Desaparecer tijeras
                 setTimeout(() => {
-                    tijeras.style.display = "none";
-                }, 1500);
+                    tijeras.style.opacity = "0";
+                }, 800);
+
+                // Limpiar todo
+                setTimeout(() => {
+                    left.remove();
+                    right.remove();
+                    tijeras.remove();
+                }, 2000);
             }
         });
         </script>
         """,
-        height=500,
+        height=600,
     )
 # ============================================================
 
-# --- INICIALIZACIÓN ---
 # --- INICIALIZACIÓN ---
 if "active_model" not in st.session_state:
     st.session_state.active_model = "BUSCANDO..."
