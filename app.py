@@ -57,6 +57,36 @@ import plotly.graph_objects as go
 
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
+# ============================================================
+# ANIMACIÓN DE INAUGURACIÓN (SOLO LA PRIMERA VEZ)
+# ============================================================
+import time
+
+if "inauguracion" not in st.session_state:
+    st.session_state.inauguracion = True
+
+    placeholder = st.empty()
+
+    # 1) Cinta
+    placeholder.markdown("<h1 style='text-align:center;'>🎀</h1>", unsafe_allow_html=True)
+    time.sleep(0.8)
+
+    # 2) Tijeras acercándose
+    placeholder.markdown("<h1 style='text-align:center;'>✂️ 🎀</h1>", unsafe_allow_html=True)
+    time.sleep(0.8)
+
+    # 3) Corte
+    placeholder.markdown("<h1 style='text-align:center;'>✂️ ✂️</h1>", unsafe_allow_html=True)
+    time.sleep(0.6)
+
+    # 4) Confeti
+    placeholder.markdown("<h1 style='text-align:center;'>🎉🎉🎉</h1>", unsafe_allow_html=True)
+    time.sleep(1)
+
+    # 5) Limpiar animación
+    placeholder.empty()
+# ============================================================
+
 # --- INICIALIZACIÓN ---
 if "active_model" not in st.session_state:
     st.session_state.active_model = "BUSCANDO..."
@@ -825,3 +855,7 @@ with tabs[4]:
 
 st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un soporte de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
 st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 29 mar 2026 13:20</div>', unsafe_allow_html=True)
+
+
+
+
