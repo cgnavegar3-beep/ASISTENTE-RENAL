@@ -808,10 +808,13 @@ with tabs[4]:
                         query_text,
                         df_pool
                     )
-                    st.write(frase)
-                    if figura is not None:
-                        st.plotly_chart(figura, use_container_width=True)
-                    if query_json is not None:
+                   st.markdown(f"### Resultado: **{frase}**")
+
+                if figura is not None:
+                    st.plotly_chart(figura, use_container_width=True)
+
+                if query_json is not None:
+                    with st.expander("Detalles técnicos (JSON)", expanded=False):
                         st.json(query_json)
 
     else:
