@@ -645,7 +645,7 @@ with tabs[4]:
     if not df_pool.empty:
         # CONTENEDOR BLOQUE B (INTERCAMBIADO)
         with st.container(border=True):
-            st.markdown("#### 🎯 Bloque B- Variable a analizar: <span style='font-size: 0.8em; color: gray;'>¿Qué quiero medir?</span>", unsafe_allow_html=True)
+            st.markdown("#### 🎯 1- Variable a analizar: <span style='font-size: 0.8em; color: gray;'>¿Qué quiero medir?</span>", unsafe_allow_html=True)
             b_col1, b_col2, b_col3 = st.columns(3)
             var_analisis = b_col1.selectbox("Variable", ["-- seleccionar --"] + list(df_pool.columns), key="query_var")
             operacion = b_col2.selectbox("Operación", ["-- seleccionar --", "Conteo (Total)", "Conteo Único (Pacientes)", "Suma", "Promedio", "Mínimo", "Máximo"])
@@ -653,7 +653,7 @@ with tabs[4]:
             
         # CONTENEDOR BLOQUE A (INTERCAMBIADO)
         with st.container(border=True):
-            st.markdown("#### 🔍 Bloque A – Configurar Cohorte: <span style='font-size: 0.8em; color: gray;'>Condiciones o filtros de lo que quiero medir.</span>", unsafe_allow_html=True)
+            st.markdown("#### 🔍 2- Configurar Cohorte: <span style='font-size: 0.8em; color: gray;'>Condiciones o filtros de lo que quiero medir.</span>", unsafe_allow_html=True)
             col_a1, col_a2 = st.columns([1, 1])
             if col_a1.button("➕ Añadir Filtro"):
                 st.session_state.filtros_dinamicos.append({"id": str(uuid.uuid4()), "col": df_pool.columns[0], "op": "== (IGUAL)", "val": ""})
@@ -728,7 +728,7 @@ with tabs[4]:
                         elif operacion == "Suma": df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').sum()).reset_index()
                         elif operacion == "Promedio": df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').mean()).reset_index()
                         df_res.columns = [agrupar_por, f"{operacion}_{var_analisis}"]
-                        st.markdown("#### 📊 Bloque C-Visualización", unsafe_allow_html=True)
+                        st.markdown("#### 📊 Visualización", unsafe_allow_html=True)
                         formato_salida = st.radio("Formato:", ["KPI", "LISTAR", "TABLA", "BARRAS H", "BARRAS V", "SECTORES", "HISTOGRAMA"], horizontal=True)
                         if formato_salida == "KPI":
                             st.metric("Registros en Cohorte", len(df_filtered_query))
@@ -782,7 +782,7 @@ with tabs[4]:
         
         # CONTENEDOR BLOQUE D
         with st.container(border=True):
-            st.markdown("#### 🏆 Bloque D - Ranking Estratégico: <span style='font-size: 0.8em; color: gray;'>Comparativas de prevalencia.</span>", unsafe_allow_html=True)
+            st.markdown("#### 🏆  Ranking / top: <span style='font-size: 0.8em; color: gray;'>Comparativas de prevalencia.</span>", unsafe_allow_html=True)
             rk_c1, rk_c2, rk_c3 = st.columns(3)
             rk_dim = rk_c1.selectbox("Elemento a Rankear", ["-- seleccionar --", "MEDICAMENTO", "CENTRO", "RESIDENCIA", "SEXO"], key="rk_dim")
             rk_met = rk_c2.selectbox("Métrica de Orden", ["-- seleccionar --", "Conteo (Total)", "Conteo Único (Pacientes)", "Nº_TOT_AFEC_CG", "Nº_AJUSTE_DOS_CG", "Nº_CONTRAIND_CG"], key="rk_met")
