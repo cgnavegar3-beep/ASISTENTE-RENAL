@@ -617,24 +617,17 @@ with tabs[3]:
                         st.plotly_chart(fig_top, use_container_width=True)
 
 with tabs[4]:
-    st.markdown("### 🔍 Consulta Dinámica Renal")
-    
-    # CSS para los cambios visuales solicitados
     st.markdown("""
         <style>
-        div[data-testid="stVerticalBlock"] > div[style*="border"] {
-            border-color: #4A90E2 !important;
-        }
-        .custom-separator {
-            border: 0;
-            height: 3px;
-            background: #E0E0E0;
-            margin: 25px 0;
-            border-radius: 2px;
+        [data-testid="stVerticalBlockBorderWrapper"] {
+            border: 2px solid #4A90E2 !important;
+            border-radius: 8px !important;
+            padding: 10px !important;
         }
         </style>
         """, unsafe_allow_html=True)
-
+    st.markdown("### 🔍 Consulta Dinámica Renal")
+    
     # EVOLUCIÓN: POOL DE DATOS Y FILTROS SIEMPRE VISIBLES
     tipo_origen = st.radio(
         "Seleccionar origen de datos:",
@@ -798,8 +791,8 @@ with tabs[4]:
                 r_key = hashlib.md5(f"{rk_dim}_{rk_met}_{rk_top}".encode()).hexdigest()[:8]
                 ejecutar_ranking_v29(df_filtered_query, rk_dim, rk_met, rk_top, r_key)
 
-        # ZONA DE SEPARACIÓN VISUAL (MODIFICADO: LÍNEA MÁS GRUESA Y COLOR SUAVE)
-        st.markdown('<div class="custom-separator"></div>', unsafe_allow_html=True)
+        # ZONA DE SEPARACIÓN VISUAL
+        st.markdown("<br><hr style='border: 4px double #4A90E2;'><br>", unsafe_allow_html=True)
         
         with st.expander("📄 Ver Datos Crutos de la Cohorte"):
             st.dataframe(df_filtered_query, use_container_width=True)
