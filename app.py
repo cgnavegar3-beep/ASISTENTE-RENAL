@@ -1,29 +1,34 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.express as px
 import google.generativeai as genai
 import unicodedata
 import re
 import json
 import hashlib
+import random
 import uuid
 import io
-import random
 from datetime import datetime
 
-# --- CONFIGURACIÓN INICIAL ---
-st.set_page_config(page_title="Asistente Renal v.29", layout="wide")
-
-if "active_model" not in st.session_state: st.session_state.active_model = "ESPERANDO..."
+# --- CONFIGURACIÓN Y ESTADO INICIAL (Preservado) ---
+if "active_model" not in st.session_state: st.session_state.active_model = "Desconocido"
 if "df_val" not in st.session_state: st.session_state.df_val = pd.DataFrame()
 if "df_meds" not in st.session_state: st.session_state.df_meds = pd.DataFrame()
 if "df_sync_val" not in st.session_state: st.session_state.df_sync_val = pd.DataFrame()
 if "df_sync_meds" not in st.session_state: st.session_state.df_sync_meds = pd.DataFrame()
 if "df_sync_analisis" not in st.session_state: st.session_state.df_sync_analisis = pd.DataFrame()
-if "filtros_dinamicos" not in st.session_state: st.session_state.filtros_dinamicos = []
 if "analisis_realizado" not in st.session_state: st.session_state.analisis_realizado = False
 if "resp_ia" not in st.session_state: st.session_state.resp_ia = None
 if "ultima_huella" not in st.session_state: st.session_state.ultima_huella = ""
+if "filtros_dinamicos" not in st.session_state: st.session_state.filtros_dinamicos = []
+if "soip_s" not in st.session_state: st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
+if "soip_o" not in st.session_state: st.session_state.soip_o = ""
+if "soip_i" not in st.session_state: st.session_state.soip_i = ""
+if "soip_p" not in st.session_state: st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
+if "ic_inter" not in st.session_state: st.session_state.ic_inter = ""
+if "ic_clinica" not in st.session_state: st.session_state.ic_clinica = ""
 
 # --- FUNCIONES NÚCLEO ---
 def llamar_ia_en_cascada(prompt):
@@ -79,6 +84,7 @@ def reset_meds():
 def limpiar_filtros_dinamicos():
     st.session_state.filtros_dinamicos = []
 
+# --- EVOLUCIÓN: MOTOR DE RANKING UNIVERSAL ---
 def ejecutar_ranking_v29(df, dim, met, top_n, unique_key):
     try:
         df_rank = df.copy()
@@ -127,16 +133,17 @@ def inject_styles():
     .linea-discreta-soip { border-top: 1px solid #d9d5c7; margin: 15px 0 5px 0; font-size: 0.65rem; font-weight: bold; color: #8e8a7e; text-transform: uppercase; }
     .formula-label { font-size: 0.6rem; color: #666; font-family: monospace; text-align: right; margin-top: 5px; }
     .fg-special-border { border: 1.5px solid #9d00ff !important; border-radius: 5px; }
-    
-    /* ESTILOS EVOLUCIÓN CONSULTA DINÁMICA */
-    .card-variable { border: 2px solid #63b3ed; padding: 20px; border-radius: 15px; box-shadow: 2px 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; background-color: white; }
-    .card-filtros { border: 2px solid #b794f4; padding: 20px; border-radius: 15px; box-shadow: 2px 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; background-color: white; }
-    .card-visualizacion { border: 2px solid #68d391; padding: 20px; border-radius: 15px; box-shadow: 2px 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; background-color: white; }
-    .card-ranking { border: 2px solid #f6ad55; padding: 20px; border-radius: 15px; box-shadow: 2px 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; background-color: white; }
-    .card-chat { border: 2px solid #cbd5e0; padding: 20px; border-radius: 15px; box-shadow: 2px 2px 15px rgba(0,0,0,0.08); margin-top: 20px; background-color: #f8fafc; }
-    
     @keyframes blinker { 50% { opacity: 0; } }
     .blink-text, .blink-text-grabar { animation: blinker 1s linear infinite; color: #c53030; font-weight: bold; padding: 10px; border: 1px solid #c53030; border-radius: 5px; background: #fff5f5; text-align: center; margin-bottom: 15px; }
+    
+    /* Nuevos Estilos para Cards en Consulta Dinámica */
+    .card-bloque-a { border: 2px solid #3182ce; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; background-color: #ffffff; }
+    .card-bloque-b { border: 2px solid #9d00ff; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; background-color: #ffffff; }
+    .card-bloque-c { border: 2px solid #38a169; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; background-color: #ffffff; }
+    .card-bloque-d { border: 2px solid #e53e3e; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; background-color: #ffffff; }
+    .card-chat { border: 2px solid #718096; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); background-color: #f7fafc; }
+    .zona-separacion { height: 40px; border-bottom: 3px dashed #cbd5e0; margin: 30px 0; position: relative; }
+    .separacion-label { position: absolute; top: 25px; left: 50%; transform: translateX(-50%); background: #fff; padding: 0 15px; color: #718096; font-weight: bold; font-size: 0.8rem; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -417,17 +424,8 @@ with tabs[4]:
     )
 
     if not df_pool.empty:
-        # BLOQUE B -> AHORA EN POSICIÓN SUPERIOR (Card Variable)
-        st.markdown('<div class="card-variable">', unsafe_allow_html=True)
-        st.markdown("#### 🎯 Variable a analizar: Qué quiero medir", unsafe_allow_html=True)
-        b_col1, b_col2, b_col3 = st.columns(3)
-        var_analisis = b_col1.selectbox("Variable", ["-- seleccionar --"] + list(df_pool.columns), key="query_var")
-        operacion = b_col2.selectbox("Operación", ["-- seleccionar --", "Conteo (Total)", "Conteo Único (Pacientes)", "Suma", "Promedio", "Mínimo", "Máximo"])
-        agrupar_por = b_col3.selectbox("Agrupar por (Opcional)", ["-- Agrupar resultados por categorías (opcional) --"] + list(df_pool.columns))
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # BLOQUE A -> AHORA EN POSICIÓN INFERIOR (Card Filtros)
-        st.markdown('<div class="card-filtros">', unsafe_allow_html=True)
+        # BLOQUE A (Ahora Filtros o condiciones)
+        st.markdown('<div class="card-bloque-a">', unsafe_allow_html=True)
         st.markdown("#### 🔍 Filtros o condiciones", unsafe_allow_html=True)
         col_a1, col_a2 = st.columns([1, 1])
         if col_a1.button("➕ Añadir Filtro"):
@@ -449,9 +447,7 @@ with tabs[4]:
             else:
                 opciones_unicas = sorted([str(x) for x in df_pool[filtro["col"]].unique() if x])
                 filtro["val"] = f_c3.multiselect(f"Valores {i+1}", opciones_unicas, key=f"f_val_multi_{fid}", default=filtro["val"] if isinstance(filtro["val"], list) else [])
-        st.markdown('</div>', unsafe_allow_html=True)
 
-        # APLICACIÓN DE LÓGICA DE FILTROS (Sin cambios)
         mask = pd.Series(True, index=df_pool.index)
         for f in st.session_state.filtros_dinamicos:
             try:
@@ -464,26 +460,40 @@ with tabs[4]:
                         input_norm = normalizar_texto_capa0(f["val"])
                 
                 if "==" in f["op"]:
-                    if isinstance(f["val"], list) and f["val"]: mask &= col_norm.isin(input_norm)
-                    elif f["val"] != "": mask &= (col_norm == input_norm)
-                elif "!=" in f["op"]: mask &= (col_data.astype(str) != str(f["val"]))
-                elif ">" in f["op"] and "≥" not in f["op"]: mask &= (pd.to_numeric(col_data, errors='coerce') > float(f["val"]))
-                elif "<" in f["op"] and "≤" not in f["op"]: mask &= (pd.to_numeric(col_data, errors='coerce') < float(f["val"]))
-                elif "≥" in f["op"]: mask &= (pd.to_numeric(col_data, errors='coerce') >= float(f["val"]))
-                elif "≤" in f["op"]: mask &= (pd.to_numeric(col_data, errors='coerce') <= float(f["val"]))
-                elif "contiene" in f["op"]: mask &= col_norm.str.contains(input_norm, na=False)
+                    if isinstance(f["val"], list) and f["val"]: 
+                        mask &= col_norm.isin(input_norm)
+                    elif f["val"] != "": 
+                        mask &= (col_norm == input_norm)
+                elif "!=" in f["op"]: 
+                    mask &= (col_data.astype(str) != str(f["val"]))
+                elif ">" in f["op"] and "≥" not in f["op"]: 
+                    mask &= (pd.to_numeric(col_data, errors='coerce') > float(f["val"]))
+                elif "<" in f["op"] and "≤" not in f["op"]: 
+                    mask &= (pd.to_numeric(col_data, errors='coerce') < float(f["val"]))
+                elif "≥" in f["op"]: 
+                    mask &= (pd.to_numeric(col_data, errors='coerce') >= float(f["val"]))
+                elif "≤" in f["op"]: 
+                    mask &= (pd.to_numeric(col_data, errors='coerce') <= float(f["val"]))
+                elif "contiene" in f["op"]: 
+                    mask &= col_norm.str.contains(input_norm, na=False)
             except: continue
         
         df_filtered_query = df_pool[mask]
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        # BLOQUE C (Card Visualización)
-        if var_analisis != "-- seleccionar --" and operacion != "-- seleccionar --":
-            st.markdown('<div class="card-visualizacion">', unsafe_allow_html=True)
-            st.markdown("#### 📊 Visualización", unsafe_allow_html=True)
-            
+        # BLOQUE B (Ahora Variable a analizar)
+        st.markdown('<div class="card-bloque-b">', unsafe_allow_html=True)
+        st.markdown("#### 🎯 Variable a analizar: Qué quiero medir", unsafe_allow_html=True)
+        b_col1, b_col2, b_col3 = st.columns(3)
+        var_analisis = b_col1.selectbox("Variable", ["-- seleccionar --"] + list(df_pool.columns), key="query_var")
+        operacion = b_col2.selectbox("Operación", ["-- seleccionar --", "Conteo (Total)", "Conteo Único (Pacientes)", "Suma", "Promedio", "Mínimo", "Máximo"])
+        agrupar_por = b_col3.selectbox("Agrupar por (Opcional)", ["-- Agrupar resultados por categorías (opcional) --"] + list(df_pool.columns))
+        
+        if var_analisis == "-- seleccionar --" or operacion == "-- seleccionar --":
+            st.info("Configura la variable y operación para ver resultados.")
+        else:
             if agrupar_por == "-- Agrupar resultados por categorías (opcional) --":
                 agrupar_por = "Ninguno"
-            
             if agrupar_por == "Ninguno":
                 if "Total" in operacion: resultado = len(df_filtered_query[var_analisis])
                 elif "Único" in operacion: resultado = df_filtered_query[var_analisis].nunique()
@@ -498,68 +508,76 @@ with tabs[4]:
                     elif operacion == "Suma": df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').sum()).reset_index()
                     elif operacion == "Promedio": df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').mean()).reset_index()
                     df_res.columns = [agrupar_por, f"{operacion}_{var_analisis}"]
-                    
-                    formato_salida = st.radio("Formato:", ["KPI", "LISTAR", "TABLA", "BARRAS H", "BARRAS V", "SECTORES", "HISTOGRAMA"], horizontal=True)
-                    if formato_salida == "KPI":
-                        st.metric("Registros en Cohorte", len(df_filtered_query))
-                    elif formato_salida == "LISTAR":
-                        valores_unicos = sorted(df_filtered_query[var_analisis].dropna().unique().astype(str))
-                        if valores_unicos:
-                            for val in valores_unicos: st.write(f"* {val}")
-                        else: st.write("No hay valores para listar.")
-                    elif formato_salida == "TABLA": st.dataframe(df_res, use_container_width=True)
-                    elif formato_salida == "BARRAS H":
-                        fig = px.bar(df_res, y=agrupar_por, x=df_res.columns[1], orientation='h', color_discrete_sequence=['#9d00ff'])
-                        st.plotly_chart(fig, use_container_width=True)
-                    elif formato_salida == "BARRAS V":
-                        fig = px.bar(df_res, x=agrupar_por, y=df_res.columns[1], color_discrete_sequence=['#9d00ff'])
-                        st.plotly_chart(fig, use_container_width=True)
-                    elif formato_salida == "SECTORES":
-                        fig = px.pie(df_res, names=agrupar_por, values=df_res.columns[1], hole=0.3)
-                        st.plotly_chart(fig, use_container_width=True)
-                    elif formato_salida == "HISTOGRAMA":
-                        # Lógica original de histogramas (KDIGO, EDAD, etc.)
-                        df_h = df_filtered_query.copy()
-                        df_h[var_analisis] = pd.to_numeric(df_h[var_analisis], errors='coerce')
-                        if "FG" in var_analisis:
-                            bins_kdigo = [-float('inf'), 15, 30, 45, 60, 90, float('inf')]
-                            labels_kdigo = ['< 15 (G5)', '15-29 (G4)', '30-44 (G3b)', '45-59 (G3a)', '60-89 (G2)', '≥ 90 (G1)']
-                            df_h['KDIGO_BIN'] = pd.cut(df_h[var_analisis], bins=bins_kdigo, labels=labels_kdigo, right=False)
-                            fig = px.histogram(df_h, x='KDIGO_BIN', color_discrete_sequence=['#9d00ff'], category_orders={"KDIGO_BIN": labels_kdigo})
-                            st.plotly_chart(fig, use_container_width=True)
-                        elif var_analisis == "EDAD":
-                            bins_edad = [-float('inf'), 50, 61, 71, 81, 91, float('inf')]
-                            labels_edad = ['< 50 años', '50-60 años', '61-70 años', '71-80 años', '81-90 años', '> 90 años']
-                            df_h['EDAD_BIN'] = pd.cut(df_h[var_analisis], bins=bins_edad, labels=labels_edad, right=False)
-                            fig = px.histogram(df_h, x='EDAD_BIN', color_discrete_sequence=['#9d00ff'], category_orders={"EDAD_BIN": labels_edad})
-                            st.plotly_chart(fig, use_container_width=True)
-                        else:
-                            if not df_h[var_analisis].dropna().empty:
-                                fig = px.histogram(df_h, x=var_analisis, color_discrete_sequence=['#9d00ff'], marginal="box")
-                                st.plotly_chart(fig, use_container_width=True)
                 except: st.warning("Error en el cálculo.")
-            st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        # BLOQUE D (Card Ranking/Top)
-        st.markdown('<div class="card-ranking">', unsafe_allow_html=True)
+        # BLOQUE C (Visualización)
+        st.markdown('<div class="card-bloque-c">', unsafe_allow_html=True)
+        st.markdown("#### 📊 Visualización", unsafe_allow_html=True)
+        if var_analisis != "-- seleccionar --" and operacion != "-- seleccionar --":
+            formato_salida = st.radio("Formato:", ["KPI", "LISTAR", "TABLA", "BARRAS H", "BARRAS V", "SECTORES", "HISTOGRAMA"], horizontal=True)
+            if formato_salida == "KPI":
+                st.metric("Registros en Cohorte", len(df_filtered_query))
+            elif formato_salida == "LISTAR":
+                valores_unicos = sorted(df_filtered_query[var_analisis].dropna().unique().astype(str))
+                if valores_unicos:
+                    for val in valores_unicos: st.write(f"* {val}")
+                else: st.write("No hay valores para listar.")
+            elif formato_salida == "TABLA":
+                if 'df_res' in locals(): st.dataframe(df_res, use_container_width=True)
+            elif formato_salida == "BARRAS H":
+                if 'df_res' in locals():
+                    fig = px.bar(df_res, y=agrupar_por, x=df_res.columns[1], orientation='h', color_discrete_sequence=['#38a169'])
+                    st.plotly_chart(fig, use_container_width=True)
+            elif formato_salida == "BARRAS V":
+                if 'df_res' in locals():
+                    fig = px.bar(df_res, x=agrupar_por, y=df_res.columns[1], color_discrete_sequence=['#38a169'])
+                    st.plotly_chart(fig, use_container_width=True)
+            elif formato_salida == "SECTORES":
+                if 'df_res' in locals():
+                    fig = px.pie(df_res, names=agrupar_por, values=df_res.columns[1], hole=0.3)
+                    st.plotly_chart(fig, use_container_width=True)
+            elif formato_salida == "HISTOGRAMA":
+                df_h = df_filtered_query.copy()
+                df_h[var_analisis] = pd.to_numeric(df_h[var_analisis], errors='coerce')
+                if "FG" in var_analisis:
+                    bins_kdigo = [-float('inf'), 15, 30, 45, 60, 90, float('inf')]
+                    labels_kdigo = ['< 15 (G5)', '15-29 (G4)', '30-44 (G3b)', '45-59 (G3a)', '60-89 (G2)', '≥ 90 (G1)']
+                    df_h['KDIGO_BIN'] = pd.cut(df_h[var_analisis], bins=bins_kdigo, labels=labels_kdigo, right=False)
+                    fig = px.histogram(df_h, x='KDIGO_BIN', color_discrete_sequence=['#38a169'], category_orders={"KDIGO_BIN": labels_kdigo})
+                    st.plotly_chart(fig, use_container_width=True)
+                elif var_analisis == "EDAD":
+                    bins_edad = [-float('inf'), 50, 61, 71, 81, 91, float('inf')]
+                    labels_edad = ['< 50 años', '50-60 años', '61-70 años', '71-80 años', '81-90 años', '> 90 años']
+                    df_h['EDAD_BIN'] = pd.cut(df_h[var_analisis], bins=bins_edad, labels=labels_edad, right=False)
+                    fig = px.histogram(df_h, x='EDAD_BIN', color_discrete_sequence=['#38a169'], category_orders={"EDAD_BIN": labels_edad})
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    if not df_h[var_analisis].dropna().empty:
+                        fig = px.histogram(df_h, x=var_analisis, color_discrete_sequence=['#38a169'], marginal="box")
+                        st.plotly_chart(fig, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # BLOQUE D (Ranking/Top)
+        st.markdown('<div class="card-bloque-d">', unsafe_allow_html=True)
         st.markdown("#### 🏆 Ranking/Top", unsafe_allow_html=True)
         rk_c1, rk_c2, rk_c3 = st.columns(3)
         rk_dim = rk_c1.selectbox("Elemento a Rankear", ["-- seleccionar --", "MEDICAMENTO", "CENTRO", "RESIDENCIA", "SEXO"], key="rk_dim")
         rk_met = rk_c2.selectbox("Métrica de Orden", ["-- seleccionar --", "Conteo (Total)", "Conteo Único (Pacientes)", "Nº_TOT_AFEC_CG", "Nº_AJUSTE_DOS_CG", "Nº_CONTRAIND_CG"], key="rk_met")
         rk_top = rk_c3.slider("Ver Top:", 3, 20, 5, key="rk_top")
+        
         if rk_dim != "-- seleccionar --" and rk_met != "-- seleccionar --":
             r_key = hashlib.md5(f"{rk_dim}_{rk_met}_{rk_top}".encode()).hexdigest()[:8]
             ejecutar_ranking_v29(df_filtered_query, rk_dim, rk_met, rk_top, r_key)
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # SEPARACIÓN VISIBLE
-        st.markdown("---")
-        st.markdown("<br>", unsafe_allow_html=True)
+        # ZONA DE SEPARACIÓN
+        st.markdown('<div class="zona-separacion"><div class="separacion-label">ASISTENTE INTELIGENTE</div></div>', unsafe_allow_html=True)
 
-        # VENTANA DE CHAT (Card Consultas Rápidas)
+        # VENTANA DE CHAT (Consultas Rápidas)
         st.markdown('<div class="card-chat">', unsafe_allow_html=True)
         st.markdown("#### 🤖 Consultas Rápidas", unsafe_allow_html=True)
-        query_text = st.text_input("Haz una pregunta sobre los datos:", placeholder="Ej: Top 5 medicamentos...")
+        query_text = st.text_input("Haz una pregunta sobre los datos:", placeholder="Ej: Top 5 medicamentos, ¿Cuántos pacientes edad < a... y FG < a... hay?")
         if query_text:
             with st.spinner("IA analizando datos..."):
                 query_json, frase, figura = st.session_state.orq.procesar_pregunta(query_text, df_pool)
@@ -568,8 +586,12 @@ with tabs[4]:
                 if query_json is not None: st.json(query_json)
         st.markdown('</div>', unsafe_allow_html=True)
 
+        st.markdown("---")
+        with st.expander("📄 Ver Datos Crutos de la Cohorte"):
+            st.dataframe(df_filtered_query, use_container_width=True)
+
     else:
         st.info("No hay datos sincronizados para realizar consultas dinámicas.")
 
-st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Soporte de apoyo a la revisión farmacoterapéutica. Verifique fuentes oficiales.</div>', unsafe_allow_html=True)
+st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un soporte de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
 st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 29 mar 2026 13:20</div>', unsafe_allow_html=True)
