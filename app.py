@@ -619,10 +619,11 @@ with tabs[3]:
 with tabs[4]:
     st.markdown("""
         <style>
-        [data-testid="stVerticalBlockBorderWrapper"] {
+        div[data-testid="stContainer"] > div {
             border: 2px solid #4A90E2 !important;
-            border-radius: 8px !important;
-            padding: 10px !important;
+            border-radius: 10px !important;
+            padding: 12px !important;
+            margin-bottom: 12px !important;
         }
         </style>
         """, unsafe_allow_html=True)
