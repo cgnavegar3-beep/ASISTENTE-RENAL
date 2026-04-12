@@ -55,6 +55,8 @@ import plotly.graph_objects as go
 #                           principio blindado; es informativo y no debe impedir la validación.
 # =================================================================
 
+import streamlit as st
+
 st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
 
 # ============================================================
@@ -75,7 +77,8 @@ if "inauguracion" not in st.session_state:
 
         #cinta-left, #cinta-right {
             position: fixed;
-            top: 40%;
+            top: 50%;
+            transform: translateY(-50%);
             width: 50%;
             height: 40px;
             background: linear-gradient(90deg, #b30000, #ff0000);
@@ -98,18 +101,29 @@ if "inauguracion" not in st.session_state:
             font-size: 70px;
             z-index: 10000;
             pointer-events: none;
-            transition: transform 0.05s linear;
+            transition: transform 0.05s linear, opacity 0.3s ease;
+        }
+
+        #humo {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 120px;
+            opacity: 0;
+            z-index: 10001;
+            transition: opacity 0.4s ease-out, transform 0.6s ease-out;
         }
 
         .confeti {
             position: fixed;
-            width: 12px;
-            height: 12px;
+            width: 10px;
+            height: 14px;
             background: hsl(var(--hue), 90%, 60%);
             top: -20px;
             border-radius: 2px;
-            animation: caer 2.5s linear forwards;
-            z-index: 10001;
+            animation: caer linear forwards;
+            z-index: 10002;
         }
 
         @keyframes caer {
@@ -122,62 +136,75 @@ if "inauguracion" not in st.session_state:
         <div id="cinta-left"></div>
         <div id="cinta-right"></div>
         <div id="tijeras">✂️</div>
+        <div id="humo">💨</div>
 
         <script>
         const tijeras = document.getElementById("tijeras");
         const left = document.getElementById("cinta-left");
         const right = document.getElementById("cinta-right");
+        const humo = document.getElementById("humo");
 
         let cortado = false;
 
         document.addEventListener("mousemove", (e) => {
+            // Posición tijeras
             tijeras.style.left = (e.clientX - 30) + "px";
             tijeras.style.top = (e.clientY - 30) + "px";
 
+            // Rotación natural
+            const centro = window.innerWidth / 2;
+            tijeras.style.transform = `rotate(${(e.clientX - centro)/20}deg)`;
+
             const tRect = tijeras.getBoundingClientRect();
             const lRect = left.getBoundingClientRect();
-            const rRect = right.getBoundingClientRect();
 
+            // Corte solo en zona central (más realista)
             if (!cortado &&
+                Math.abs(e.clientX - centro) < 80 &&
                 tRect.top < lRect.bottom &&
-                tRect.bottom > lRect.top &&
-                tRect.left < rRect.right &&
-                tRect.right > lRect.left) {
+                tRect.bottom > lRect.top) {
 
                 cortado = true;
 
-                // Animación de ruptura
+                // Animación cinta
                 left.style.transform = "translateX(-120%) rotate(-10deg)";
                 right.style.transform = "translateX(120%) rotate(10deg)";
                 left.style.opacity = "0";
                 right.style.opacity = "0";
 
-                // Confeti
-                for (let i = 0; i < 250; i++) {
+                // HUMO
+                humo.style.opacity = "1";
+                humo.style.transform = "translate(-50%, -50%) scale(1.6)";
+                setTimeout(() => humo.style.opacity = "0", 600);
+
+                // CONFETI MÁS NATURAL
+                for (let i = 0; i < 300; i++) {
                     let c = document.createElement("div");
                     c.classList.add("confeti");
                     c.style.left = Math.random() * 100 + "vw";
                     c.style.setProperty("--hue", Math.random() * 360);
+                    c.style.animationDuration = (2 + Math.random() * 2) + "s";
                     document.body.appendChild(c);
-                    setTimeout(() => c.remove(), 2500);
+                    setTimeout(() => c.remove(), 4000);
                 }
 
-                // Desaparecer tijeras
+                // Ocultar tijeras
                 setTimeout(() => {
                     tijeras.style.opacity = "0";
                 }, 800);
 
-                // Limpiar todo
+                // Limpieza
                 setTimeout(() => {
                     left.remove();
                     right.remove();
                     tijeras.remove();
-                }, 2000);
+                    humo.remove();
+                }, 2500);
             }
         });
         </script>
         """,
-        height=600,
+        height=1000,
     )
 # ============================================================
 
@@ -949,7 +976,6 @@ with tabs[4]:
 
 st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un soporte de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
 st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 29 mar 2026 13:20</div>', unsafe_allow_html=True)
-
 
 
 
