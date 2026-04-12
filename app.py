@@ -1,34 +1,251 @@
+# --- ACTUALIZACIÓN EVOLUCIONADA 29 MAR 13:20 ---
+# INTEGRACIÓN DE ORQUESTADOR IA EN CONSULTA DINÁMICA
+
 import streamlit as st
 import pandas as pd
-import numpy as np
-import plotly.express as px
-import google.generativeai as genai
-import unicodedata
-import re
-import json
-import hashlib
-import random
-import uuid
 import io
 from datetime import datetime
+import google.generativeai as genai
+import random
+import re
+import os
+import json
+import hashlib
+import unicodedata
+import uuid
 
-# --- CONFIGURACIÓN Y ESTADO INICIAL (Preservado) ---
-if "active_model" not in st.session_state: st.session_state.active_model = "Desconocido"
-if "df_val" not in st.session_state: st.session_state.df_val = pd.DataFrame()
-if "df_meds" not in st.session_state: st.session_state.df_meds = pd.DataFrame()
-if "df_sync_val" not in st.session_state: st.session_state.df_sync_val = pd.DataFrame()
-if "df_sync_meds" not in st.session_state: st.session_state.df_sync_meds = pd.DataFrame()
-if "df_sync_analisis" not in st.session_state: st.session_state.df_sync_analisis = pd.DataFrame()
-if "analisis_realizado" not in st.session_state: st.session_state.analisis_realizado = False
-if "resp_ia" not in st.session_state: st.session_state.resp_ia = None
-if "ultima_huella" not in st.session_state: st.session_state.ultima_huella = ""
-if "filtros_dinamicos" not in st.session_state: st.session_state.filtros_dinamicos = []
-if "soip_s" not in st.session_state: st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
-if "soip_o" not in st.session_state: st.session_state.soip_o = ""
-if "soip_i" not in st.session_state: st.session_state.soip_i = ""
-if "soip_p" not in st.session_state: st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
-if "ic_inter" not in st.session_state: st.session_state.ic_inter = ""
-if "ic_clinica" not in st.session_state: st.session_state.ic_clinica = ""
+# --- NUEVAS LIBRERÍAS PARA GOOGLE SHEETS & SERIALIZACIÓN ---
+import gspread
+from google.oauth2.service_account import Credentials
+import time
+import math
+from core.orchestrator import ClinicoOrchestrator
+
+# MÓDULO DE EVOLUCIÓN - NO AFECTA NÚCLEO (IMPORTACIONES VISUALIZACIÓN)
+import plotly.express as px
+import plotly.graph_objects as go
+
+# =================================================================
+# PRINCIPIOS FUNDAMENTALES (ESCRITOS DE PE A PA - PROHIBIDO ELIMINAR)
+# =================================================================
+# 1. IDENTIDAD: El nombre "ASISTENTE RENAL" es inalterable.
+# 2. VERSIÓN: Mostrar siempre la versión con fecha/hora bajo el título.
+# 3. INTERFAZ DUAL PROTEGIDA: Prohibido modificar la "Calculadora" y el 
+#                                   "Filtrado Glomerular" (cuadro negro con glow morado).
+# 4. BLINDAJE DE ELEMENTOS (ZONA ESTÁTICA):
+#                                   - Cuadros negros superiores (ZONA y ACTIVO).
+#                                   - Pestañas (Tabs) de navegación.
+#                                   - Registro de Paciente: Estructura y función de fila única.
+#                                   - Estructura del área de recorte y listado de medicación.
+#                                   - Barra dual de validación (VALIDAR / RESET).
+#                                   - Aviso legal amarillo inferior (Warning).
+# 5. PROTOCOLO DE CAMBIOS: Antes de cualquier evolución técnica, explicar
+#                           "qué", "por qué" y "cómo". Esperar aprobación explícita ("adelante").
+# 6. COMPROMISO DE RIGOR: Gemini verificará el cumplimiento de estos 
+#                           原则 antes y después de cada cambio. No se simplifican líneas.
+# 7. VERSIONADO LOCAL: Registrar la versión en la esquina inferior derecha.
+# 8. CONTADOR DISCRETO: El contador de intentos debe ser discreto y 
+#                           ubicarse en la esquina superior izquierda (estilo v. 2.5).
+# 9. INTEGRIDAD DEL CÓDIGO: Nunca omitir estas líneas; de lo contrario, 
+#                           se considerará pérdida de principios.
+# 10. BLINDAJE DE CONTENIDOS: Quedan blindados todos los cuadros de texto,
+#                           sus textos flotantes (placeholders) and los textos predefinidos en las
+#                           secciones S, P e INTERCONSULTA. Prohibido borrarlos o simplificarlos.
+# 11. AVISO PARPADEANTE: El aviso parpadeante ante falta de datos es un 
+#                           principio blindado; es informativo y no debe impedir la validación.
+# =================================================================
+
+st.set_page_config(page_title="Asistente Renal", layout="wide", initial_sidebar_state="collapsed")
+
+# --- INICIALIZACIÓN ---
+if "active_model" not in st.session_state:
+    st.session_state.active_model = "BUSCANDO..."
+if "main_meds" not in st.session_state:
+    st.session_state.main_meds = ""
+if "soip_s" not in st.session_state:
+    st.session_state.soip_s = "Revisión farmacoterapéutica según función renal."
+if "soip_p" not in st.session_state:
+    st.session_state.soip_p = "Se hace interconsulta al MAP para valoración de ajuste posológico y seguimiento de función renal."
+if "analisis_realizado" not in st.session_state:
+    st.session_state.analisis_realizado = False
+if "resp_ia" not in st.session_state:
+    st.session_state.resp_ia = None
+if "ultima_huella" not in st.session_state:
+    st.session_state.ultima_huella = ""
+if "df_val" not in st.session_state:
+    st.session_state.df_val = pd.DataFrame()
+if "df_meds" not in st.session_state:
+    st.session_state.df_meds = pd.DataFrame()
+if "df_sync_val" not in st.session_state:
+    st.session_state["df_sync_val"] = pd.DataFrame()
+if "df_sync_meds" not in st.session_state:
+    st.session_state["df_sync_meds"] = pd.DataFrame()
+if "df_sync_analisis" not in st.session_state:
+    st.session_state["df_sync_analisis"] = pd.DataFrame()
+if "chat_history_graficos" not in st.session_state:
+    st.session_state.chat_history_graficos = []
+if "filtros_dinamicos" not in st.session_state:
+    st.session_state.filtros_dinamicos = []
+
+for key in ["soip_o", "soip_i", "ic_inter", "ic_clinica", "reg_id", "reg_centro", "reg_res"]:
+    if key not in st.session_state:
+        st.session_state[key] = ""
+
+if "orq" not in st.session_state:
+    st.session_state.orq = ClinicoOrchestrator()
+
+# --- CONFIGURACIÓN IA ---
+try:
+    API_KEY = st.secrets["GEMINI_API_KEY"]
+    genai.configure(api_key=API_KEY)
+except:
+    API_KEY = None
+    st.sidebar.error("API Key no encontrada.")
+
+# --- FUNCIONES DE PERSISTENCIA SEGURA (GOOGLE SHEETS) ---
+def conectar_google_sheets():
+    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+    creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scopes)
+    client = gspread.authorize(creds)
+    return client.open_by_key(st.secrets["GOOGLE_SHEET_ID"])
+
+def sincronizar_desde_nube():
+    try:
+        doc = conectar_google_sheets()
+        def raw_to_clean_df(ws_name):
+            ws = doc.worksheet(ws_name)
+            rows = ws.get_all_values()
+            if not rows: return pd.DataFrame()
+            headers = rows[0]
+            data = rows[1:]
+            clean_data = []
+            for row in data:
+                new_row = []
+                for val in row:
+                    if isinstance(val, str):
+                        clean_val = val.replace(",", ".").strip()
+                        try:
+                            if clean_val == "": new_row.append(None)
+                            else: new_row.append(float(clean_val))
+                        except ValueError:
+                            new_row.append(val)
+                    else:
+                        new_row.append(val)
+                clean_data.append(new_row)
+            return pd.DataFrame(clean_data, columns=headers)
+        st.session_state["df_sync_val"] = raw_to_clean_df("VALIDACIONES")
+        st.session_state["df_sync_meds"] = raw_to_clean_df("MEDICAMENTOS")
+        st.session_state["df_sync_analisis"] = raw_to_clean_df("ANALISIS")
+        st.toast("✅ Nube sincronizada (Valores Numéricos OK)", icon="🔄")
+    except Exception as e:
+        st.error(f"❌ Error al sincronizar: {e}")
+
+# --- BLOQUE DE EVOLUCIÓN: CACHÉ DE DATOS ---
+@st.cache_data(ttl=300)
+def cargar_datos_cacheados():
+    doc = conectar_google_sheets()
+    def raw_to_clean_df_cache(ws_name):
+        ws = doc.worksheet(ws_name)
+        rows = ws.get_all_values()
+        if not rows: return pd.DataFrame()
+        headers = rows[0]
+        data = rows[1:]
+        clean_data = []
+        for row in data:
+            new_row = []
+            for val in row:
+                if isinstance(val, str):
+                    clean_val = val.replace(",", ".").strip()
+                    try:
+                        if clean_val == "": new_row.append(None)
+                        else: new_row.append(float(clean_val))
+                    except ValueError:
+                        new_row.append(val)
+                else:
+                    new_row.append(val)
+            clean_data.append(new_row)
+        return pd.DataFrame(clean_data, columns=headers)
+    
+    df_val = raw_to_clean_df_cache("VALIDACIONES")
+    df_meds = raw_to_clean_df_cache("MEDICAMENTOS")
+    df_analisis = raw_to_clean_df_cache("ANALISIS")
+    return df_val, df_meds, df_analisis
+
+# --- INTEGRACIÓN DE CARGA (SUSTITUCIÓN PUNTO ÚNICO) ---
+if st.session_state["df_sync_val"].empty:
+    try:
+        df_val_c, df_meds_c, df_analisis_c = cargar_datos_cacheados()
+        st.session_state["df_sync_val"] = df_val_c
+        st.session_state["df_sync_meds"] = df_meds_c
+        st.session_state["df_sync_analisis"] = df_analisis_c
+        st.toast("⚡ Datos cargados desde Caché", icon="🚀")
+    except:
+        sincronizar_desde_nube()
+
+def acquire_lock(sheet_obj):
+    try:
+        ws_lock = sheet_obj.worksheet("LOCK")
+    except gspread.exceptions.WorksheetNotFound:
+        ws_lock = sheet_obj.add_worksheet(title="LOCK", rows=2, cols=2)
+    lock_val = ws_lock.acell("A1").value
+    if lock_val: return False
+    ws_lock.update_acell("A1", f"LOCKED_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+    return True
+
+def release_lock(sheet_obj):
+    try:
+        ws_lock = sheet_obj.worksheet("LOCK")
+        ws_lock.update_acell("A1", "")
+    except: pass
+
+def guardar_en_google_sheets(df_val_actual, df_meds_actual):
+    try:
+        doc = conectar_google_sheets()
+        intentos = 0
+        while not acquire_lock(doc) and intentos < 5:
+            time.sleep(2); intentos += 1
+        if intentos >= 5: return
+        id_actual = st.session_state.reg_id
+        ws_val = doc.worksheet("VALIDACIONES")
+        ids_existentes = ws_val.col_values(4) 
+        if id_actual not in ids_existentes:
+            fila_dict = df_val_actual[df_val_actual["ID_REGISTRO"] == id_actual].iloc[-1].fillna("").to_dict()
+            columnas_ordenadas = [
+                "FECHA", "CENTRO", "RESIDENCIA", "ID_REGISTRO", "EDAD", "SEXO", "PESO", "CREATININA", "Nº_TOTAL_MEDS_PAC",
+                "FG_CG", "Nº_TOT_AFEC_CG", "Nº_PRECAU_CG", "Nº_AJUSTE_DOS_CG", "Nº_TOXICID_CG", "Nº_CONTRAIND_CG",
+                "FG_MDRD", "Nº_TOT_AFEC_MDRD", "Nº_PRECAU_MDRD", "Nº_AJUSTE_DOS_MDRD", "Nº_TOXICID_MDRD", "Nº_CONTRAIND_MDRD",
+                "FG_CKD", "Nº_TOT_AFEC_CKD", "Nº_PRECAU_CKD", "Nº_AJUSTE_DOS_CKD", "Nº_TOXICID_CKD", "Nº_CONTRAIND_CKD"
+            ]
+            fila_final = []
+            for col in columnas_ordenadas:
+                val = fila_dict.get(col, "")
+                if hasattr(val, "item"): val = val.item()
+                if isinstance(val, float) and math.isnan(val): val = ""
+                fila_final.append(val)
+            fila_final.extend(["", "", ""])
+            ws_val.append_row(fila_final, value_input_option='USER_ENTERED')
+        ws_meds = doc.worksheet("MEDICAMENTOS")
+        data_meds_nube = ws_meds.get_all_records()
+        df_nube_meds = pd.DataFrame(data_meds_nube)
+        meds_a_procesar = df_meds_actual[df_meds_actual["ID_REGISTRO"] == id_actual].fillna("")
+        filas_nuevas = []
+        for _, fila in meds_a_procesar.iterrows():
+            ya_existe = False
+            if not df_nube_meds.empty:
+                existe = df_nube_meds[(df_nube_meds["ID_REGISTRO"] == id_actual) & (df_nube_meds["MEDICAMENTO"] == fila["MEDICAMENTO"])]
+                if not existe.empty: ya_existe = True
+            if not ya_existe:
+                fila_conv = []
+                for v in fila.values.tolist():
+                    val_conv = v.item() if hasattr(v, "item") else v
+                    fila_conv.append(val_conv)
+                filas_nuevas.append(fila_conv)
+        if filas_nuevas: 
+            ws_meds.append_rows(filas_nuevas, value_input_option='USER_ENTERED')
+        release_lock(doc)
+    except:
+        try: release_lock(doc)
+        except: pass
 
 # --- FUNCIONES NÚCLEO ---
 def llamar_ia_en_cascada(prompt):
@@ -135,15 +352,6 @@ def inject_styles():
     .fg-special-border { border: 1.5px solid #9d00ff !important; border-radius: 5px; }
     @keyframes blinker { 50% { opacity: 0; } }
     .blink-text, .blink-text-grabar { animation: blinker 1s linear infinite; color: #c53030; font-weight: bold; padding: 10px; border: 1px solid #c53030; border-radius: 5px; background: #fff5f5; text-align: center; margin-bottom: 15px; }
-    
-    /* Nuevos Estilos para Cards en Consulta Dinámica */
-    .card-bloque-a { border: 2px solid #3182ce; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; background-color: #ffffff; }
-    .card-bloque-b { border: 2px solid #9d00ff; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; background-color: #ffffff; }
-    .card-bloque-c { border: 2px solid #38a169; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; background-color: #ffffff; }
-    .card-bloque-d { border: 2px solid #e53e3e; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; background-color: #ffffff; }
-    .card-chat { border: 2px solid #718096; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); background-color: #f7fafc; }
-    .zona-separacion { height: 40px; border-bottom: 3px dashed #cbd5e0; margin: 30px 0; position: relative; }
-    .separacion-label { position: absolute; top: 25px; left: 50%; transform: translateX(-50%); background: #fff; padding: 0 15px; color: #718096; font-weight: bold; font-size: 0.8rem; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -411,6 +619,7 @@ with tabs[3]:
 with tabs[4]:
     st.markdown("### 🔍 Consulta Dinámica Renal")
     
+    # EVOLUCIÓN: POOL DE DATOS Y FILTROS SIEMPRE VISIBLES
     tipo_origen = st.radio(
         "Seleccionar origen de datos:",
         ["Validaciones (General)", "Medicamentos (Detalle)"],
@@ -424,29 +633,28 @@ with tabs[4]:
     )
 
     if not df_pool.empty:
-        # BLOQUE A (Ahora Filtros o condiciones)
-        st.markdown('<div class="card-bloque-a">', unsafe_allow_html=True)
-        st.markdown("#### 🔍 Filtros o condiciones", unsafe_allow_html=True)
-        col_a1, col_a2 = st.columns([1, 1])
-        if col_a1.button("➕ Añadir Filtro"):
-            st.session_state.filtros_dinamicos.append({"id": str(uuid.uuid4()), "col": df_pool.columns[0], "op": "== (IGUAL)", "val": ""})
-        if col_a2.button("🗑️ Limpiar Filtros"):
-            limpiar_filtros_dinamicos()
-            st.rerun()
-        for i, filtro in enumerate(st.session_state.filtros_dinamicos):
-            fid = filtro["id"]
-            f_c1, f_c2, f_c3 = st.columns([1, 0.7, 1.3])
-            filtro["col"] = f_c1.selectbox(f"Columna {i+1}", df_pool.columns, key=f"f_col_{fid}", index=list(df_pool.columns).index(filtro["col"]))
-            filtro["op"] = f_c2.selectbox(f"Operador {i+1}", ["== (IGUAL)", "!= (DISTINTO DE)", "> (MAYOR QUE)", "< (MENOR QUE)", "≥ (MAYOR O IGUAL)", "≤ (MENOR O IGUAL)", "contiene"], key=f"f_op_{fid}")
-            if "contiene" in filtro["op"]:
-                filtro["val"] = f_c3.text_input(f"Valor {i+1}", key=f"f_val_{fid}", value=filtro["val"])
-            elif pd.api.types.is_numeric_dtype(df_pool[filtro["col"]]) or filtro["col"] in ["EDAD", "FG_CG", "Nº_TOTAL_MEDS_PAC", "PESO", "CREATININA", "NIVEL_ADE_CG", "Nº_TOT_AFEC_CG"]:
-                try: f_val_num = float(filtro["val"]) if filtro["val"] != "" else 0.0
-                except: f_val_num = 0.0
-                filtro["val"] = f_c3.number_input(f"Valor {i+1}", key=f"f_val_num_{fid}", value=f_val_num)
-            else:
-                opciones_unicas = sorted([str(x) for x in df_pool[filtro["col"]].unique() if x])
-                filtro["val"] = f_c3.multiselect(f"Valores {i+1}", opciones_unicas, key=f"f_val_multi_{fid}", default=filtro["val"] if isinstance(filtro["val"], list) else [])
+        with st.container(border=True):
+            st.markdown("#### 🔍 Bloque A – Configurar Cohorte: <span style='font-size: 0.8em; color: gray;'>Condiciones o filtros de lo que quiero medir.</span>", unsafe_allow_html=True)
+            col_a1, col_a2 = st.columns([1, 1])
+            if col_a1.button("➕ Añadir Filtro"):
+                st.session_state.filtros_dinamicos.append({"id": str(uuid.uuid4()), "col": df_pool.columns[0], "op": "== (IGUAL)", "val": ""})
+            if col_a2.button("🗑️ Limpiar Filtros"):
+                limpiar_filtros_dinamicos()
+                st.rerun()
+            for i, filtro in enumerate(st.session_state.filtros_dinamicos):
+                fid = filtro["id"]
+                f_c1, f_c2, f_c3 = st.columns([1, 0.7, 1.3])
+                filtro["col"] = f_c1.selectbox(f"Columna {i+1}", df_pool.columns, key=f"f_col_{fid}", index=list(df_pool.columns).index(filtro["col"]))
+                filtro["op"] = f_c2.selectbox(f"Operador {i+1}", ["== (IGUAL)", "!= (DISTINTO DE)", "> (MAYOR QUE)", "< (MENOR QUE)", "≥ (MAYOR O IGUAL)", "≤ (MENOR O IGUAL)", "contiene"], key=f"f_op_{fid}")
+                if "contiene" in filtro["op"]:
+                    filtro["val"] = f_c3.text_input(f"Valor {i+1}", key=f"f_val_{fid}", value=filtro["val"])
+                elif pd.api.types.is_numeric_dtype(df_pool[filtro["col"]]) or filtro["col"] in ["EDAD", "FG_CG", "Nº_TOTAL_MEDS_PAC", "PESO", "CREATININA", "NIVEL_ADE_CG", "Nº_TOT_AFEC_CG"]:
+                    try: f_val_num = float(filtro["val"]) if filtro["val"] != "" else 0.0
+                    except: f_val_num = 0.0
+                    filtro["val"] = f_c3.number_input(f"Valor {i+1}", key=f"f_val_num_{fid}", value=f_val_num)
+                else:
+                    opciones_unicas = sorted([str(x) for x in df_pool[filtro["col"]].unique() if x])
+                    filtro["val"] = f_c3.multiselect(f"Valores {i+1}", opciones_unicas, key=f"f_val_multi_{fid}", default=filtro["val"] if isinstance(filtro["val"], list) else [])
 
         mask = pd.Series(True, index=df_pool.index)
         for f in st.session_state.filtros_dinamicos:
@@ -479,16 +687,12 @@ with tabs[4]:
             except: continue
         
         df_filtered_query = df_pool[mask]
-        st.markdown('</div>', unsafe_allow_html=True)
 
-        # BLOQUE B (Ahora Variable a analizar)
-        st.markdown('<div class="card-bloque-b">', unsafe_allow_html=True)
-        st.markdown("#### 🎯 Variable a analizar: Qué quiero medir", unsafe_allow_html=True)
+        st.markdown("#### 🎯 Bloque B- Variable a analizar: <span style='font-size: 0.8em; color: gray;'>¿Qué quiero medir?</span>", unsafe_allow_html=True)
         b_col1, b_col2, b_col3 = st.columns(3)
         var_analisis = b_col1.selectbox("Variable", ["-- seleccionar --"] + list(df_pool.columns), key="query_var")
         operacion = b_col2.selectbox("Operación", ["-- seleccionar --", "Conteo (Total)", "Conteo Único (Pacientes)", "Suma", "Promedio", "Mínimo", "Máximo"])
         agrupar_por = b_col3.selectbox("Agrupar por (Opcional)", ["-- Agrupar resultados por categorías (opcional) --"] + list(df_pool.columns))
-        
         if var_analisis == "-- seleccionar --" or operacion == "-- seleccionar --":
             st.info("Configura la variable y operación para ver resultados.")
         else:
@@ -508,59 +712,60 @@ with tabs[4]:
                     elif operacion == "Suma": df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').sum()).reset_index()
                     elif operacion == "Promedio": df_res = df_filtered_query.groupby(agrupar_por)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').mean()).reset_index()
                     df_res.columns = [agrupar_por, f"{operacion}_{var_analisis}"]
-                except: st.warning("Error en el cálculo.")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # BLOQUE C (Visualización)
-        st.markdown('<div class="card-bloque-c">', unsafe_allow_html=True)
-        st.markdown("#### 📊 Visualización", unsafe_allow_html=True)
-        if var_analisis != "-- seleccionar --" and operacion != "-- seleccionar --":
-            formato_salida = st.radio("Formato:", ["KPI", "LISTAR", "TABLA", "BARRAS H", "BARRAS V", "SECTORES", "HISTOGRAMA"], horizontal=True)
-            if formato_salida == "KPI":
-                st.metric("Registros en Cohorte", len(df_filtered_query))
-            elif formato_salida == "LISTAR":
-                valores_unicos = sorted(df_filtered_query[var_analisis].dropna().unique().astype(str))
-                if valores_unicos:
-                    for val in valores_unicos: st.write(f"* {val}")
-                else: st.write("No hay valores para listar.")
-            elif formato_salida == "TABLA":
-                if 'df_res' in locals(): st.dataframe(df_res, use_container_width=True)
-            elif formato_salida == "BARRAS H":
-                if 'df_res' in locals():
-                    fig = px.bar(df_res, y=agrupar_por, x=df_res.columns[1], orientation='h', color_discrete_sequence=['#38a169'])
-                    st.plotly_chart(fig, use_container_width=True)
-            elif formato_salida == "BARRAS V":
-                if 'df_res' in locals():
-                    fig = px.bar(df_res, x=agrupar_por, y=df_res.columns[1], color_discrete_sequence=['#38a169'])
-                    st.plotly_chart(fig, use_container_width=True)
-            elif formato_salida == "SECTORES":
-                if 'df_res' in locals():
-                    fig = px.pie(df_res, names=agrupar_por, values=df_res.columns[1], hole=0.3)
-                    st.plotly_chart(fig, use_container_width=True)
-            elif formato_salida == "HISTOGRAMA":
-                df_h = df_filtered_query.copy()
-                df_h[var_analisis] = pd.to_numeric(df_h[var_analisis], errors='coerce')
-                if "FG" in var_analisis:
-                    bins_kdigo = [-float('inf'), 15, 30, 45, 60, 90, float('inf')]
-                    labels_kdigo = ['< 15 (G5)', '15-29 (G4)', '30-44 (G3b)', '45-59 (G3a)', '60-89 (G2)', '≥ 90 (G1)']
-                    df_h['KDIGO_BIN'] = pd.cut(df_h[var_analisis], bins=bins_kdigo, labels=labels_kdigo, right=False)
-                    fig = px.histogram(df_h, x='KDIGO_BIN', color_discrete_sequence=['#38a169'], category_orders={"KDIGO_BIN": labels_kdigo})
-                    st.plotly_chart(fig, use_container_width=True)
-                elif var_analisis == "EDAD":
-                    bins_edad = [-float('inf'), 50, 61, 71, 81, 91, float('inf')]
-                    labels_edad = ['< 50 años', '50-60 años', '61-70 años', '71-80 años', '81-90 años', '> 90 años']
-                    df_h['EDAD_BIN'] = pd.cut(df_h[var_analisis], bins=bins_edad, labels=labels_edad, right=False)
-                    fig = px.histogram(df_h, x='EDAD_BIN', color_discrete_sequence=['#38a169'], category_orders={"EDAD_BIN": labels_edad})
-                    st.plotly_chart(fig, use_container_width=True)
-                else:
-                    if not df_h[var_analisis].dropna().empty:
-                        fig = px.histogram(df_h, x=var_analisis, color_discrete_sequence=['#38a169'], marginal="box")
+                    st.markdown("#### 📊 Bloque C-Visualización", unsafe_allow_html=True)
+                    formato_salida = st.radio("Formato:", ["KPI", "LISTAR", "TABLA", "BARRAS H", "BARRAS V", "SECTORES", "HISTOGRAMA"], horizontal=True)
+                    if formato_salida == "KPI":
+                        st.metric("Registros en Cohorte", len(df_filtered_query))
+                    elif formato_salida == "LISTAR":
+                        valores_unicos = sorted(df_filtered_query[var_analisis].dropna().unique().astype(str))
+                        if valores_unicos:
+                            for val in valores_unicos:
+                                st.write(f"* {val}")
+                        else:
+                            st.write("No hay valores para listar.")
+                    elif formato_salida == "TABLA":
+                        st.dataframe(df_res, use_container_width=True)
+                    elif formato_salida == "BARRAS H":
+                        fig = px.bar(df_res, y=agrupar_por, x=df_res.columns[1], orientation='h', color_discrete_sequence=['#9d00ff'])
                         st.plotly_chart(fig, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # BLOQUE D (Ranking/Top)
-        st.markdown('<div class="card-bloque-d">', unsafe_allow_html=True)
-        st.markdown("#### 🏆 Ranking/Top", unsafe_allow_html=True)
+                    elif formato_salida == "BARRAS V":
+                        fig = px.bar(df_res, x=agrupar_por, y=df_res.columns[1], color_discrete_sequence=['#9d00ff'])
+                        st.plotly_chart(fig, use_container_width=True)
+                    elif formato_salida == "SECTORES":
+                        fig = px.pie(df_res, names=agrupar_por, values=df_res.columns[1], hole=0.3)
+                        st.plotly_chart(fig, use_container_width=True)
+                    elif formato_salida == "HISTOGRAMA":
+                        if "FG" in var_analisis:
+                            df_h = df_filtered_query.copy()
+                            df_h[var_analisis] = pd.to_numeric(df_h[var_analisis], errors='coerce')
+                            bins_kdigo = [-float('inf'), 15, 30, 45, 60, 90, float('inf')]
+                            labels_kdigo = ['< 15 (G5)', '15-29 (G4)', '30-44 (G3b)', '45-59 (G3a)', '60-89 (G2)', '≥ 90 (G1)']
+                            df_h['KDIGO_BIN'] = pd.cut(df_h[var_analisis], bins=bins_kdigo, labels=labels_kdigo, right=False)
+                            fig = px.histogram(df_h, x='KDIGO_BIN', color_discrete_sequence=['#9d00ff'], category_orders={"KDIGO_BIN": labels_kdigo})
+                            fig.update_layout(bargap=0.1, xaxis_title="Estadios KDIGO", yaxis_title="Nº Pacientes")
+                            st.plotly_chart(fig, use_container_width=True)
+                        elif var_analisis == "EDAD":
+                            df_h = df_filtered_query.copy()
+                            df_h[var_analisis] = pd.to_numeric(df_h[var_analisis], errors='coerce')
+                            bins_edad = [-float('inf'), 50, 61, 71, 81, 91, float('inf')]
+                            labels_edad = ['< 50 años', '50-60 años', '61-70 años', '71-80 años', '81-90 años', '> 90 años']
+                            df_h['EDAD_BIN'] = pd.cut(df_h[var_analisis], bins=bins_edad, labels=labels_edad, right=False)
+                            fig = px.histogram(df_h, x='EDAD_BIN', color_discrete_sequence=['#9d00ff'], category_orders={"EDAD_BIN": labels_edad})
+                            fig.update_layout(bargap=0.1, xaxis_title="Rangos de Edad", yaxis_title="Nº Pacientes")
+                            st.plotly_chart(fig, use_container_width=True)
+                        else:
+                            df_h = df_filtered_query.copy()
+                            df_h[var_analisis] = pd.to_numeric(df_h[var_analisis], errors='coerce')
+                            if not df_h[var_analisis].dropna().empty:
+                                fig = px.histogram(df_h, x=var_analisis, color_discrete_sequence=['#9d00ff'], marginal="box")
+                                fig.update_layout(bargap=0.1)
+                                st.plotly_chart(fig, use_container_width=True)
+                            else:
+                                st.warning("La variable no contiene datos numéricos válidos para un histograma.")
+                except: st.warning("Error en el cálculo. Verifica que la variable sea numérica para Sumas/Promedios.")
+        
+        # --- BLOQUE D: RANKING ESTRATÉGICO ---
+        st.markdown("#### 🏆 Bloque D - Ranking Estratégico: <span style='font-size: 0.8em; color: gray;'>Comparativas de prevalencia.</span>", unsafe_allow_html=True)
         rk_c1, rk_c2, rk_c3 = st.columns(3)
         rk_dim = rk_c1.selectbox("Elemento a Rankear", ["-- seleccionar --", "MEDICAMENTO", "CENTRO", "RESIDENCIA", "SEXO"], key="rk_dim")
         rk_met = rk_c2.selectbox("Métrica de Orden", ["-- seleccionar --", "Conteo (Total)", "Conteo Único (Pacientes)", "Nº_TOT_AFEC_CG", "Nº_AJUSTE_DOS_CG", "Nº_CONTRAIND_CG"], key="rk_met")
@@ -569,26 +774,26 @@ with tabs[4]:
         if rk_dim != "-- seleccionar --" and rk_met != "-- seleccionar --":
             r_key = hashlib.md5(f"{rk_dim}_{rk_met}_{rk_top}".encode()).hexdigest()[:8]
             ejecutar_ranking_v29(df_filtered_query, rk_dim, rk_met, rk_top, r_key)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # ZONA DE SEPARACIÓN
-        st.markdown('<div class="zona-separacion"><div class="separacion-label">ASISTENTE INTELIGENTE</div></div>', unsafe_allow_html=True)
-
-        # VENTANA DE CHAT (Consultas Rápidas)
-        st.markdown('<div class="card-chat">', unsafe_allow_html=True)
-        st.markdown("#### 🤖 Consultas Rápidas", unsafe_allow_html=True)
-        query_text = st.text_input("Haz una pregunta sobre los datos:", placeholder="Ej: Top 5 medicamentos, ¿Cuántos pacientes edad < a... y FG < a... hay?")
-        if query_text:
-            with st.spinner("IA analizando datos..."):
-                query_json, frase, figura = st.session_state.orq.procesar_pregunta(query_text, df_pool)
-                st.write(frase)
-                if figura is not None: st.plotly_chart(figura, use_container_width=True)
-                if query_json is not None: st.json(query_json)
-        st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown("---")
         with st.expander("📄 Ver Datos Crutos de la Cohorte"):
             st.dataframe(df_filtered_query, use_container_width=True)
+
+        # EVOLUCIÓN: ORQUESTADOR DE CONSULTAS IA AL FINAL
+        with st.container(border=True):
+            st.markdown("#### 🤖 Consultas Rápidas")
+            query_text = st.text_input("Haz una pregunta sobre los datos:", placeholder="Ej: Top 5 medicamentos, ¿Cuántos pacientes edad < a... y FG < a... hay?, gráfico pacientes por centro, histograma FG,¿Cuántos pacientes del centro X tienen metformina?")
+            if query_text:
+                with st.spinner("IA analizando datos..."):
+                    query_json, frase, figura = st.session_state.orq.procesar_pregunta(
+                        query_text,
+                        df_pool
+                    )
+                    st.write(frase)
+                    if figura is not None:
+                        st.plotly_chart(figura, use_container_width=True)
+                    if query_json is not None:
+                        st.json(query_json)
 
     else:
         st.info("No hay datos sincronizados para realizar consultas dinámicas.")
