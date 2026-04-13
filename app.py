@@ -1,4 +1,4 @@
-# --- ACTUALIZACIÓN EVOLUCIONADA 29 MAR 13:20 ---
+# --- ACTUALIZACIÓN EVOLUCIONADA 13 ABR 13:20 ---
 # INTEGRACIÓN DE ORQUESTADOR IA EN CONSULTA DINÁMICA
 
 import streamlit as st
@@ -650,7 +650,22 @@ with tabs[4]:
             var_analisis = b_col1.selectbox("Variable", ["-- seleccionar --"] + list(df_pool.columns), key="query_var")
             operacion = b_col2.selectbox("Operación", ["-- seleccionar --", "Conteo (Total)", "Conteo Único (Pacientes)", "Suma", "Promedio", "Mínimo", "Máximo"])
             agrupar_por = b_col3.selectbox("Agrupar por (Opcional)", ["-- Agrupar resultados por categorías (opcional) --"] + list(df_pool.columns))
-            
+            var_analisis = b_col1.selectbox("Variable", ["-- seleccionar --"] + list(df_pool.columns), key="query_var")
+            operacion = b_col2.selectbox("Operación", ["-- seleccionar --", "Conteo (Total)", "Conteo Único (Pacientes)", "Suma", "Promedio", "Mínimo", "Máximo"], key="query_operacion")
+            agrupar_por = b_col3.selectbox("Agrupar por (Opcional)", ["-- Agrupar resultados por categorías (opcional) --"] + list(df_pool.columns), key="query_agrupar")
+            # --- BOTÓN DE RESET COMPLETO ---
+            with st.container(border=True):
+                st.markdown("#### 🔄 Reiniciar Consulta Completa")
+                if st.button("🔄 Refrescar todo"):
+                    st.session_state.query_var = "-- seleccionar --"
+                    st.session_state.query_operacion = "-- seleccionar --"
+                    st.session_state.query_agrupar = "-- Agrupar resultados por categorías (opcional) --"
+                    st.session_state.filtros_dinamicos = []
+                    st.session_state.rk_dim = "-- seleccionar --"
+                    st.session_state.rk_met = "-- seleccionar --"
+                    st.session_state.rk_top = 5
+                    st.session_state.query_text = ""
+                    st.rerun()
         # CONTENEDOR BLOQUE A (INTERCAMBIADO)
         with st.container(border=True):
             st.markdown("#### 🔍 2- Configurar Cohorte: <span style='font-size: 0.8em; color: gray;'>Condiciones o filtros de lo que quiero medir.</span>", unsafe_allow_html=True)
@@ -827,3 +842,6 @@ st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es
 st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 29 mar 2026 13:20</div>', unsafe_allow_html=True)
 
 
+
+
+        
