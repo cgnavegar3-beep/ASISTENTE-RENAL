@@ -628,22 +628,22 @@ with tabs[4]:
         </style>
         """, unsafe_allow_html=True)
     
-    # --- LÓGICA DE RESET SELECTIVO (SOLO COHORTE) ---
+    # --- LÓGICA DE RESET DE FILTROS (BLOQUE 2) ---
+    # Esta función borra los filtros dinámicos y sus widgets para que vuelvan al placeholder
     def reset_solo_filtros_cohorte():
-        # Limpiamos la lista de filtros
         st.session_state.filtros_dinamicos = []
-        # Borramos del estado solo las llaves de los widgets de filtros (empiezan por f_)
+        # Borramos las keys de los widgets de filtros para forzar el placeholder
         keys_filtros = [k for k in st.session_state.keys() if k.startswith("f_")]
         for key in keys_filtros:
             del st.session_state[key]
 
     st.markdown("### 🔍 Consulta Dinámica Renal")
     
-    # EVOLUCIÓN: POOL DE DATOS Y FILTROS SIEMPRE VISIBLES
     tipo_origen = st.radio(
         "Seleccionar origen de datos:",
         ["Validaciones (General)", "Medicamentos (Detalle)"],
-        horizontal=True
+        horizontal=True,
+        key="query_origen" # Key añadida para control de estado
     )
 
     df_pool = (
@@ -657,7 +657,7 @@ with tabs[4]:
         with st.container(border=True):
             st.markdown("#### 🎯 1- Variable a analizar: <span style='font-size: 0.8em; color: gray;'>¿Qué quiero medir?</span>", unsafe_allow_html=True)
             b_col1, b_col2, b_col3 = st.columns(3)
-            # Mantienen sus keys para que persistan si no se borran explícitamente
+            # Mantenemos estas keys para que NO se borren con el reset de filtros
             var_analisis = b_col1.selectbox("Variable", ["-- seleccionar --"] + list(df_pool.columns), key="query_var")
             operacion = b_col2.selectbox("Operación", ["-- seleccionar --", "Conteo (Total)", "Conteo Único (Pacientes)", "Suma", "Promedio", "Mínimo", "Máximo"], key="query_op")
             agrupar_por = b_col3.selectbox("Agrupar por (Opcional)", ["-- Agrupar resultados por categorías (opcional) --"] + list(df_pool.columns), key="query_group")
@@ -670,7 +670,7 @@ with tabs[4]:
             if col_a1.button("➕ Añadir Filtro"):
                 st.session_state.filtros_dinamicos.append({"id": str(uuid.uuid4()), "col": df_pool.columns[0], "op": "== (IGUAL)", "val": ""})
             
-            # BOTÓN DE RESET ESPECÍFICO PARA ESTE BLOQUE
+            # BOTÓN DE RESET QUE LIMPIA LOS CAJETINES (Vuelve al placeholder)
             if col_a2.button("🔄 Resetear FILTROS (Cohorte)"):
                 reset_solo_filtros_cohorte()
                 st.rerun()
@@ -678,18 +678,21 @@ with tabs[4]:
             for i, filtro in enumerate(st.session_state.filtros_dinamicos):
                 fid = filtro["id"]
                 f_c1, f_c2, f_c3 = st.columns([1, 0.7, 1.3])
+                # Cada widget de filtro tiene una key única que empieza por "f_"
                 filtro["col"] = f_c1.selectbox(f"Columna {i+1}", df_pool.columns, key=f"f_col_{fid}", index=list(df_pool.columns).index(filtro["col"]))
                 filtro["op"] = f_c2.selectbox(f"Operador {i+1}", ["== (IGUAL)", "!= (DISTINTO DE)", "> (MAYOR QUE)", "< (MENOR QUE)", "≥ (MAYOR O IGUAL)", "≤ (MENOR O IGUAL)", "contiene"], key=f"f_op_{fid}")
+                
                 if "contiene" in filtro["op"]:
-                    filtro["val"] = f_c3.text_input(f"Valor {i+1}", key=f"f_val_{fid}", value=filtro["val"])
+                    filtro["val"] = f_c3.text_input(f"Valor {i+1}", key=f"f_val_{fid}", value=filtro["val"], placeholder="Escribe para buscar...")
                 elif pd.api.types.is_numeric_dtype(df_pool[filtro["col"]]) or filtro["col"] in ["EDAD", "FG_CG", "Nº_TOTAL_MEDS_PAC", "PESO", "CREATININA", "NIVEL_ADE_CG", "Nº_TOT_AFEC_CG"]:
                     try: f_val_num = float(filtro["val"]) if filtro["val"] != "" else 0.0
                     except: f_val_num = 0.0
                     filtro["val"] = f_c3.number_input(f"Valor {i+1}", key=f"f_val_num_{fid}", value=f_val_num)
                 else:
                     opciones_unicas = sorted([str(x) for x in df_pool[filtro["col"]].unique() if x])
-                    filtro["val"] = f_c3.multiselect(f"Valores {i+1}", opciones_unicas, key=f"f_val_multi_{fid}", default=filtro["val"] if isinstance(filtro["val"], list) else [])
+                    filtro["val"] = f_c3.multiselect(f"Valores {i+1}", opciones_unicas, key=f"f_val_multi_{fid}", default=filtro["val"] if isinstance(filtro["val"], list) else [], placeholder="Selecciona opciones...")
 
+        # --- Lógica de filtrado (Mantenida intacta) ---
         mask = pd.Series(True, index=df_pool.index)
         for f in st.session_state.filtros_dinamicos:
             try:
@@ -711,7 +714,7 @@ with tabs[4]:
         
         df_filtered_query = df_pool[mask]
 
-        # CONTENEDOR BLOQUE C (Visualización)
+        # CONTENEDOR BLOQUE C (Resultados)
         with st.container(border=True):
             if var_analisis == "-- seleccionar --" or operacion == "-- seleccionar --":
                 st.info("Configura la variable y operación para ver resultados.")
@@ -734,6 +737,7 @@ with tabs[4]:
                         st.markdown("#### 📊 Visualización", unsafe_allow_html=True)
                         formato_salida = st.radio("Formato:", ["KPI", "LISTAR", "TABLA", "BARRAS H", "BARRAS V", "SECTORES", "HISTOGRAMA"], horizontal=True, key="query_format")
                         
+                        # (Lógica de gráficos mantenida idéntica al original)
                         if formato_salida == "KPI": st.metric("Registros en Cohorte", len(df_filtered_query))
                         elif formato_salida == "LISTAR":
                             valores_unicos = sorted(df_filtered_query[var_analisis].dropna().unique().astype(str))
