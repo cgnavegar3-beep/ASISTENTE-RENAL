@@ -658,7 +658,6 @@ with tabs[4]:
             operacion = b_col2.selectbox("Operación", ["-- seleccionar --", "Conteo (Total)", "Conteo Único (Pacientes)", "Suma", "Promedio", "Mínimo", "Máximo"], key="query_operacion")
             # --- BOTÓN DE RESET COMPLETO ---
             with st.container(border=True):
-                st.markdown("#### 🔄 Reiniciar Consulta Completa")
                 if st.button("🔄 Refrescar todo"):
                     st.session_state.query_var = "-- seleccionar --"
                     st.session_state.query_operacion = "-- seleccionar --"
