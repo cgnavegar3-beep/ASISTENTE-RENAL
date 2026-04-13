@@ -628,27 +628,22 @@ with tabs[4]:
         </style>
         """, unsafe_allow_html=True)
     
-    # --- LÓGICA DE RESET COMPLETO CORREGIDA ---
-    def reset_consulta_completa():
-        # 1. Limpiar la lista de filtros dinámicos
+    # --- LÓGICA DE RESET SELECTIVO (SOLO COHORTE) ---
+    def reset_solo_filtros_cohorte():
+        # Limpiamos la lista de filtros
         st.session_state.filtros_dinamicos = []
-        # 2. Borrar todas las llaves de la UI del session_state
-        keys_to_reset = [k for k in st.session_state.keys() if k.startswith(("f_", "query_", "rk_"))]
-        for key in keys_to_reset:
+        # Borramos del estado solo las llaves de los widgets de filtros (empiezan por f_)
+        keys_filtros = [k for k in st.session_state.keys() if k.startswith("f_")]
+        for key in keys_filtros:
             del st.session_state[key]
 
-    col_header, col_reset = st.columns([0.8, 0.2])
-    col_header.markdown("### 🔍 Consulta Dinámica Renal")
-    if col_reset.button("🔄 Resetear TODO", use_container_width=True):
-        reset_consulta_completa()
-        st.rerun()
-    # ------------------------------------------
-
+    st.markdown("### 🔍 Consulta Dinámica Renal")
+    
+    # EVOLUCIÓN: POOL DE DATOS Y FILTROS SIEMPRE VISIBLES
     tipo_origen = st.radio(
         "Seleccionar origen de datos:",
         ["Validaciones (General)", "Medicamentos (Detalle)"],
-        horizontal=True,
-        key="query_origen"
+        horizontal=True
     )
 
     df_pool = (
@@ -658,25 +653,28 @@ with tabs[4]:
     )
 
     if not df_pool.empty:
-        # CONTENEDOR BLOQUE B
+        # CONTENEDOR BLOQUE B (1- Variable a analizar)
         with st.container(border=True):
             st.markdown("#### 🎯 1- Variable a analizar: <span style='font-size: 0.8em; color: gray;'>¿Qué quiero medir?</span>", unsafe_allow_html=True)
             b_col1, b_col2, b_col3 = st.columns(3)
-            # ASIGNACIÓN DE KEYS CRÍTICA PARA EL RESET
+            # Mantienen sus keys para que persistan si no se borran explícitamente
             var_analisis = b_col1.selectbox("Variable", ["-- seleccionar --"] + list(df_pool.columns), key="query_var")
             operacion = b_col2.selectbox("Operación", ["-- seleccionar --", "Conteo (Total)", "Conteo Único (Pacientes)", "Suma", "Promedio", "Mínimo", "Máximo"], key="query_op")
             agrupar_por = b_col3.selectbox("Agrupar por (Opcional)", ["-- Agrupar resultados por categorías (opcional) --"] + list(df_pool.columns), key="query_group")
             
-        # CONTENEDOR BLOQUE A
+        # CONTENEDOR BLOQUE A (2- Configurar Cohorte)
         with st.container(border=True):
             st.markdown("#### 🔍 2- Configurar Cohorte: <span style='font-size: 0.8em; color: gray;'>Condiciones o filtros de lo que quiero medir.</span>", unsafe_allow_html=True)
             col_a1, col_a2 = st.columns([1, 1])
+            
             if col_a1.button("➕ Añadir Filtro"):
                 st.session_state.filtros_dinamicos.append({"id": str(uuid.uuid4()), "col": df_pool.columns[0], "op": "== (IGUAL)", "val": ""})
-            if col_a2.button("🗑️ Limpiar Filtros"):
-                st.session_state.filtros_dinamicos = []
-                st.rerun()
             
+            # BOTÓN DE RESET ESPECÍFICO PARA ESTE BLOQUE
+            if col_a2.button("🔄 Resetear FILTROS (Cohorte)"):
+                reset_solo_filtros_cohorte()
+                st.rerun()
+
             for i, filtro in enumerate(st.session_state.filtros_dinamicos):
                 fid = filtro["id"]
                 f_c1, f_c2, f_c3 = st.columns([1, 0.7, 1.3])
@@ -713,13 +711,13 @@ with tabs[4]:
         
         df_filtered_query = df_pool[mask]
 
-        # CONTENEDOR BLOQUE C
+        # CONTENEDOR BLOQUE C (Visualización)
         with st.container(border=True):
             if var_analisis == "-- seleccionar --" or operacion == "-- seleccionar --":
                 st.info("Configura la variable y operación para ver resultados.")
             else:
-                current_group = agrupar_por if agrupar_por != "-- Agrupar resultados por categorías (opcional) --" else "Ninguno"
-                if current_group == "Ninguno":
+                agrupar_actual = agrupar_por if agrupar_por != "-- Agrupar resultados por categorías (opcional) --" else "Ninguno"
+                if agrupar_actual == "Ninguno":
                     if "Total" in operacion: resultado = len(df_filtered_query[var_analisis])
                     elif "Único" in operacion: resultado = df_filtered_query[var_analisis].nunique()
                     elif operacion == "Suma": resultado = pd.to_numeric(df_filtered_query[var_analisis], errors='coerce').sum()
@@ -728,11 +726,11 @@ with tabs[4]:
                     st.metric(label=f"{operacion} de {var_analisis}", value=f"{resultado:.2f}" if isinstance(resultado, (float, int)) else "N/A")
                 else:
                     try:
-                        if "Total" in operacion: df_res = df_filtered_query.groupby(current_group)[var_analisis].count().reset_index()
-                        elif "Único" in operacion: df_res = df_filtered_query.groupby(current_group)[var_analisis].nunique().reset_index()
-                        elif operacion == "Suma": df_res = df_filtered_query.groupby(current_group)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').sum()).reset_index()
-                        elif operacion == "Promedio": df_res = df_filtered_query.groupby(current_group)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').mean()).reset_index()
-                        df_res.columns = [current_group, f"{operacion}_{var_analisis}"]
+                        if "Total" in operacion: df_res = df_filtered_query.groupby(agrupar_actual)[var_analisis].count().reset_index()
+                        elif "Único" in operacion: df_res = df_filtered_query.groupby(agrupar_actual)[var_analisis].nunique().reset_index()
+                        elif operacion == "Suma": df_res = df_filtered_query.groupby(agrupar_actual)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').sum()).reset_index()
+                        elif operacion == "Promedio": df_res = df_filtered_query.groupby(agrupar_actual)[var_analisis].apply(lambda x: pd.to_numeric(x, errors='coerce').mean()).reset_index()
+                        df_res.columns = [agrupar_actual, f"{operacion}_{var_analisis}"]
                         st.markdown("#### 📊 Visualización", unsafe_allow_html=True)
                         formato_salida = st.radio("Formato:", ["KPI", "LISTAR", "TABLA", "BARRAS H", "BARRAS V", "SECTORES", "HISTOGRAMA"], horizontal=True, key="query_format")
                         
@@ -741,40 +739,24 @@ with tabs[4]:
                             valores_unicos = sorted(df_filtered_query[var_analisis].dropna().unique().astype(str))
                             if valores_unicos: 
                                 for val in valores_unicos: st.write(f"* {val}")
-                            else: st.write("No hay valores para listar.")
                         elif formato_salida == "TABLA": st.dataframe(df_res, use_container_width=True)
                         elif formato_salida == "BARRAS H":
-                            fig = px.bar(df_res, y=current_group, x=df_res.columns[1], orientation='h', color_discrete_sequence=['#9d00ff'])
+                            fig = px.bar(df_res, y=agrupar_actual, x=df_res.columns[1], orientation='h', color_discrete_sequence=['#9d00ff'])
                             st.plotly_chart(fig, use_container_width=True)
                         elif formato_salida == "BARRAS V":
-                            fig = px.bar(df_res, x=current_group, y=df_res.columns[1], color_discrete_sequence=['#9d00ff'])
+                            fig = px.bar(df_res, x=agrupar_actual, y=df_res.columns[1], color_discrete_sequence=['#9d00ff'])
                             st.plotly_chart(fig, use_container_width=True)
                         elif formato_salida == "SECTORES":
-                            fig = px.pie(df_res, names=current_group, values=df_res.columns[1], hole=0.3)
+                            fig = px.pie(df_res, names=agrupar_actual, values=df_res.columns[1], hole=0.3)
                             st.plotly_chart(fig, use_container_width=True)
                         elif formato_salida == "HISTOGRAMA":
                             df_h = df_filtered_query.copy()
                             df_h[var_analisis] = pd.to_numeric(df_h[var_analisis], errors='coerce')
-                            if "FG" in var_analisis:
-                                bins_kdigo = [-float('inf'), 15, 30, 45, 60, 90, float('inf')]
-                                labels_kdigo = ['< 15 (G5)', '15-29 (G4)', '30-44 (G3b)', '45-59 (G3a)', '60-89 (G2)', '≥ 90 (G1)']
-                                df_h['KDIGO_BIN'] = pd.cut(df_h[var_analisis], bins=bins_kdigo, labels=labels_kdigo, right=False)
-                                fig = px.histogram(df_h, x='KDIGO_BIN', color_discrete_sequence=['#9d00ff'], category_orders={"KDIGO_BIN": labels_kdigo})
-                                st.plotly_chart(fig, use_container_width=True)
-                            elif var_analisis == "EDAD":
-                                bins_edad = [-float('inf'), 50, 61, 71, 81, 91, float('inf')]
-                                labels_edad = ['< 50 años', '50-60 años', '61-70 años', '71-80 años', '81-90 años', '> 90 años']
-                                df_h['EDAD_BIN'] = pd.cut(df_h[var_analisis], bins=bins_edad, labels=labels_edad, right=False)
-                                fig = px.histogram(df_h, x='EDAD_BIN', color_discrete_sequence=['#9d00ff'], category_orders={"EDAD_BIN": labels_edad})
-                                st.plotly_chart(fig, use_container_width=True)
-                            else:
-                                if not df_h[var_analisis].dropna().empty:
-                                    fig = px.histogram(df_h, x=var_analisis, color_discrete_sequence=['#9d00ff'], marginal="box")
-                                    st.plotly_chart(fig, use_container_width=True)
-                                else: st.warning("Variable sin datos numéricos.")
+                            fig = px.histogram(df_h, x=var_analisis, color_discrete_sequence=['#9d00ff'], marginal="box")
+                            st.plotly_chart(fig, use_container_width=True)
                     except: st.warning("Error en el cálculo.")
         
-        # CONTENEDOR BLOQUE D
+        # CONTENEDOR BLOQUE D (Ranking)
         with st.container(border=True):
             st.markdown("#### 🏆  Ranking / top: <span style='font-size: 0.8em; color: gray;'>Comparativas de prevalencia.</span>", unsafe_allow_html=True)
             rk_c1, rk_c2, rk_c3 = st.columns(3)
