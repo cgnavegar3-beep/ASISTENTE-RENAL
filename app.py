@@ -645,8 +645,15 @@ with tabs[4]:
     if not df_pool.empty:
         # CONTENEDOR BLOQUE B (INTERCAMBIADO)
         with st.container(border=True):
+            if "query_var" not in st.session_state:
+                st.session_state.query_var = "-- seleccionar --"
+            if "query_operacion" not in st.session_state:
+                st.session_state.query_operacion = "-- seleccionar --"
+            if "query_agrupar" not in st.session_state:
+                st.session_state.query_agrupar = "-- Agrupar resultados por categorías (opcional) --"
             st.markdown("#### 🎯 1- Variable a analizar: <span style='font-size: 0.8em; color: gray;'>¿Qué quiero medir?</span>", unsafe_allow_html=True)
             b_col1, b_col2, b_col3 = st.columns(3)
+            agrupar_por = b_col3.selectbox("Agrupar por (Opcional)", ["-- Agrupar resultados por categorías (opcional) --"] + list(df_pool.columns))
             var_analisis = b_col1.selectbox("Variable", ["-- seleccionar --"] + list(df_pool.columns), key="query_var")
             operacion = b_col2.selectbox("Operación", ["-- seleccionar --", "Conteo (Total)", "Conteo Único (Pacientes)", "Suma", "Promedio", "Mínimo", "Máximo"], key="query_operacion")
             agrupar_por = b_col3.selectbox("Agrupar por (Opcional)", ["-- Agrupar resultados por categorías (opcional) --"] + list(df_pool.columns), key="query_agrupar")
@@ -837,6 +844,7 @@ with tabs[4]:
 
 st.markdown('<div class="warning-yellow">⚠️ AVISO LEGAL: Esta herramienta es un soporte de apoyo a la revisión farmacoterapéutica. Verifique siempre con fuentes oficiales.</div>', unsafe_allow_html=True)
 st.markdown(f'<div style="text-align: right; font-size: 0.6rem; color: #ccc; font-family: monospace;">v. 29 mar 2026 13:20</div>', unsafe_allow_html=True)
+
 
 
 
