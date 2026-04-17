@@ -9,7 +9,7 @@ import google.generativeai as genai
 import random
 import re
 import os
-import jsonA
+import json
 import hashlib
 import unicodedata
 import uuid
