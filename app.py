@@ -191,7 +191,7 @@ if "inauguracion" not in st.session_state:
                 // ⭐ PLACA DE INAUGURACIÓN ⭐
                 setTimeout(() => {
                     let placa = document.createElement("div");
-                    placa.innerHTML = "En el día de hoy queda inaugurada esta aplicación por<br><i>Don Miguel García</i>";
+                    placa.innerHTML = "En el día de hoy queda inaugurada esta aplicación por<br><i>Doña pilar</i>";
                     placa.style.position = "fixed";
                     placa.style.top = "50%";
                     placa.style.left = "50%";
